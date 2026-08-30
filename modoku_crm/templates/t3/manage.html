@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">T3 Attendance List</h4>
-    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdate }}</small>
+    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}</small>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
