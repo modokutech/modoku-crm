@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Staff Users{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Staff Users</h4>
+    <small class="text-muted">Manage who can log in to Modoku Hub.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('users.export') }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    <a href="{{ url_for('users.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Staff Account</a>
+  </div>
+</div>
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th style="width:2.6rem"></th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td>
+            {% if u.avatar_file %}
+            <img src="{{ url_for('users.avatar', user_id=u.id) }}" class="avatar-thumb" alt="">
+            {% else %}
+            <span class="avatar-thumb avatar-fallback">{{ u.name[:1]|upper }}</span>
+            {% endif %}
+          </td>
+          <td class="fw-semibold">{{ u.name }}</td>
+          <td>{{ u.email }}</td>
+          <td>
+            <span class="badge text-capitalize
+              {% if u.role == 'admin' %}bg-primary
+              {% else %}bg-warning text-dark{% endif %}">{{ u.role }}</span>
+          </td>
+          <td>{% if u.active %}<span class="badge bg-success-subtle text-success-emphasis">Active</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis">Inactive</span>{% endif %}</td>
+          <td class="text-end"><a href="{{ url_for('users.edit', user_id=u.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Return Attendance Form{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:900px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Return Attendance Form</h4>
+    </div>
+
+    <div class="d-flex flex-column flex-md-row gap-4" style="column-gap:3.5rem;">
+      <div style="flex:0 0 auto;width:100%;max-width:35%;" class="attendance-instructions-col">
+        <h6 class="text-uppercase text-muted small fw-bold mb-2">How to submit</h6>
+        <ol class="small ps-3 mb-3">
+          <li class="mb-2">Find the printed T3 attendance form for this training.</li>
+          <li class="mb-2">Look at the <strong>top right corner</strong> of the form, a short code is stamped there.</li>
+          <li class="mb-2">Type that code into the box on the right to find your class.</li>
+          <li>Snap a photo of the signed sheet and upload it.</li>
+        </ol>
+
+        <svg viewBox="0 0 240 180" role="img" aria-label="Diagram of the T3 attendance form showing the code stamped in the top-right corner"
+             style="width:100%;height:auto;border:1px solid #dfe3e8;border-radius:8px;background:#fff;">
+          <rect x="6" y="6" width="228" height="168" rx="4" fill="#ffffff" stroke="#c9ced6" stroke-width="1.5"/>
+          <rect x="16" y="18" width="46" height="20" rx="2" fill="none" stroke="#9aa1ab" stroke-width="1"/>
+          <text x="39" y="30" font-size="4.2" text-anchor="middle" fill="#767171" font-family="Arial, sans-serif">PSMB/SBL-KHAS</text>
+          <text x="39" y="34.5" font-size="4.2" text-anchor="middle" fill="#767171" font-family="Arial, sans-serif">/T3/01</text>
+          <text x="120" y="30" font-size="8" font-weight="bold" text-anchor="middle" fill="#1a1a1a" font-family="Arial, sans-serif">ATTENDANCE LIST</text>
+          <rect x="178" y="18" width="46" height="20" rx="2" fill="none" stroke="#9aa1ab" stroke-width="1"/>
+          <text x="201" y="26.5" font-size="3.6" text-anchor="middle" fill="#767171" font-family="Arial, sans-serif">Enclose with</text>
+          <text x="201" y="30.5" font-size="3.6" text-anchor="middle" fill="#767171" font-family="Arial, sans-serif">claim form</text>
+          <text x="201" y="34.5" font-size="3.6" text-anchor="middle" fill="#767171" font-family="Arial, sans-serif">JD/14</text>
+          <g>
+            <line x1="16" y1="50" x2="224" y2="50" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="62" x2="224" y2="62" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="74" x2="224" y2="74" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="86" x2="224" y2="86" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="98" x2="224" y2="98" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="110" x2="224" y2="110" stroke="#e2e5ea" stroke-width="1"/>
+            <line x1="16" y1="122" x2="150" y2="122" stroke="#e2e5ea" stroke-width="1"/>
+          </g>
+          <circle cx="219" cy="12" r="16" fill="none" stroke="#dc3545" stroke-width="2"/>
+          <text x="219" y="13.5" font-size="6" font-weight="bold" text-anchor="middle" fill="#dc3545" font-family="'SFMono-Regular',Consolas,monospace">ABC123</text>
+          <path d="M205 20 Q185 40 178 44" fill="none" stroke="#dc3545" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+          <defs>
+            <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="4" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#dc3545"/>
+            </marker>
+          </defs>
+          <text x="178" y="56" font-size="5.5" font-weight="bold" fill="#dc3545" font-family="Arial, sans-serif">Your code is here</text>
+        </svg>
+      </div>
+
+      <div style="flex:1 1 0;min-width:0;" class="d-flex flex-column justify-content-center">
+        <p class="small text-muted mb-3">Enter the code printed at the top right of the attendance form to find your class.</p>
+        <form method="post">
+          {{ csrf_field()|safe }}
+          <div class="mb-3">
+            <label class="form-label">Class Code</label>
+            <input type="text" name="code" class="form-control form-control-lg text-center text-uppercase"
+                   style="letter-spacing:0.15em;font-family:monospace" maxlength="6" required autofocus
+                   autocapitalize="characters" placeholder="ABC123">
+          </div>
+          <button type="submit" class="btn btn-success w-100 btn-lg">Find My Class</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+@media (max-width: 767.98px) {
+  .attendance-instructions-col { max-width: 100% !important; }
+}
+</style>
+{% endblock %}

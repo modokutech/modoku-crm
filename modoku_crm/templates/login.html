@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <video class="auth-bg-video" autoplay muted loop playsinline>
+    <source src="https://modoku.tech/wp-content/uploads/2026/08/modoku_2026_reels_home.mp4" type="video/mp4">
+  </video>
+  <div class="auth-bg-overlay"></div>
+  <div class="card auth-card p-4 shadow">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Modoku Hub</h4>
+    </div>
+    <form method="post">
+      {{ csrf_field()|safe }}
+      <div class="mb-3">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-control" required>
+      </div>
+      <button type="submit" class="btn btn-success w-100">Log in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

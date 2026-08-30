@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Sales &amp; Business Reports</h4>
+    <small class="text-muted">Pipeline health, salesperson activity, revenue and course popularity.</small>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Total Leads</div>
+      <div class="stat-value">{{ total_leads }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#2563eb;">
+      <div class="small text-white-50">Closed</div>
+      <div class="stat-value">{{ total_won }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#7c3aed;">
+      <div class="small text-white-50">Conversion Rate</div>
+      <div class="stat-value">{{ conversion_rate }}%</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#b45309;">
+      <div class="small text-white-50">Unassigned Open Leads</div>
+      <div class="stat-value">{{ unassigned_open }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6>Pipeline by Stage</h6>
+      <table class="table table-sm">
+        <tbody>
+        {% for st in ['New','Contacted','Had Meeting','Proposal Sent','Deal Closed','Lost'] %}
+          <tr>
+            <td>{{ st }}</td>
+            <td class="text-end fw-semibold">{{ pipeline.get(st, 0) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6>Course Popularity (by enrollments)</h6>
+      {% if course_popularity %}
+      <table class="table table-sm">
+        <tbody>
+        {% for c in course_popularity %}
+          <tr><td>{{ c.title }}</td><td class="text-end fw-semibold">{{ c.enrolled }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="text-muted small mb-0">No enrollment data yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0">Salesperson Performance</h6>
+    <form class="d-flex gap-2" method="get">
+      <input type="date" name="from" value="{{ date_from }}" class="form-control form-control-sm">
+      <input type="date" name="to" value="{{ date_to }}" class="form-control form-control-sm">
+      <button class="btn btn-sm btn-outline-secondary">Apply</button>
+    </form>
+  </div>
+  <small class="text-muted">Calls/emails counted within the date range above (leave blank for all-time).</small>
+  <div class="table-responsive mt-2">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Salesperson</th><th>Total Leads</th><th>Open</th><th>Closed</th><th>Lost</th><th>Calls Made</th><th>Emails / Proposals Sent</th></tr></thead>
+      <tbody>
+      {% for r in salesperson_rows %}
+        <tr>
+          <td class="fw-semibold">{{ r.name }}</td>
+          <td>{{ r.total_leads }}</td>
+          <td>{{ r.open_leads }}</td>
+          <td>{{ r.won }}</td>
+          <td>{{ r.lost }}</td>
+          <td>{{ r.calls_made }}</td>
+          <td>{{ r.emails_sent }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6>Invoices by Status</h6>
+      <table class="table table-sm">
+        <thead><tr><th>Status</th><th>Count</th><th class="text-end">Amount (RM)</th></tr></thead>
+        <tbody>
+        {% for r in revenue %}
+          <tr><td>{{ r.status }}</td><td>{{ r.c }}</td><td class="text-end">{{ r.amt|fmtmoney }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6>Invoiced Revenue by Month</h6>
+      {% if revenue_by_month %}
+      <table class="table table-sm">
+        <tbody>
+        {% for r in revenue_by_month %}
+          <tr><td>{{ r.ym }}</td><td class="text-end">RM {{ r.amt|fmtmoney }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="text-muted small mb-0">No invoices yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0">Trainer Log — Top 5 by Amount Paid</h6>
+    <a href="{{ url_for('trainer_utilization.index') }}" class="small link-plain">View full breakdown</a>
+  </div>
+  {% if top_trainers %}
+  <table class="table table-sm">
+    <thead><tr><th>Trainer</th><th class="text-end">Confirmed Classes</th><th class="text-end">Day</th><th class="text-end">Amount (RM)</th></tr></thead>
+    <tbody>
+    {% for t in top_trainers %}
+      <tr>
+        <td><a href="{{ url_for('trainer_utilization.detail', trainer_id=t.trainer_id) }}" class="link-plain fw-semibold">{{ t.trainer_name }}</a></td>
+        <td class="text-end">{{ t.class_count }}</td>
+        <td class="text-end">{{ t.total_days }}</td>
+        <td class="text-end">{{ t.total_amount|fmtmoney }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="text-muted small mb-0">No Confirmed Purchase Orders yet.</p>{% endif %}
+</div>
+{% endblock %}

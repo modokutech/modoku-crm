@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="welcome-banner mb-4 d-flex justify-content-between align-items-start flex-wrap gap-3">
+  <div>
+    <h3 class="mb-1">Welcome back, {{ g.user.name.split(' ')[0] }} 👋</h3>
+    <div class="text-white-50">Here's what's happening at {{ company_name }} today.</div>
+  </div>
+  <div class="d-flex gap-2 flex-shrink-0" style="position:relative;z-index:1">
+    <a href="https://my.linkedin.com/company/modoku" target="_blank" rel="noopener" class="btn btn-sm btn-light">
+      <i class="bi bi-linkedin me-1"></i>Follow us on LinkedIn
+    </a>
+    <a href="https://modoku.tech" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light">
+      <i class="bi bi-globe2 me-1"></i>modoku.tech
+    </a>
+  </div>
+</div>
+
+{% if attention_sections %}
+<div class="card p-3 mb-4 attention-card">
+  <h6 class="mb-3"><i class="bi bi-stars me-1"></i>Needs Your Attention</h6>
+  <div class="row g-3">
+    {% for section in attention_sections %}
+    <div class="col-md-6 col-xl-3">
+      <div class="h-100">
+        <div class="small fw-semibold mb-2 text-{{ section.tone }}-emphasis">
+          <i class="bi {{ section.icon }} me-1"></i>{{ section.label }}
+        </div>
+        <ul class="list-unstyled small mb-0">
+          {% for entry in section.entries %}
+          <li class="mb-2">
+            <a href="{{ entry.link }}" class="link-plain">{{ entry.text }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="card p-3 mb-4 text-center text-muted small">
+  <i class="bi bi-check2-circle text-success me-1"></i>All caught up — nothing needs attention right now.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="stat-label text-white-75">Open Leads / Enquiries</div>
+      <div class="stat-value">{{ open_leads }}</div>
+      <div class="small text-white-50">of {{ total_leads }} total</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#0891b2;">
+      <div class="stat-label text-white-75">Upcoming Classes</div>
+      <div class="stat-value">{{ upcoming_sessions|length }}</div>
+      <div class="small text-white-50">next scheduled classes</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#ed5427;">
+      <div class="stat-label text-white-75">Quotations</div>
+      <div class="stat-value">{{ pending_quotations }}</div>
+      <div class="small text-white-50">awaiting client response</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="stat-label">Outstanding Invoices</div>
+      <div class="stat-value">RM {{ outstanding.amt|fmtmoney }}</div>
+      <div class="small">{{ outstanding.cnt }} unpaid ({{ overdue }} overdue)</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Upcoming Classes</h6>
+        <a href="{{ url_for('sessions.index') }}" class="small link-plain">View all</a>
+      </div>
+      {% if upcoming_sessions %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Course</th><th>Date</th><th>Venue</th><th>Trainer</th><th>Enrolled</th></tr></thead>
+          <tbody>
+          {% for s in upcoming_sessions %}
+            <tr>
+              <td><a href="{{ url_for('sessions.view', session_id=s.id) }}" class="link-plain fw-semibold">{{ s.course_title }}</a></td>
+              <td>{{ s.start_date|fmtdate }}</td>
+              <td>{{ s.venue or '-' }}</td>
+              <td>{{ s.trainer_name or '-' }}</td>
+              <td>{{ s.enrolled_count }}/{{ s.capacity }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <p class="text-muted mb-0">No upcoming classes scheduled.</p>
+      {% endif %}
+    </div>
+
+    <div class="card p-3 mt-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="bi bi-newspaper me-1"></i>Corporate Training & HRDCorp News</h6>
+      </div>
+      {% if news_items %}
+      <div class="row g-2">
+        {% for n in news_items %}
+        <div class="col-12">
+          <a href="{{ n.link }}" target="_blank" rel="noopener" class="link-plain d-block py-1">
+            <span class="fw-semibold">{{ n.title }}</span>
+            <span class="text-muted small">{% if n.source %} · {{ n.source }}{% endif %}{% if n.pub_date %} · {{ n.pub_date|fmtdate }}{% endif %}</span>
+          </a>
+          {% if not loop.last %}<hr class="my-1">{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% elif news_error %}
+        <p class="text-muted mb-0 small">{{ news_error }}</p>
+      {% else %}
+        <p class="text-muted mb-0 small">No news found right now — check back later.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Lead Pipeline</h6>
+        <a href="{{ url_for('leads.index') }}" class="small link-plain">View all</a>
+      </div>
+      {% for st in ['New','Contacted','Had Meeting','Proposal Sent','Deal Closed','Lost'] %}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="text-muted small">{{ st }}</span>
+          <span class="badge rounded-pill {{ 'badge-brand' if st == 'New' else 'bg-secondary' }}">{{ lead_counts.get(st, 0) }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3 mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0">Recent Leads</h6>
+    <a href="{{ url_for('leads.new') }}" class="btn btn-sm btn-success">+ New Lead</a>
+  </div>
+  {% if recent_leads %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>PIC Name</th><th>Company</th><th>Status</th><th>Source</th><th>Added</th></tr></thead>
+      <tbody>
+      {% for l in recent_leads %}
+        <tr>
+          <td><a href="{{ url_for('leads.view', lead_id=l.id) }}" class="link-plain fw-semibold">{{ l.name }}</a></td>
+          <td>{{ l.company_name or '-' }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if l.status == 'Deal Closed' %}bg-success
+              {% elif l.status == 'Lost' %}bg-danger
+              {% elif l.status == 'New' %}badge-brand
+              {% elif l.status == 'Proposal Sent' %}bg-primary-subtle text-primary-emphasis
+              {% elif l.status == 'Had Meeting' %}bg-warning-subtle text-warning-emphasis
+              {% else %}bg-info-subtle text-info-emphasis{% endif %}">
+              {{ l.status }}
+            </span>
+          </td>
+          <td>{{ l.source or '-' }}</td>
+          <td>{{ l.created_at|fmtdate }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="text-muted mb-0">No leads yet — add your first one.</p>
+  {% endif %}
+</div>
+{% endblock %}

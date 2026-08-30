@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Notifications</h4>
+    <small class="text-muted">System reminders for you — quotations gone quiet, overdue invoices, evaluation reports due, and more.</small>
+  </div>
+</div>
+
+<div class="card">
+  {% if items %}
+  <ul class="list-group list-group-flush">
+    {% for n in items %}
+    <li class="list-group-item {{ 'bg-light' if not n.read_at }}">
+      <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+          <div class="fw-semibold">
+            {% if not n.read_at %}<span class="badge-pulse-dot text-danger"></span>{% endif %}
+            {% if n.link %}<a href="{{ n.link }}" class="link-plain">{{ n.title }}</a>{% else %}{{ n.title }}{% endif %}
+          </div>
+          {% if n.body %}<div class="small text-muted">{{ n.body }}</div>{% endif %}
+        </div>
+        <div class="small text-muted text-nowrap">{{ n.created_at|fmtdatetime }}</div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-muted text-center py-4 mb-0">No notifications yet — you're all caught up.</p>
+  {% endif %}
+</div>
+{% endblock %}

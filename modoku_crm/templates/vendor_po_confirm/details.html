@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Confirm Purchase Order{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:520px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Confirm Purchase Order</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ po.po_no }}{% if po.course_title %} — {{ po.course_title }}{% endif %}</div>
+      {% if po.description %}<div class="small text-muted">{{ po.description }}</div>{% endif %}
+      {% if po.start_date %}<div class="small text-muted">{{ po.start_date|fmtdaterange(po.end_date) }}</div>{% endif %}
+      {% if po.venue %}<div class="small text-muted">{{ po.venue }}</div>{% endif %}
+      <div class="small text-muted">Vendor: {{ po.vendor_name }}</div>
+    </div>
+
+    {% if po.status in ('Confirmed', 'Cancelled') %}
+    <div class="alert {{ 'alert-success' if po.status == 'Confirmed' else 'alert-secondary' }} small mb-0">
+      <i class="bi bi-{{ 'check-circle-fill' if po.status == 'Confirmed' else 'x-circle' }} me-1"></i>
+      This PO has already been marked <strong>{{ po.status }}</strong>.
+      {% if po.confirm_responded_at %}<br>Responded on {{ po.confirm_responded_at|fmtdatetime }}.{% endif %}
+    </div>
+    {% else %}
+    <p class="small text-muted">Please confirm you're able to deliver this, or let us know if you need to decline.</p>
+    <form method="post" action="{{ url_for('vendor_po_confirm.respond', token=token) }}" class="d-flex gap-2">
+      {{ csrf_field()|safe }}
+      <button type="submit" name="decision" value="confirm" class="btn btn-success w-100">
+        <i class="bi bi-check-circle me-1"></i>Confirm
+      </button>
+      <button type="submit" name="decision" value="reject" class="btn btn-outline-danger w-100"
+              onclick="return confirm('Reject this Purchase Order? This will cancel it.');">
+        <i class="bi bi-x-circle me-1"></i>Reject
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

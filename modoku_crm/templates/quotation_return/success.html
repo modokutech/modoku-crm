@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Submitted{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <div class="mb-2"><i class="bi bi-check-circle-fill text-success" style="font-size:2.5rem"></i></div>
+    <h5 class="fw-semibold mb-2">Thank you!</h5>
+    <p class="small text-muted mb-0">
+      Your signed copy of <strong>{{ q.quote_no }}</strong> has been received. If you gave us your email
+      and the training is linked to a confirmed class, we've sent you a link to complete the attendance
+      form along with a calendar invite. If not, our team will follow up with you shortly.
+    </p>
+  </div>
+</div>
+{% endblock %}

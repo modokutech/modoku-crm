@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Class' if session else 'Schedule Class' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Class' if session else 'Schedule a Class' }}</h4></div>
+<div class="card p-4" style="max-width:960px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label">Course *</label>
+        <select name="course_id" class="form-select" required>
+          <option value="">Select course</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}"
+            {{ 'selected' if (session and session.course_id == c.id) or (not session and preselect_course == c.id) }}>
+            {{ c.title }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          {% for st in statuses %}
+          <option value="{{ st }}" {{ 'selected' if session and session.status == st }}>{{ st }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Start date *</label>
+        <input type="date" name="start_date" class="form-control" required value="{{ (session.start_date or '') if session else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">End date</label>
+        <input type="date" name="end_date" class="form-control" value="{{ (session.end_date or '') if session else '' }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Training time <span class="text-danger">*</span></label>
+        <input type="time" name="training_time_start" class="form-control" value="{{ training_time_start }}" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">&nbsp;to</label>
+        <input type="time" name="training_time_end" class="form-control" value="{{ training_time_end }}" required>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Client</label>
+        <select name="client_company_id" id="client_company_id" class="form-select">
+          <option value="">— Public / no single client —</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}" {{ 'selected' if session and session.client_company_id == c.id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">The sponsoring company for an in-house training, if this session is run for one client.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">PIC (Client Contact)</label>
+        <div class="d-flex gap-2">
+          <select name="pic_lead_id" id="pic_lead_id" class="form-select">
+            <option value="">— No PIC selected —</option>
+            {% set ns = namespace(current_company='\x00__unset__') %}
+            {% for l in leads %}
+              {% if l.company_name != ns.current_company %}
+                {% if not loop.first %}</optgroup>{% endif %}
+                <optgroup label="{{ l.company_name or 'No company' }}">
+                {% set ns.current_company = l.company_name %}
+              {% endif %}
+              <option value="{{ l.id }}" data-company-id="{{ l.company_id or '' }}"
+                {{ 'selected' if session and session.pic_lead_id == l.id }}>{{ l.name }}{% if l.email %} ({{ l.email }}){% endif %}</option>
+              {% if loop.last %}</optgroup>{% endif %}
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#quickAddPicModal">+ New</button>
+        </div>
+        <small class="text-muted">Narrowed to the selected Client's contacts. Used to default the "Send Online Attendance Form Link" email to the right person.</small>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Training type</label>
+        <select name="training_type" class="form-select">
+          {% for tt in training_types %}
+          <option value="{{ tt }}" {{ 'selected' if session and session.training_type == tt }}>{{ tt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Training mode</label>
+        <select name="training_mode" id="training_mode" class="form-select">
+          {% for tm in training_modes %}
+          <option value="{{ tm }}" {{ 'selected' if (session and session.training_mode == tm) or (not session and tm == 'Physical') }}>{{ tm }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Venue</label>
+        <input type="text" name="venue" class="form-control" value="{{ (session.venue or '') if session else '' }}" placeholder="e.g. Modoku Training Centre, KL">
+      </div>
+      <div class="col-md-6" id="meeting_link_field" style="display:none;">
+        <label class="form-label">Meeting link</label>
+        <input type="url" name="meeting_link" class="form-control" value="{{ (session.meeting_link or '') if session else '' }}" placeholder="e.g. https://zoom.us/j/...">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Room Setup</label>
+        <select name="room_setup" class="form-select">
+          <option value="">— Not specified —</option>
+          {% for rs in room_setup_options %}
+          <option value="{{ rs }}" {{ 'selected' if session and session.room_setup == rs }}>{{ rs }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Trainer(s)</label>
+        <div class="border rounded p-2" style="max-height:160px; overflow-y:auto;">
+          {% for t in trainers %}
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="trainer_{{ t.id }}" name="trainer_ids" value="{{ t.id }}"
+              {{ 'checked' if t.id in selected_trainer_ids }}>
+            <label class="form-check-label" for="trainer_{{ t.id }}">{{ t.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        <small class="text-muted">Select one or more co-facilitators. First checked is the primary trainer.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Capacity</label>
+        <input type="number" min="1" name="capacity" class="form-control" value="{{ session.capacity if session else 20 }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label d-block">Laptop Rental</label>
+        <div class="form-check form-check-inline mt-1">
+          <input type="checkbox" class="form-check-input" id="requires_laptop_rental" name="requires_laptop_rental" value="1"
+            {{ 'checked' if session and session.requires_laptop_rental }}>
+          <label class="form-check-label" for="requires_laptop_rental">Requires laptop rental</label>
+        </div>
+        <div id="laptop_rental_qty_field" class="mt-2" style="display:none;max-width:160px;">
+          <input type="number" min="1" name="laptop_rental_qty" class="form-control form-control-sm"
+                 placeholder="No. of units" value="{{ (session.laptop_rental_qty or '') if session else '' }}">
+        </div>
+        <div class="form-check form-check-inline mt-2">
+          <input type="checkbox" class="form-check-input" id="has_exam" name="has_exam" value="1"
+            {{ 'checked' if session and session.has_exam }}>
+          <label class="form-check-label" for="has_exam">This training has an exam</label>
+        </div>
+        <div id="exam_participants_field" class="mt-2" style="display:none;max-width:160px;">
+          <input type="number" min="1" name="exam_participants" class="form-control form-control-sm"
+                 placeholder="No. of exam participants" value="{{ (session.exam_participants or '') if session else '' }}">
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Evaluation Form link</label>
+        <input type="url" name="evaluation_form_link" class="form-control" value="{{ (session.evaluation_form_link or '') if session else '' }}" placeholder="e.g. https://forms.gle/...">
+        <small class="text-muted">Used to generate the "Training Evaluation" QR poster.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Training Banner</label>
+        <input type="file" name="training_banner_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        {% if session and session.training_banner_file %}
+        <small class="text-muted">Currently on file: <a href="{{ url_for('sessions.download_banner', session_id=session.id) }}" target="_blank">view current banner</a> — choosing a new one will replace it. Max 2 MB.</small>
+        {% else %}
+        <small class="text-muted">Attached to the trainer's Purchase Order email, if uploaded. Max 2 MB.</small>
+        {% endif %}
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2">{{ (session.notes or '') if session else '' }}</textarea>
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Class</button>
+      <a href="{{ url_for('sessions.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<!-- Quick-add PIC modal: lets staff add a new client contact right from
+     the class form, tied to whichever Client is currently selected,
+     without losing anything already filled in. -->
+<div class="modal fade" id="quickAddPicModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New PIC</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="quickAddPicError" class="alert alert-danger d-none"></div>
+        <p class="small text-muted" id="quickAddPicClientNote"></p>
+        <div class="mb-3">
+          <label class="form-label">Name *</label>
+          <input type="text" id="qp_name" class="form-control" required>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Role</label>
+            <input type="text" id="qp_role" class="form-control" placeholder="e.g. HR Manager">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Phone</label>
+            <input type="text" id="qp_phone" class="form-control">
+          </div>
+        </div>
+        <div class="mb-3 mt-2">
+          <label class="form-label">Email</label>
+          <input type="email" id="qp_email" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="qp_save">Save PIC</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleMeetingLink() {
+  const mode = document.getElementById('training_mode').value;
+  const field = document.getElementById('meeting_link_field');
+  field.style.display = (mode === 'Virtual' || mode === 'Hybrid') ? '' : 'none';
+}
+document.getElementById('training_mode').addEventListener('change', toggleMeetingLink);
+toggleMeetingLink();
+
+function toggleLaptopRentalQty() {
+  const checked = document.getElementById('requires_laptop_rental').checked;
+  document.getElementById('laptop_rental_qty_field').style.display = checked ? '' : 'none';
+}
+document.getElementById('requires_laptop_rental').addEventListener('change', toggleLaptopRentalQty);
+toggleLaptopRentalQty();
+
+function toggleExamParticipants() {
+  const checked = document.getElementById('has_exam').checked;
+  document.getElementById('exam_participants_field').style.display = checked ? '' : 'none';
+}
+document.getElementById('has_exam').addEventListener('change', toggleExamParticipants);
+toggleExamParticipants();
+
+// PIC list is narrowed to whichever Client is currently selected — a PIC
+// with no company (or when no Client is selected at all) always stays
+// visible, since that's the "not tied to one client" case.
+function filterPicOptions() {
+  const clientSelect = document.getElementById('client_company_id');
+  const picSelect = document.getElementById('pic_lead_id');
+  const selectedCompany = clientSelect.value;
+  let selectionStillVisible = !picSelect.value;
+  picSelect.querySelectorAll('option').forEach(function (opt) {
+    if (!opt.value) { return; } // "— No PIC selected —" placeholder always stays
+    const optCompany = opt.dataset.companyId || '';
+    const show = !selectedCompany || !optCompany || optCompany === selectedCompany;
+    opt.hidden = !show;
+    if (show && opt.selected) { selectionStillVisible = true; }
+  });
+  picSelect.querySelectorAll('optgroup').forEach(function (group) {
+    const anyVisible = Array.from(group.children).some(function (opt) { return !opt.hidden; });
+    group.hidden = !anyVisible;
+  });
+  if (picSelect.value && !selectionStillVisible) {
+    picSelect.value = '';
+  }
+}
+document.getElementById('client_company_id').addEventListener('change', filterPicOptions);
+filterPicOptions();
+
+document.getElementById('quickAddPicModal').addEventListener('show.bs.modal', function () {
+  const clientSelect = document.getElementById('client_company_id');
+  const note = document.getElementById('quickAddPicClientNote');
+  const clientName = clientSelect.options[clientSelect.selectedIndex].text;
+  note.textContent = clientSelect.value
+    ? 'This PIC will be added under ' + clientName + '.'
+    : 'No Client selected yet — this PIC will be saved without a company. Pick a Client above first if this contact belongs to one.';
+});
+
+document.getElementById('qp_save').addEventListener('click', function () {
+  const name = document.getElementById('qp_name').value.trim();
+  const errorBox = document.getElementById('quickAddPicError');
+  errorBox.classList.add('d-none');
+  if (!name) {
+    errorBox.textContent = 'Name is required.';
+    errorBox.classList.remove('d-none');
+    return;
+  }
+  const clientSelect = document.getElementById('client_company_id');
+  const body = new URLSearchParams({
+    name: name,
+    role: document.getElementById('qp_role').value,
+    email: document.getElementById('qp_email').value,
+    phone: document.getElementById('qp_phone').value,
+    company_id: clientSelect.value,
+  });
+  fetch("{{ url_for('leads.quick_add') }}", { method: 'POST', body: body })
+    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+    .then(function (result) {
+      if (!result.ok) {
+        errorBox.textContent = result.data.error || 'Could not save PIC.';
+        errorBox.classList.remove('d-none');
+        return;
+      }
+      const picSelect = document.getElementById('pic_lead_id');
+      const opt = document.createElement('option');
+      opt.value = result.data.id;
+      opt.dataset.companyId = result.data.company_id || '';
+      opt.textContent = result.data.name + (result.data.email ? ' (' + result.data.email + ')' : '');
+      opt.selected = true;
+      picSelect.appendChild(opt);
+      filterPicOptions();
+      bootstrap.Modal.getInstance(document.getElementById('quickAddPicModal')).hide();
+      document.getElementById('qp_name').value = '';
+      document.getElementById('qp_role').value = '';
+      document.getElementById('qp_email').value = '';
+      document.getElementById('qp_phone').value = '';
+    })
+    .catch(function () {
+      errorBox.textContent = 'Something went wrong — please try again.';
+      errorBox.classList.remove('d-none');
+    });
+});
+</script>
+{% endblock %}

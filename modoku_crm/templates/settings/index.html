@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Settings</h4>
+    <small class="text-muted">Admin-only.</small>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <h6 class="mb-1">Modules</h6>
+      <p class="small text-muted">Switch modules off if your team isn't using them yet — their sidebar link and pages disappear until you turn them back on.</p>
+      <form method="post">
+        {{ csrf_field()|safe }}
+        {% for key, cfg in modules.items() %}
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="mod_{{ key }}" name="{{ key }}" {{ 'checked' if flags.get(key) }}>
+          <label class="form-check-label" for="mod_{{ key }}">{{ cfg.label }}</label>
+        </div>
+        {% endfor %}
+        <hr>
+        <h6 class="mb-1">Notification Emails</h6>
+        <p class="small text-muted">Who gets office notifications — a signed quotation or attendance form
+          coming back, a trainer confirming or rejecting a PO, a document being uploaded. Comma-separated.</p>
+        <textarea name="notification_emails" class="form-control mb-3" rows="2">{{ notification_emails }}</textarea>
+        <button class="btn btn-success" type="submit">Save Settings</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <h6 class="mb-1">Outgoing Email</h6>
+      {% if mail_configured %}
+        <p class="small text-success mb-3"><i class="bi bi-check-circle-fill me-1"></i>Email is configured — Purchase Orders can be sent from here.</p>
+      {% else %}
+        <p class="small text-muted mb-3">Not set up yet — set <code>MAIL_USERNAME</code> / <code>MAIL_PASSWORD</code> (see README) so Purchase Order emails and this test can send. A free provider like Brevo works well.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings.test_email') }}" class="d-flex gap-2">
+        {{ csrf_field()|safe }}
+        <input type="email" name="to_email" class="form-control" placeholder="you@company.com" value="{{ g.user.email }}" required>
+        <button class="btn btn-outline-secondary text-nowrap" type="submit" {{ 'disabled' if not mail_configured }}>Send Test Email</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <h6 class="mb-1">Document Numbering</h6>
+      <p class="small text-muted">Customise the prefix/suffix used for PO and Invoice numbers (e.g. <code>PO-2026-0001</code>). The year segment always reflects the current year and updates automatically each January — the running number itself keeps counting up across years and does not reset (e.g. <code>PO-2026-0057</code> is followed by <code>PO-2027-0058</code>).</p>
+      <form method="post">
+        {{ csrf_field()|safe }}
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">PO Prefix</label>
+            <input type="text" name="po_number_prefix" class="form-control form-control-sm" value="{{ po_number_prefix }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">PO Suffix</label>
+            <input type="text" name="po_number_suffix" class="form-control form-control-sm" value="{{ po_number_suffix }}" placeholder="(optional)">
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small mb-1">Invoice Prefix</label>
+            <input type="text" name="invoice_number_prefix" class="form-control form-control-sm" value="{{ invoice_number_prefix }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Invoice Suffix</label>
+            <input type="text" name="invoice_number_suffix" class="form-control form-control-sm" value="{{ invoice_number_suffix }}" placeholder="(optional)">
+          </div>
+        </div>
+        <button class="btn btn-success btn-sm" type="submit">Save Numbering Format</button>
+      </form>
+      <hr>
+      <h6 class="mb-1">Reset Next Number</h6>
+      <p class="small text-muted">One-time override — sets the number the <em>next</em> PO/Invoice generated will use, then reverts back to normal auto-increment.</p>
+      <form method="post" action="{{ url_for('settings.reset_numbering') }}">
+        {{ csrf_field()|safe }}
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">Next PO #</label>
+            <input type="number" min="1" name="po_number_reset" class="form-control form-control-sm" placeholder="e.g. 1">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Next Invoice #</label>
+            <input type="number" min="1" name="invoice_number_reset" class="form-control form-control-sm" placeholder="e.g. 1">
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm" type="submit">Reset Numbering</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

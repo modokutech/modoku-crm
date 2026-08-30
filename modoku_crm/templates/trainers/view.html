@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ trainer.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="d-flex align-items-center gap-3">
+    {% if trainer.avatar_file %}
+    <img src="{{ url_for('trainers.avatar', trainer_id=trainer.id) }}" class="avatar-lg" alt="">
+    {% else %}
+    <span class="avatar-lg avatar-fallback">{{ trainer.name[:1]|upper }}</span>
+    {% endif %}
+    <div>
+      <h4 class="mb-0">{{ trainer.name }}</h4>
+      <small class="text-muted">{{ trainer.specialization or '' }}</small>
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    {% if modules.purchase_orders %}
+    <a href="{{ url_for('purchase_orders.new', trainer_id=trainer.id) }}" class="btn btn-success btn-sm">+ New Purchase Order</a>
+    {% endif %}
+    <a href="{{ url_for('trainer_utilization.detail', trainer_id=trainer.id) }}" class="btn btn-outline-secondary btn-sm">Utilization</a>
+    <a href="{{ url_for('trainers.edit', trainer_id=trainer.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    <form method="post" action="{{ url_for('trainers.delete', trainer_id=trainer.id) }}" onsubmit="return confirm('Delete this trainer?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-outline-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card p-3 mb-3">
+      <h6>Contact</h6>
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted">Email</td><td>{{ trainer.email or '-' }}</td></tr>
+        <tr><td class="text-muted">Phone</td><td>{{ trainer.phone or '-' }}</td></tr>
+        <tr><td class="text-muted">Rate Per Day</td><td>RM {{ trainer.rate_per_day|fmtmoney }}</td></tr>
+      </table>
+      {% if trainer.notes %}<hr><p class="small mb-0">{{ trainer.notes }}</p>{% endif %}
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Rate History</h6>
+      {% if rate_history %}
+      <ul class="list-unstyled mb-0">
+        {% for h in rate_history %}
+        <li class="d-flex justify-content-between align-items-center mb-2 pb-2 {{ 'border-bottom' if not loop.last }}">
+          <div>
+            <div class="small text-muted">{{ h.changed_at|fmtdate }}</div>
+            <div>
+              {% if h.old_rate %}RM {{ h.old_rate|fmtmoney }} &rarr; {% endif %}
+              <span class="fw-semibold">RM {{ h.new_rate|fmtmoney }}</span>
+              <span class="small text-muted">/day</span>
+            </div>
+            {% if h.changed_by_name %}<div class="small text-muted">by {{ h.changed_by_name }}</div>{% endif %}
+          </div>
+          {% if h.old_rate %}
+          {% set pct = ((h.new_rate - h.old_rate) / h.old_rate * 100) %}
+          <span class="badge {{ 'bg-success-subtle text-success-emphasis' if pct >= 0 else 'bg-danger-subtle text-danger-emphasis' }}">
+            {{ '+' if pct >= 0 }}{{ "%.1f"|format(pct) }}%
+          </span>
+          {% else %}
+          <span class="badge bg-light text-muted">Initial</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-muted mb-0 small">No rate changes recorded yet.</p>{% endif %}
+    </div>
+    <div class="card p-3">
+      <h6>Documents</h6>
+      <ul class="list-unstyled mb-0">
+        {% for form_field, column, label in document_fields %}
+        <li class="d-flex justify-content-between align-items-center mb-2">
+          <span>{{ label }}</span>
+          {% if trainer[column] %}
+          <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field=column) }}" target="_blank" class="btn btn-sm btn-outline-secondary">View</a>
+          {% else %}
+          <span class="badge bg-light text-muted">Not uploaded</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card p-3 mb-3">
+      <h6>Assigned Classes</h6>
+      {% if sessions %}
+      <table class="table table-sm"><tbody>
+        {% for s in sessions %}
+        <tr onclick="window.location='{{ url_for('sessions.view', session_id=s.id) }}'" style="cursor:pointer">
+          <td>{{ s.course_title }}</td><td>{{ s.start_date|fmtdate }}</td><td>{{ s.venue or '-' }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if s.status == 'Completed' %}bg-success
+              {% elif s.status == 'Cancelled' %}bg-danger
+              {% elif s.status == 'Ongoing' %}bg-warning text-dark
+              {% elif s.status == 'Proposed' %}bg-secondary
+              {% else %}bg-primary{% endif %}">{% if s.status == 'Ongoing' %}<span class="badge-pulse-dot"></span>{% endif %}{{ s.status }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody></table>
+      {% else %}<p class="text-muted mb-0 small">No sessions assigned yet.</p>{% endif %}
+    </div>
+    <div class="card p-3">
+      <h6>Purchase Orders</h6>
+      {% if purchase_orders %}
+      <table class="table table-sm"><tbody>
+        {% for po in purchase_orders %}
+        <tr onclick="window.location='{{ url_for('purchase_orders.view', po_id=po.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ po.po_no }}</td>
+          <td>{{ po.course_title }}</td>
+          <td>{{ po.start_date|fmtdate }}</td>
+          <td>{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
+          <td>
+            <span class="badge
+              {% if po.status == 'Confirmed' %}bg-success
+              {% elif po.status == 'Cancelled' %}bg-danger
+              {% elif po.status == 'Sent' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">{{ po.status }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody></table>
+      {% else %}<p class="text-muted mb-0 small">No purchase orders yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

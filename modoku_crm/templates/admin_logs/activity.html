@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Activity Log{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">Activity Log</h4></div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label small">User</label>
+      <select name="user_id" class="form-select form-select-sm">
+        <option value="">All users</option>
+        {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if selected_user_id == u.id }}>{{ u.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small">Entity type</label>
+      <select name="entity_type" class="form-select form-select-sm">
+        <option value="">All types</option>
+        {% for et in entity_types %}<option value="{{ et.entity_type }}" {{ 'selected' if selected_entity_type == et.entity_type }}>{{ et.entity_type }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Filter</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead><tr><th>When</th><th>User</th><th>Action</th><th>Entity</th><th>Description</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="text-nowrap">{{ e.created_at|fmtdatetime }}</td>
+          <td>{{ e.user_name or '—' }}</td>
+          <td>
+            <span class="badge
+              {% if e.action == 'create' %}bg-success
+              {% elif e.action == 'update' %}bg-primary
+              {% elif e.action == 'delete' %}bg-danger
+              {% elif e.action == 'login' %}bg-info text-dark
+              {% elif e.action == 'logout' %}bg-secondary
+              {% elif e.action == 'send_email' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">{{ e.action }}</span>
+          </td>
+          <td>{{ e.entity_type or '' }}{% if e.entity_id %} #{{ e.entity_id }}{% endif %}</td>
+          <td class="small text-muted">{{ e.description or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">No activity recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="small text-muted mt-2">Showing the most recent {{ row_limit }} entries.</p>
+{% endblock %}

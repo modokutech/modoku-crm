@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Certificates{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Certificates</h4>
+    <small class="text-muted">e-Certificates, grouped by Class — generated automatically once staff mark participants attended.</small>
+  </div>
+</div>
+
+<div class="card p-3">
+  {% if sessions %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr>
+        <th>Class</th><th>Date</th><th>Attended</th><th>Certificates</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for s in sessions %}
+        <tr onclick="window.location='{{ url_for('cert_admin.by_session', session_id=s.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ s.course_title }}</td>
+          <td class="text-nowrap">{{ s.start_date|fmtdaterange(s.end_date) }}</td>
+          <td>{{ s.attended_count }}</td>
+          <td>
+            {% if s.cert_count == s.attended_count %}
+            <span class="badge bg-success">{{ s.cert_count }} / {{ s.attended_count }} ready</span>
+            {% else %}
+            <span class="badge bg-warning text-dark">{{ s.cert_count }} / {{ s.attended_count }} ready</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('cert_admin.by_session', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Browse</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No certificates yet — mark participants attended on a class's T3 Attendance
+    List to generate them here.</p>
+  {% endif %}
+</div>
+{% endblock %}

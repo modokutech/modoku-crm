@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}HRDCorp Grant ID{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:520px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">HRDCorp Grant ID</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ s.course_title }}</div>
+      <div class="small text-muted">{{ s.start_date|fmtdaterange(s.end_date) }}</div>
+    </div>
+
+    {% if s.hrdcorp_grant_id %}
+    <div class="alert alert-success small">
+      <i class="bi bi-check-circle-fill me-1"></i>
+      Grant ID on file: <strong>{{ s.hrdcorp_grant_id }}</strong>
+      {% if s.hrdcorp_grant_id_updated_at %}<br>Submitted {{ s.hrdcorp_grant_id_updated_at|fmtdatetime }}.{% endif %}
+    </div>
+    <p class="small text-muted">Need to correct it? Submit an updated ID below and it will replace the one on file.</p>
+    {% else %}
+    <p class="small text-muted">Once HRDCorp has approved your grant application and issued a Grant ID, please
+      enter it below so we have it on file — no need to email it to us separately.</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('hrdcorp_grant.submit', token=token) }}">
+      {{ csrf_field()|safe }}
+      <label class="form-label small fw-semibold">HRDCorp Grant ID</label>
+      <input type="text" name="hrdcorp_grant_id" class="form-control mb-3" value="{{ s.hrdcorp_grant_id or '' }}" required>
+      <button class="btn btn-success w-100" type="submit">Submit</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

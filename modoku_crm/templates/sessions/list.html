@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}Classes{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Classes</h4>
+    <small class="text-muted">All scheduled, ongoing and past classes.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('sessions.export') }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('sessions.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Schedule Class</a>
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="scheduleTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="list-tab" data-bs-toggle="tab" data-bs-target="#list-view" type="button" role="tab">
+      <i class="bi bi-list-ul me-1"></i>List
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="calendar-tab" data-bs-toggle="tab" data-bs-target="#calendar-view" type="button" role="tab">
+      <i class="bi bi-calendar3 me-1"></i>Calendar
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="list-view" role="tabpanel">
+    <div class="card p-3">
+      {% if sessions %}
+      {% macro sort_link(key, label) %}
+        <a href="{{ url_for('sessions.index', sort=key, dir='desc' if sort==key and direction=='asc' else 'asc') }}"
+           class="text-decoration-none text-reset">
+          {{ label }}
+          {% if sort == key %}<i class="bi bi-caret-{{ 'up' if direction=='asc' else 'down' }}-fill small"></i>{% endif %}
+        </a>
+      {% endmacro %}
+      {% macro session_row(s) %}
+        <tr onclick="window.location='{{ url_for('sessions.view', session_id=s.id) }}'" style="cursor:pointer">
+          <td class="text-truncate" style="max-width:0;"><span class="fw-semibold">{{ s.course_title }}</span> <span class="text-muted small">{{ s.course_code or '' }}</span></td>
+          <td class="text-nowrap">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}</td>
+          <td class="text-truncate" style="max-width:0;">{{ s.venue or '-' }}</td>
+          <td class="text-truncate" style="max-width:0;">{{ s.trainer_name or '-' }}</td>
+          <td class="text-truncate" style="max-width:0;">{{ s.client_name or '-' }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if s.status == 'Completed' %}bg-success
+              {% elif s.status == 'Cancelled' %}bg-danger
+              {% elif s.status == 'Ongoing' %}bg-warning text-dark
+              {% elif s.status == 'Proposed' %}bg-secondary
+              {% else %}bg-primary{% endif %}">{% if s.status == 'Ongoing' %}<span class="badge-pulse-dot"></span>{% endif %}{{ s.status }}</span>
+          </td>
+        </tr>
+      {% endmacro %}
+      {% set headers %}
+        <tr>
+          <th style="width:29%">{{ sort_link('course', 'Course') }}</th>
+          <th style="width:16%">{{ sort_link('date', 'Date') }}</th>
+          <th style="width:16%">{{ sort_link('venue', 'Venue') }}</th>
+          <th style="width:17%">{{ sort_link('trainer', 'Trainer') }}</th>
+          <th style="width:14%">Client</th>
+          <th style="width:8%">{{ sort_link('status', 'Status') }}</th>
+        </tr>
+      {% endset %}
+
+      {% if sort == 'date' %}
+        {# Grouped by date, like a day-by-day schedule — matches how the list is sorted. #}
+        {% set ns = namespace(last_date=None) %}
+        {% for s in sessions %}
+          {% if s.start_date != ns.last_date %}
+            {% if not loop.first %}</tbody></table></div>{% endif %}
+            <div class="date-group-tag">{{ s.start_date|fmtdate }}</div>
+            <div class="table-responsive mb-4">
+              <table class="table table-hover align-middle mb-0 table-fixed-layout">
+                <thead>{{ headers }}</thead>
+                <tbody>
+            {% set ns.last_date = s.start_date %}
+          {% endif %}
+          {{ session_row(s) }}
+          {% if loop.last %}</tbody></table></div>{% endif %}
+        {% endfor %}
+      {% else %}
+        <div class="table-responsive">
+          <table class="table table-hover align-middle table-fixed-layout">
+            <thead>{{ headers }}</thead>
+            <tbody>
+            {% for s in sessions %}{{ session_row(s) }}{% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+      {% else %}<p class="text-muted mb-0">No sessions scheduled yet.</p>{% endif %}
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="calendar-view" role="tabpanel">
+    <div class="card p-3">
+      <div id="schedule-calendar"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const events = {{ calendar_events|tojson }};
+  let calendar;
+  const calendarEl = document.getElementById('schedule-calendar');
+
+  function initCalendar() {
+    if (calendar) return;
+    calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+      height: 'auto',
+      events: events,
+    });
+    calendar.render();
+  }
+
+  // Render lazily when the Calendar tab is actually shown (FullCalendar sizes
+  // itself wrong if initialized inside a hidden tab pane).
+  document.getElementById('calendar-tab').addEventListener('shown.bs.tab', function () {
+    initCalendar();
+    if (calendar) calendar.updateSize();
+  });
+});
+</script>
+{% endblock %}

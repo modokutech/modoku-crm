@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Trainers{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Trainers</h4>
+    <small class="text-muted">Facilitators who deliver your training programmes.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('trainers.export', q=q) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('trainers.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Trainer</a>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by name, email or specialization">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-secondary w-100" type="submit">Search</button>
+    </div>
+    {% if q %}
+    <div class="col-md-2">
+      <a href="{{ url_for('trainers.index') }}" class="btn btn-link w-100">Clear</a>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card p-3">
+  {% if trainers %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th style="width:2.6rem"></th><th>Name</th><th>Specialization</th><th>Rate/Day</th><th>Contact</th><th>Documents</th><th>Sessions</th></tr></thead>
+      <tbody>
+      {% for t in trainers %}
+        <tr onclick="window.location='{{ url_for('trainers.view', trainer_id=t.id) }}'" style="cursor:pointer">
+          <td>
+            {% if t.avatar_file %}
+            <img src="{{ url_for('trainers.avatar', trainer_id=t.id) }}" class="avatar-thumb" alt="">
+            {% else %}
+            <span class="avatar-thumb avatar-fallback">{{ t.name[:1]|upper }}</span>
+            {% endif %}
+          </td>
+          <td class="fw-semibold">{{ t.name }}</td>
+          <td>{{ t.specialization or '-' }}</td>
+          <td>RM {{ t.rate_per_day|fmtmoney }}</td>
+          <td class="small">{{ t.email or '' }}{% if t.email and t.phone %}<br>{% endif %}{{ t.phone or '' }}</td>
+          <td>
+            {% if t.profile_file %}<span class="badge bg-secondary-subtle text-secondary-emphasis" title="Profile on file">Profile</span>{% endif %}
+            {% if t.ttt_cert_file %}<span class="badge bg-secondary-subtle text-secondary-emphasis" title="TTT cert on file">TTT</span>{% endif %}
+            {% if t.accredited_cert_file %}<span class="badge bg-secondary-subtle text-secondary-emphasis" title="Accreditation on file">Accredited</span>{% endif %}
+          </td>
+          <td>{{ t.session_count }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">{% if q %}No trainers match "{{ q }}".{% else %}No trainers added yet.{% endif %}</p>{% endif %}
+</div>
+{% endblock %}

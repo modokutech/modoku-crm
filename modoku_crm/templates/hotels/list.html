@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Hotels{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Hotels</h4>
+    <small class="text-muted">Venue directory — meeting package rates, minimum pax and room capacities.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('hotels.export', q=q) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('hotels.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Hotel</a>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search hotel name or location">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-secondary w-100" type="submit">Search</button>
+    </div>
+    {% if q %}
+    <div class="col-md-2">
+      <a href="{{ url_for('hotels.index') }}" class="btn btn-outline-secondary w-100">Clear</a>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card p-3">
+  {% if hotels %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Hotel</th><th>Location</th><th>Contact</th><th>Full-day Rate</th><th>Half-day Rate</th><th>Min. Pax</th><th>Largest Room</th></tr></thead>
+      <tbody>
+      {% for h in hotels %}
+        <tr onclick="window.location='{{ url_for('hotels.view', hotel_id=h.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ h.name }}</td>
+          <td>{{ h.location or '-' }}</td>
+          <td class="small">{{ h.contact_name or '' }}{% if h.contact_name and h.contact_phone %}<br>{% endif %}{{ h.contact_phone or '' }}</td>
+          <td>{{ 'RM ' ~ (h.rate_full_day|fmtmoney) if h.rate_full_day else '-' }}</td>
+          <td>{{ 'RM ' ~ (h.rate_half_day|fmtmoney) if h.rate_half_day else '-' }}</td>
+          <td>{{ h.minimum_pax or '-' }}</td>
+          <td>{{ h.max_capacity or '-' }}{% if h.max_capacity %} pax{% endif %} <span class="text-muted small">({{ h.room_count }} room{{ 's' if h.room_count != 1 }})</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">{% if q %}No hotels match "{{ q }}".{% else %}No hotels added yet.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Claims{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Claims</h4>
+    <small class="text-muted">Staff expense claims tied to a class — submit yours, or process one for payment.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('claims.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Submit a Claim</a>
+  </div>
+</div>
+<div class="card p-3">
+  {% if claims %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Name</th><th>Class</th><th>Date Submitted</th><th class="text-end">Total Amount</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for claim in claims %}
+        <tr onclick="window.location='{{ url_for('claims.view', claim_id=claim.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ claim.claimant_name }}</td>
+          <td>{{ claim.course_title }}</td>
+          <td>{{ claim.created_at|fmtdatetime }}</td>
+          <td class="text-end">RM {{ claim.total_amount|fmtmoney }}</td>
+          <td>
+            <span class="badge badge-status {{ 'bg-success' if claim.status == 'Paid' else 'bg-light text-dark' }}">{{ claim.status }}</span>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">No claims submitted yet.</p>{% endif %}
+</div>
+{% endblock %}
+{% block guest_content %}
+{# This page works without a login (see claims.py) — a visitor who isn't
+   signed in lands here instead of the sidebar layout above, so re-render
+   the same content block inside a plain, padded container. #}
+<div class="container-fluid p-4" style="max-width:1100px;margin:0 auto;">
+  {{ self.content() }}
+</div>
+{% endblock %}

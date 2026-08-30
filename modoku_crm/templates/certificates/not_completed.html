@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Not Yet Available{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <div class="mb-2"><i class="bi bi-hourglass-split text-warning" style="font-size:2.5rem"></i></div>
+    <h5 class="fw-semibold mb-2">Certificate Not Yet Available</h5>
+    <p class="small text-muted mb-3">
+      We found your record for <strong>{{ p.course_title }}</strong>
+      ({{ p.start_date|fmtdaterange(p.end_date) }}), but it hasn't yet been confirmed as completed on our
+      end. This usually just means the signed attendance form is still being processed. Please contact
+      Modoku's person-in-charge or your trainer, and we'll sort it out.
+    </p>
+    <a href="{{ url_for('certificates.lookup') }}" class="btn btn-outline-secondary w-100">Back</a>
+  </div>
+</div>
+{% endblock %}

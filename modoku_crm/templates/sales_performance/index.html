@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Sales Performance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Sales Performance</h4>
+    <small class="text-muted">Invoices raised and revenue billed per salesperson, based on non-cancelled Invoices.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('sales_performance.yearly') }}" class="btn btn-outline-secondary"><i class="bi bi-calendar-range me-1"></i>Yearly View</a>
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('sales_performance.export', sort=psort, dir=pdir) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Invoices Raised</div>
+      <div class="stat-value">{{ grand_invoices }}</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Total Revenue (RM)</div>
+      <div class="stat-value">RM {{ grand_amount|fmtmoney }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6>By Salesperson</h6>
+  {% if salespeople %}
+  {% macro psort_link(key, label) %}
+    <a href="{{ url_for('sales_performance.index', sort=key, dir='asc' if psort==key and pdir=='desc' else 'desc', msort=msort, mdir=mdir) }}"
+       class="text-decoration-none text-reset">
+      {{ label }}
+      {% if psort == key %}<i class="bi bi-caret-{{ 'up' if pdir=='asc' else 'down' }}-fill small"></i>{% endif %}
+    </a>
+  {% endmacro %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Salesperson</th><th class="text-end">{{ psort_link('invoices', 'Invoices Raised') }}</th><th class="text-end">{{ psort_link('amount', 'Total Revenue (RM)') }}</th></tr></thead>
+      <tbody>
+      {% for p in salespeople %}
+        <tr {% if p.salesperson_id %}onclick="window.location='{{ url_for('sales_performance.detail', salesperson_id=p.salesperson_id) }}'" style="cursor:pointer"{% endif %}>
+          <td class="fw-semibold">{{ p.salesperson_name }}</td>
+          <td class="text-end">{{ p.invoice_count }}</td>
+          <td class="text-end">{{ p.total_amount|fmtmoney }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No invoices yet — sales performance appears here once an invoice is raised.</p>
+  {% endif %}
+</div>
+
+<div class="card p-3 mt-3">
+  <h6>By Month <span class="text-muted small fw-normal">(invoice date)</span></h6>
+  {% if by_month %}
+  {% macro msort_link(key, label) %}
+    <a href="{{ url_for('sales_performance.index', msort=key, mdir='asc' if msort==key and mdir=='desc' else 'desc', sort=psort, dir=pdir) }}"
+       class="text-decoration-none text-reset">
+      {{ label }}
+      {% if msort == key %}<i class="bi bi-caret-{{ 'up' if mdir=='asc' else 'down' }}-fill small"></i>{% endif %}
+    </a>
+  {% endmacro %}
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>{{ msort_link('month', 'Month') }}</th><th class="text-end">{{ msort_link('invoices', 'Invoices') }}</th><th class="text-end">{{ msort_link('amount', 'Amount (RM)') }}</th></tr></thead>
+      <tbody>
+      {% for m in by_month %}
+        <tr><td>{{ m.label }}</td><td class="text-end">{{ m.invoice_count }}</td><td class="text-end">{{ m.total_amount|fmtmoney }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted small mb-0">No data yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

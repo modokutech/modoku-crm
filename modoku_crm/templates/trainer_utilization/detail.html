@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}{{ trainer.name }} — Utilization{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ trainer.name }}</h4>
+    <small class="text-muted"><a href="{{ url_for('trainer_utilization.index') }}" class="link-plain">← Back to Trainer Log</a></small>
+  </div>
+  <a href="{{ url_for('trainers.view', trainer_id=trainer.id) }}" class="btn btn-outline-secondary btn-sm">View Trainer Profile</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Confirmed Classes</div>
+      <div class="stat-value">{{ rows|length }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0891b2;">
+      <div class="small text-white-50">Total Days</div>
+      <div class="stat-value">{{ total_days }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Total Paid (RM)</div>
+      <div class="stat-value">{{ total_amount|fmtmoney }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6>Confirmed Purchase Orders</h6>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>PO No.</th><th>Class</th><th>Date</th><th class="text-end">Day</th><th class="text-end">Amount (RM)</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><a href="{{ url_for('purchase_orders.view', po_id=r.id) }}" class="link-plain fw-semibold">{{ r.po_no }}</a></td>
+          <td>{{ r.course_title }}</td>
+          <td>{{ r.start_date|fmtdaterange(r.end_date) }}</td>
+          <td class="text-end">{{ r.days }}</td>
+          <td class="text-end">{{ r.amount|fmtmoney }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No Confirmed Purchase Orders for this trainer yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

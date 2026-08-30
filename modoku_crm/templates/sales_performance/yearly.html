@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Sales Performance — {{ year }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Sales Performance — Yearly</h4>
+    <small class="text-muted"><a href="{{ url_for('sales_performance.index') }}" class="link-plain">← Back to Sales Performance</a></small>
+  </div>
+  <div class="d-flex gap-2">
+    <form class="d-flex gap-2" method="get">
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+        {% for y in available_years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('sales_performance.yearly_export', year=year) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card p-3">
+  <p class="text-muted small mb-3">Invoices raised and revenue billed per salesperson, by month, for {{ year }}. Based on non-cancelled Invoices, bucketed by invoice date.</p>
+  {% if pivot %}
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle" style="font-size:.8rem">
+      <thead class="table-light">
+        <tr>
+          <th rowspan="2" class="align-middle">Salesperson</th>
+          {% for m in month_names %}
+            <th colspan="2" class="text-center">{{ m }}</th>
+          {% endfor %}
+          <th colspan="2" class="text-center">YTD</th>
+        </tr>
+        <tr>
+          {% for m in month_names %}
+            <th class="text-end">Inv</th><th class="text-end">Amt</th>
+          {% endfor %}
+          <th class="text-end fw-bold">Inv</th><th class="text-end fw-bold">Amt</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for p in pivot %}
+        <tr>
+          <td class="fw-semibold text-nowrap"><a href="{{ url_for('sales_performance.detail', salesperson_id=p.salesperson_id) }}" class="link-plain">{{ p.salesperson_name }}</a></td>
+          {% for cell in p.months %}
+            <td class="text-end {% if not cell.invoices %}text-muted{% endif %}">{{ cell.invoices or '-' }}</td>
+            <td class="text-end {% if not cell.amount %}text-muted{% endif %}">{{ "%.0f"|format(cell.amount) if cell.amount else '-' }}</td>
+          {% endfor %}
+          <td class="text-end fw-bold">{{ p.ytd_invoices or '-' }}</td>
+          <td class="text-end fw-bold">{{ p.ytd_amount|fmtmoney }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No staff on file yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

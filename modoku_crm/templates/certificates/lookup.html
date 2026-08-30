@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Claim Your e-Certificate{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Claim Your e-Certificate</h4>
+      <p class="small text-muted mt-2 mb-0">Enter your training's start date and your IC number to download your
+        Certificate of Participation.</p>
+    </div>
+    <form method="post" action="{{ url_for('certificates.claim') }}">
+      {{ csrf_field()|safe }}
+      <div class="mb-3">
+        <label class="form-label">Training Start Date</label>
+        <input type="date" name="start_date" class="form-control form-control-lg" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">IC Number</label>
+        <input type="text" name="ic_no" class="form-control form-control-lg" placeholder="900101-14-5566" required>
+      </div>
+      <button type="submit" class="btn btn-success w-100">Find My Certificate</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

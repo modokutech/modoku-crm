@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Company' if company else 'New Company' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h4 class="mb-0">{{ 'Edit Company' if company else 'New Client' }}</h4>
+</div>
+<div class="card p-4" style="max-width:760px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <h6 class="text-muted text-uppercase small mb-2">Company Info</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Company name *</label>
+        <input type="text" name="name" class="form-control" required value="{{ (company.name or '') if company else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Industry</label>
+        <input type="text" name="industry" class="form-control" value="{{ (company.industry or '') if company else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Company Registration No. (SSM)</label>
+        <input type="text" name="registration_no" class="form-control" value="{{ (company.registration_no or '') if company else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Phone</label>
+        <input type="text" name="phone" class="form-control" value="{{ (company.phone or '') if company else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{{ (company.email or '') if company else '' }}">
+      </div>
+    </div>
+
+    <h6 class="text-muted text-uppercase small mb-2">Address</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-12">
+        <label class="form-label">Address</label>
+        <textarea name="address" class="form-control" rows="2">{{ (company.address or '') if company else '' }}</textarea>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">City</label>
+        <input type="text" name="city" class="form-control" value="{{ (company.city or '') if company else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">State</label>
+        <select name="state" class="form-select">
+          <option value="">—</option>
+          {% for s in states %}
+          <option value="{{ s }}" {{ 'selected' if company and company.state == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Postcode</label>
+        <input type="text" name="postcode" class="form-control" value="{{ (company.postcode or '') if company else '' }}">
+      </div>
+    </div>
+
+    <h6 class="text-muted text-uppercase small mb-2">Tax / e-Invoice (Malaysia)</h6>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">SST Registration No.</label>
+        <input type="text" name="sst_reg_no" class="form-control" value="{{ (company.sst_reg_no or '') if company else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">LHDN TIN (Tax ID for e-Invoice)</label>
+        <input type="text" name="tin" class="form-control" value="{{ (company.tin or '') if company else '' }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2">{{ (company.notes or '') if company else '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Company</button>
+      <a href="{{ url_for('companies.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

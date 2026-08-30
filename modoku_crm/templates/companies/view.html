@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ company.name }}</h4>
+    <small class="text-muted">{{ company.industry or '' }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('companies.edit', company_id=company.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    <form method="post" action="{{ url_for('companies.delete', company_id=company.id) }}" onsubmit="return confirm('Delete this company?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-outline-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <h6>Company Details</h6>
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted">Reg. No.</td><td>{{ company.registration_no or '-' }}</td></tr>
+        <tr><td class="text-muted">SST Reg. No.</td><td>{{ company.sst_reg_no or '-' }}</td></tr>
+        <tr><td class="text-muted">TIN</td><td>{{ company.tin or '-' }}</td></tr>
+        <tr><td class="text-muted">Phone</td><td>{{ company.phone or '-' }}</td></tr>
+        <tr><td class="text-muted">Email</td><td>{{ company.email or '-' }}</td></tr>
+        <tr><td class="text-muted">Address</td><td>{{ company.address or '-' }}{% if company.city %}, {{ company.city }}{% endif %}{% if company.postcode %} {{ company.postcode }}{% endif %}{% if company.state %}, {{ company.state }}{% endif %}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card p-3 mb-3">
+      <h6>Leads from this company</h6>
+      {% if leads %}
+      <table class="table table-sm"><tbody>
+        {% for l in leads %}
+        <tr><td><a href="{{ url_for('leads.view', lead_id=l.id) }}">{{ l.name }}</a></td><td>{{ l.status }}</td><td class="text-muted small">{{ l.created_at|fmtdate }}</td></tr>
+        {% endfor %}
+      </tbody></table>
+      {% else %}<p class="text-muted mb-0 small">No leads yet.</p>{% endif %}
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Enrollments</h6>
+      {% if enrollments %}
+      <table class="table table-sm"><tbody>
+        {% for e in enrollments %}
+        <tr><td>{{ e.participant_name }}</td><td>{{ e.course_title }}</td><td>{{ e.start_date|fmtdate }}</td><td><span class="badge
+              {% if e.status == 'Completed' %}bg-success
+              {% elif e.status == 'Cancelled' %}bg-danger
+              {% elif e.status == 'No-show' %}bg-secondary
+              {% elif e.status == 'Attended' %}bg-info text-dark
+              {% else %}bg-primary{% endif %}">{{ e.status }}</span></td></tr>
+        {% endfor %}
+      </tbody></table>
+      {% else %}<p class="text-muted mb-0 small">No enrollments yet.</p>{% endif %}
+    </div>
+    <div class="card p-3">
+      <h6>Invoices</h6>
+      {% if invoices %}
+      <table class="table table-sm"><tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{{ url_for('invoices.view', invoice_id=inv.id) }}">{{ inv.invoice_no }}</a></td>
+          <td>{{ inv.invoice_date|fmtdate }}</td>
+          <td>RM {{ inv.total|fmtmoney }}</td>
+          <td><span class="badge bg-secondary-subtle text-secondary-emphasis">{{ inv.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody></table>
+      {% else %}<p class="text-muted mb-0 small">No invoices yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

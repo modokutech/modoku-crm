@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Call List{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Sales Call List</h4>
+    <small class="text-muted">Who to call next, sorted by due date — overdue follow-ups float to the top.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('leads.call_list', mine=1) if not mine_only else url_for('leads.call_list') }}" class="btn btn-outline-secondary btn-sm">
+      {{ 'Show everyone' if mine_only else 'Show only my leads' }}
+    </a>
+    <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary btn-sm">View Reports</a>
+  </div>
+</div>
+
+<div class="card p-3">
+  {% if leads %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Next follow-up</th><th>PIC Name</th><th>Role</th><th>Company</th><th>Status</th><th>Assigned</th><th>Calls made</th><th>Emails/Proposals sent</th><th>Quick log</th></tr></thead>
+      <tbody>
+      {% for l in leads %}
+        <tr>
+          <td>
+            {% if l.next_follow_up %}
+              <span class="badge {{ 'bg-danger' if l.next_follow_up < now_date else 'bg-warning text-dark' }}">{{ l.next_follow_up|fmtdate }}</span>
+            {% else %}
+              <span class="text-muted small">Not scheduled</span>
+            {% endif %}
+          </td>
+          <td><a href="{{ url_for('leads.view', lead_id=l.id) }}" class="fw-semibold text-decoration-none">{{ l.name }}</a></td>
+          <td>{{ l.role or '-' }}</td>
+          <td>{{ l.company_name or '-' }}</td>
+          <td><span class="badge bg-info-subtle text-info-emphasis badge-status">{{ l.status }}</span></td>
+          <td>{{ l.assigned_name or '-' }}</td>
+          <td>{{ l.call_count }}</td>
+          <td>{{ l.email_count }}</td>
+          <td>
+            <form method="post" action="{{ url_for('leads.add_activity', lead_id=l.id) }}" class="d-flex gap-1">
+              {{ csrf_field()|safe }}
+              <select name="activity_type" class="form-select form-select-sm" style="width:auto">
+                <option>Call</option>
+                <option>Email</option>
+                <option>Meeting</option>
+              </select>
+              <input type="text" name="note" class="form-control form-control-sm" placeholder="e.g. Called, left voicemail" style="min-width:160px" required>
+              <button class="btn btn-sm btn-success">Log</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">Nothing to call right now — every open lead is either unassigned or all caught up. Nice work.</p>
+  {% endif %}
+</div>
+{% endblock %}

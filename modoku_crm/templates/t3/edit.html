@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Edit Participant{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">Edit Attendance List Participant</h4></div>
+<div class="card p-4" style="max-width:560px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <div class="mb-3">
+      <label class="form-label">Name *</label>
+      <input type="text" name="name" class="form-control" required value="{{ participant.name }}">
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">IC No.</label>
+        <input type="text" name="ic_no" class="form-control" value="{{ participant.ic_no or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Gender</label>
+        <select name="gender" class="form-select">
+          <option value="">—</option>
+          {% for g in genders %}<option value="{{ g }}" {{ 'selected' if participant.gender == g }}>{{ g }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Employer</label>
+        <input type="text" name="employer_name" class="form-control" value="{{ participant.employer_name or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Citizenship</label>
+        <select name="citizenship" class="form-select">
+          {% for c in citizenships %}<option value="{{ c }}" {{ 'selected' if (participant.citizenship or 'Malaysian') == c }}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save</button>
+      <a href="{{ url_for('t3.manage', session_id=participant.session_id) }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

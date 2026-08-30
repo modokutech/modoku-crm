@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get Your e-Certificate &middot; Modoku Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <style>
+    /* Deliberately standalone (doesn't extend base.html) so this page never
+       shows the app sidebar even for a logged-in staff member projecting
+       it — it's meant to fill the screen on its own, every time. */
+    html, body { height: 100%; overflow: hidden; }
+    /* Sized ~30% larger than the standard auth-card look, on purpose — this
+       page is meant to be projected on a screen for a whole room to read,
+       not viewed up close on one person's device. */
+    .tutorial-card { max-width: 940px; width: 100%; padding: 2.6rem !important; }
+    .tutorial-card .login-logo-sm { width: 140px; }
+    .tutorial-card .login-title { font-size: 1.85rem; }
+    .tutorial-card > p.text-muted { font-size: 1.3rem; }
+    .tutorial-step {
+      display: flex; align-items: flex-start; gap: 1rem; text-align: left;
+      font-size: 1.3rem;
+    }
+    .tutorial-step-num {
+      flex-shrink: 0; width: 2.6rem; height: 2.6rem; border-radius: 50%;
+      background: var(--brand); color: #fff; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+    }
+    .tutorial-qr-box {
+      background: #fff; border-radius: 1rem; padding: 1rem; display: inline-block;
+    }
+    .tutorial-qr-box img { display: block; width: 247px; height: 247px; }
+    .tutorial-card .small.text-muted { font-size: 1.05rem !important; }
+  </style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.35)"></div>
+  <div class="card auth-card tutorial-card p-4 p-md-5 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <h3 class="login-title mb-1">Get Your e-Certificate</h3>
+    <p class="text-muted mb-4">Scan the QR code below, or visit the address shown, right after your training ends.</p>
+
+    <div class="row g-4 align-items-center">
+      <div class="col-md-5">
+        <div class="tutorial-qr-box">
+          <img src="{{ url_for('tutorial.qr_image') }}" alt="QR code to claim your e-Certificate">
+        </div>
+        <div class="small text-muted mt-2">{{ url_for('certificates.lookup', _external=True) }}</div>
+      </div>
+      <div class="col-md-7 d-flex flex-column gap-3">
+        <div class="tutorial-step">
+          <span class="tutorial-step-num">1</span>
+          <span>Scan the QR code with your phone camera (or type the address above into a browser).</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-step-num">2</span>
+          <span>Enter your <strong>training start date</strong> and your <strong>IC number</strong>.</span>
+        </div>
+        <div class="tutorial-step">
+          <span class="tutorial-step-num">3</span>
+          <span>Download your Certificate of Participation — instantly, no login needed.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

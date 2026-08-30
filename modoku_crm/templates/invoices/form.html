@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">New Invoice <span class="text-muted small">({{ next_invoice_no }})</span></h4></div>
+<div class="card p-4">
+  <form method="post" id="invoice-form">
+    {{ csrf_field()|safe }}
+    <div class="row g-3 mb-2">
+      <div class="col-12">
+        <label class="form-label">From Class <span class="text-muted small fw-normal">(optional — auto-fills client, description, venue and dates below)</span></label>
+        <select id="session_id" class="form-select">
+          <option value="">— Not linked to a class / fill in manually —</option>
+          {% for s in classes_for_invoice %}
+          <option value="{{ s.id }}" {{ 'selected' if preselect_session_id == s.id }}
+            data-company-id="{{ s.client_company_id or '' }}"
+            data-client-name="{{ s.client_name or '' }}"
+            data-course-title="{{ s.course_title }}"
+            data-venue="{{ s.venue or '' }}"
+            data-date="{{ s.start_date or '' }}"
+            data-date-end="{{ s.end_date or '' }}"
+            data-price="{{ s.course_price }}">
+            {{ s.course_title }} — {{ s.start_date|fmtdate }}{% if s.client_name %} ({{ s.client_name }}){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Client (optional)</label>
+        <select id="company_id" name="company_id" class="form-select">
+          <option value="">— Walk-in / individual —</option>
+          <option value="" data-name="Pembangunan Sumber Manusia Berhad"
+                  data-address="Wisma HRD Corp, Jalan Beringin Damansara Heights, 50490 Kuala Lumpur"
+                  data-sst="" data-tin="">HRDCorp</option>
+          <option disabled>──────────</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}"
+            data-address="{{ c.address or '' }}{% if c.city %}, {{ c.city }}{% endif %}{% if c.postcode %} {{ c.postcode }}{% endif %}{% if c.state %}, {{ c.state }}{% endif %}"
+            data-sst="{{ c.sst_reg_no or '' }}" data-tin="{{ c.tin or '' }}" data-name="{{ c.name }}">
+            {{ c.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s=='Draft' }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Bill to name *</label>
+        <input type="text" id="bill_to_name" name="bill_to_name" class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Bill to address</label>
+        <input type="text" id="bill_to_address" name="bill_to_address" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Project / Programme Title <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" id="project_title" name="project_title" class="form-control" placeholder="e.g. Making an Effective PowerPoint Presentation">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Employer</label>
+        <input type="text" name="employer" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Grant ID</label>
+        <input type="text" name="grant_id" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Invoice date</label>
+        <input type="date" name="invoice_date" class="form-control" value="{{ today }}">
+        <small class="text-muted">Due date is set automatically to 30 days after this date.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Currency</label>
+        <input type="text" name="currency" class="form-control" value="RM">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">SST Registration No. (buyer)</label>
+        <input type="text" id="sst_reg_no" name="sst_reg_no" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Buyer TIN (LHDN e-Invoice)</label>
+        <input type="text" id="buyer_tin" name="buyer_tin" class="form-control">
+      </div>
+    </div>
+
+    <hr>
+    <h6>Line Items</h6>
+    <div class="table-responsive">
+      <table class="table table-sm" id="items-table">
+        <thead><tr>
+          <th style="width:18%">Description</th><th>From enrollment (optional)</th>
+          <th>Venue <span class="text-muted fw-normal">(optional)</span></th>
+          <th>Date <span class="text-muted fw-normal">(optional)</span></th>
+          <th>End date <span class="text-muted fw-normal">(optional)</span></th>
+          <th>No. of Pax</th><th style="width:11%">Duration</th><th>Unit price (RM)</th><th></th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td><input type="text" name="item_description" class="form-control form-control-sm" placeholder="e.g. Training"></td>
+            <td>
+              <select name="item_enrollment_id" class="form-select form-select-sm">
+                <option value="">—</option>
+                {% for e in open_enrollments %}
+                <option value="{{ e.id }}" data-desc="{{ e.course_title }} — {{ e.participant_name }}" data-price="{{ e.amount }}">{{ e.course_title }} — {{ e.participant_name }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="text" name="item_venue" class="form-control form-control-sm"></td>
+            <td><input type="date" name="item_date" class="form-control form-control-sm"></td>
+            <td><input type="date" name="item_date_end" class="form-control form-control-sm"></td>
+            <td><input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm" value="1"></td>
+            <td>
+              <div class="input-group input-group-sm">
+                <input type="number" step="1" min="0" name="item_duration" class="form-control" value="1">
+                <span class="input-group-text">day(s)</span>
+              </div>
+            </td>
+            <td><input type="number" step="0.01" min="0" name="item_unit_price" class="form-control form-control-sm" value="0"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="add-row">+ Add line item</button>
+
+    <hr>
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">SST Rate (%)</label>
+        <input type="number" step="0.01" min="0" name="sst_rate" class="form-control" value="0">
+      </div>
+      <div class="col-md-9">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="1"></textarea>
+      </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Invoice</button>
+      <a href="{{ url_for('invoices.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+document.getElementById('company_id').addEventListener('change', function () {
+  const opt = this.options[this.selectedIndex];
+  document.getElementById('bill_to_name').value = opt.dataset.name || '';
+  document.getElementById('bill_to_address').value = opt.dataset.address || '';
+  document.getElementById('sst_reg_no').value = opt.dataset.sst || '';
+  document.getElementById('buyer_tin').value = opt.dataset.tin || '';
+});
+
+function fillFromClass() {
+  const sel = document.getElementById('session_id');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) { return; }
+
+  if (opt.dataset.companyId) {
+    const companySelect = document.getElementById('company_id');
+    companySelect.value = opt.dataset.companyId;
+    companySelect.dispatchEvent(new Event('change'));
+  } else if (opt.dataset.clientName) {
+    document.getElementById('bill_to_name').value = opt.dataset.clientName;
+  }
+  document.getElementById('project_title').value = opt.dataset.courseTitle || '';
+
+  const firstRow = document.querySelector('#items-table tbody tr');
+  firstRow.querySelector('input[name="item_description"]').value = opt.dataset.courseTitle || '';
+  firstRow.querySelector('input[name="item_venue"]').value = opt.dataset.venue || '';
+  firstRow.querySelector('input[name="item_date"]').value = opt.dataset.date || '';
+  firstRow.querySelector('input[name="item_date_end"]').value = opt.dataset.dateEnd || '';
+  firstRow.querySelector('input[name="item_unit_price"]').value = opt.dataset.price || 0;
+  firstRow.querySelector('input[name="item_quantity"]').value = 1;
+  firstRow.querySelector('input[name="item_duration"]').value = 1;
+}
+document.getElementById('session_id').addEventListener('change', fillFromClass);
+if (document.getElementById('session_id').value) { fillFromClass(); }
+
+function rowTemplate() {
+  const tbody = document.querySelector('#items-table tbody');
+  const first = tbody.querySelector('tr').cloneNode(true);
+  first.querySelectorAll('input').forEach(i => i.value = (i.name === 'item_quantity' || i.name === 'item_duration') ? 1 : (i.name === 'item_unit_price' ? 0 : ''));
+  first.querySelector('select[name="item_enrollment_id"]').selectedIndex = 0;
+  return first;
+}
+document.getElementById('add-row').addEventListener('click', function () {
+  document.querySelector('#items-table tbody').appendChild(rowTemplate());
+});
+document.querySelector('#items-table').addEventListener('click', function (e) {
+  if (e.target.classList.contains('remove-row')) {
+    const rows = document.querySelectorAll('#items-table tbody tr');
+    if (rows.length > 1) e.target.closest('tr').remove();
+  }
+});
+document.querySelector('#items-table').addEventListener('change', function (e) {
+  if (e.target.name === 'item_enrollment_id' && e.target.value) {
+    const opt = e.target.options[e.target.selectedIndex];
+    const row = e.target.closest('tr');
+    row.querySelector('input[name="item_description"]').value = opt.dataset.desc || '';
+    row.querySelector('input[name="item_unit_price"]').value = opt.dataset.price || 0;
+  }
+});
+</script>
+{% endblock %}

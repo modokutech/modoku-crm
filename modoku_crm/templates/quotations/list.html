@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Quotations{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h4 class="mb-0">Quotations</h4>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('quotations.export') }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('quotations.new') }}" class="btn btn-success">+ New Quotation</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>Quote No</th>
+          <th>Client</th>
+          <th>Course / Programme</th>
+          <th>Date</th>
+          <th class="text-end">Amount</th>
+          <th>Status</th>
+          <th>Created by</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in quotes %}
+        <tr>
+          <td><a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="link-plain fw-semibold">{{ q.quote_no }}</a></td>
+          <td>{{ q.company_name_override or q.client_company_name or '-' }}</td>
+          <td>{{ q.course_title or '-' }}</td>
+          <td>{{ q.quote_date|fmtdate }}</td>
+          <td class="text-end">RM {{ (q.subtotal * (1 + (q.sst_rate or 0) / 100))|fmtmoney }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if q.status == 'Accepted' %}bg-success
+              {% elif q.status == 'Rejected' %}bg-danger
+              {% elif q.status == 'Follow-up' %}bg-danger
+              {% elif q.status == 'Sent' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">{% if q.status == 'Follow-up' %}<span class="badge-pulse-dot"></span>{% endif %}{{ q.status }}</span>
+          </td>
+          <td>{{ q.created_by_name or '-' }}</td>
+          <td class="text-end"><a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="btn btn-sm btn-outline-secondary">View</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No quotations yet — create one to get started.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

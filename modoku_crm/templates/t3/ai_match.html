@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}AI Match Attendance — {{ s.course_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">AI Match Attendance</h4>
+    <small class="text-muted">{{ s.course_title }} &middot; {{ s.start_date|fmtdate }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Back to Attendance List</a>
+  </div>
+</div>
+
+{% if not ai_configured %}
+<div class="card p-4 text-center">
+  <i class="bi bi-robot text-muted" style="font-size:2.5rem"></i>
+  <h6 class="mt-2">AI attendance matching isn't set up yet</h6>
+  <p class="text-muted small mb-0">
+    An admin needs to add an <code>ANTHROPIC_API_KEY</code> — see the README's "Setting up AI
+    attendance matching" section. Once it's on, a returned photo marks attendance by itself, with
+    no manual step. Until then, cross-check the returned photo(s) and tick names by hand from the
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a> as usual.
+  </p>
+</div>
+{% elif not returns %}
+<div class="card p-4 text-center">
+  <i class="bi bi-camera text-muted" style="font-size:2.5rem"></i>
+  <h6 class="mt-2">No returned photos yet</h6>
+  <p class="text-muted small mb-0">
+    The moment the trainer submits a photo via their return link, it's read, cross-checked against
+    this class, and matched automatically — attendance gets marked (and certificates generated)
+    with no extra click. This page is just here if you ever want to check what happened.
+  </p>
+</div>
+{% else %}
+
+<p class="small text-muted mb-3">
+  <i class="bi bi-check2-circle text-success me-1"></i>Attendance from a returned photo is marked
+  automatically as soon as it's submitted — nothing below needs action unless a row is flagged.
+  {% if multi_day %}This class runs more than one day, so each photo below only covers the one
+  training day it was read as being for.{% endif %}
+</p>
+
+<div class="card p-3 mb-3 d-flex flex-row justify-content-between align-items-center flex-wrap gap-2">
+  <p class="small text-muted mb-0">
+    {{ returns|length }} photo(s) submitted.
+    {% if unanalyzed_count %}{{ unanalyzed_count }} not read yet.{% else %}All read.{% endif %}
+  </p>
+  <form method="post" action="{{ url_for('t3.ai_match_run', session_id=s.id) }}">
+    {{ csrf_field()|safe }}
+    <button class="btn btn-sm btn-outline-success" type="submit">
+      <i class="bi bi-arrow-repeat me-1"></i>{{ 'Read New Photo(s)' if unanalyzed_count else 'Re-check Photos' }}
+    </button>
+  </form>
+</div>
+
+{% if photos %}
+{% for photo in photos %}
+<div class="card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+    <p class="small mb-0">
+      <i class="bi bi-image me-1"></i><strong>{{ photo.original_name or 'Photo' }}</strong>
+      {% if photo.training_date %}
+        <span class="text-muted">— {{ photo.training_date|fmtdate }}</span>
+      {% endif %}
+    </p>
+  </div>
+
+  {% if photo.mismatch %}
+  <div class="alert alert-warning small mb-0">
+    <i class="bi bi-exclamation-triangle me-1"></i><strong>Not auto-marked — check this photo.</strong>
+    {{ photo.mismatch_reason }}
+    {% if photo.detected_title %}<br><span class="text-muted">Sheet reads: “{{ photo.detected_title }}”{% if photo.detected_date %}, {{ photo.detected_date }}{% endif %}</span>{% endif %}
+    <br>Once you've confirmed it's the right sheet, cross-check and tick names by hand on the
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>.
+  </div>
+  {% elif photo.suggestions %}
+  {% set needs_attention = photo.suggestions|selectattr('already_attended', 'equalto', False)|list %}
+  <form method="post" action="{{ url_for('t3.confirm_day_attendance') }}">
+    {{ csrf_field()|safe }}
+    <input type="hidden" name="session_id" value="{{ s.id }}">
+    <input type="hidden" name="training_date" value="{{ photo.training_date }}">
+    <table class="table table-sm align-middle mb-2">
+      <thead><tr>
+        <th style="width:2.2rem"></th>
+        <th>Name read from photo</th>
+        <th>Matched participant</th>
+        <th>Confidence</th>
+        <th>Status</th>
+      </tr></thead>
+      <tbody>
+      {% for row in photo.suggestions %}
+      <tr class="{{ '' if row.participant_id else 'table-warning' }}">
+        <td>
+          {% if row.participant_id and not row.already_attended %}
+          <input type="checkbox" name="participant_ids" value="{{ row.participant_id }}" class="form-check-input" checked>
+          {% endif %}
+        </td>
+        <td>{{ row.extracted }}</td>
+        <td>
+          {% if row.participant_name %}
+            {{ row.participant_name }}
+          {% else %}
+            <span class="text-muted">No confident match — check by hand on the <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a></span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.participant_id %}
+            <span class="badge bg-{{ 'success' if row.confidence >= 0.85 else 'warning text-dark' }}">{{ (row.confidence * 100)|round|int }}%</span>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.already_attended %}
+            <span class="text-success small"><i class="bi bi-robot me-1"></i>Auto-marked</span>
+          {% elif row.participant_id %}
+            <span class="text-muted small">Below auto threshold — confirm below</span>
+          {% else %}
+            <span class="text-muted small">Needs manual match</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if needs_attention %}
+    <button class="btn btn-success btn-sm" type="submit">
+      <i class="bi bi-check2-circle me-1"></i>Mark Checked as Attended{{ ' for ' ~ photo.training_date|fmtdate if multi_day }}
+    </button>
+    {% else %}
+    <p class="small text-muted mb-0"><i class="bi bi-check2-all text-success me-1"></i>Everything readable from this photo was already auto-marked — nothing left to confirm.</p>
+    {% endif %}
+  </form>
+  {% else %}
+  <p class="text-muted small mb-0">
+    <i class="bi bi-exclamation-triangle me-1"></i>No names could be read from this photo — the
+    image may be unclear or blank. Cross-check it yourself and tick names by hand on the
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>.
+  </p>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endblock %}

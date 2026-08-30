@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ person.name }} — Sales Performance{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ person.name }}</h4>
+    <small class="text-muted"><a href="{{ url_for('sales_performance.index') }}" class="link-plain">← Back to Sales Performance</a></small>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Invoices Raised</div>
+      <div class="stat-value">{{ rows|length }}</div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Total Revenue (RM)</div>
+      <div class="stat-value">{{ total_amount|fmtmoney }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6>Invoices</h6>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Invoice No.</th><th>Date</th><th>Status</th><th class="text-end">Total (RM)</th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td><a href="{{ url_for('invoices.view', invoice_id=r.id) }}" class="link-plain fw-semibold">{{ r.invoice_no }}</a></td>
+          <td>{{ r.invoice_date|fmtdate }}</td>
+          <td>{{ r.status }}</td>
+          <td class="text-end">{{ r.total|fmtmoney }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No invoices for this salesperson yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

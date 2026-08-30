@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ hotel.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ hotel.name }}</h4>
+    <small class="text-muted">{{ hotel.location or 'No location set' }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('hotels.edit', hotel_id=hotel.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    <form method="post" action="{{ url_for('hotels.delete', hotel_id=hotel.id) }}" onsubmit="return confirm('Delete this hotel?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-outline-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6>Contact Person</h6>
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted" style="width:40%">Name</td><td>{{ hotel.contact_name or '-' }}</td></tr>
+        <tr><td class="text-muted">Position</td><td>{{ hotel.contact_position or '-' }}</td></tr>
+        <tr><td class="text-muted">Phone</td><td>{{ hotel.contact_phone or '-' }}</td></tr>
+        <tr><td class="text-muted">Email</td><td>{{ hotel.contact_email or '-' }}</td></tr>
+      </table>
+    </div>
+
+    <div class="card p-3 mt-3">
+      <h6>Rate per Day</h6>
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted" style="width:40%">Full-day Package</td><td>{{ 'RM ' ~ (hotel.rate_full_day|fmtmoney) if hotel.rate_full_day else '-' }}</td></tr>
+        <tr><td class="text-muted">Half-day Package</td><td>{{ 'RM ' ~ (hotel.rate_half_day|fmtmoney) if hotel.rate_half_day else '-' }}</td></tr>
+        <tr><td class="text-muted">{{ hotel.rate_others_label or 'Others' }}</td><td>{{ 'RM ' ~ (hotel.rate_others_amount|fmtmoney) if hotel.rate_others_amount else '-' }}</td></tr>
+        <tr><td class="text-muted">Minimum Pax</td><td>{{ hotel.minimum_pax or '-' }}</td></tr>
+      </table>
+      {% if hotel.notes %}<hr><p class="small mb-0">{{ hotel.notes }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6>Capacity by Room / Hall</h6>
+      {% if capacities %}
+      <table class="table table-sm">
+        <thead><tr><th>Room / Hall</th><th class="text-end">Pax Capacity</th></tr></thead>
+        <tbody>
+        {% for cap in capacities %}
+          <tr><td>{{ cap.room_name }}</td><td class="text-end">{{ cap.pax_capacity or '-' }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-muted small mb-0">No rooms/halls added yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Order{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">New Purchase Order</h4></div>
+
+{% if conflicts %}
+<div class="alert alert-danger">
+  <strong>Heads up — possible double-booking.</strong> This trainer already has a Sent/Confirmed
+  purchase order overlapping these dates:
+  <ul class="mb-0 mt-1">
+    {% for c in conflicts %}
+    <li>{{ c.po_no }} — {{ c.course_title }} ({{ c.start_date|fmtdate }}{% if c.end_date and c.end_date != c.start_date %} to {{ c.end_date|fmtdate }}{% endif %}) — {{ c.status }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="card p-4" style="max-width:960px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Trainer *</label>
+        <select name="trainer_id" id="trainer_select" class="form-select" required>
+          <option value="">Select trainer</option>
+          {% for t in trainers %}
+          <option value="{{ t.id }}" data-rate="{{ t.rate_per_day or 0 }}" {{ 'selected' if preselect_trainer == t.id }}>{{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Class Session *</label>
+        <select name="session_id" id="session_select" class="form-select" required>
+          <option value="">Select session</option>
+          {% for s in sessions %}
+          <option value="{{ s.id }}" data-duration="{{ s.duration_days or 1 }}" {{ 'selected' if preselect_session == s.id }}>{{ s.title }} — {{ s.start_date|fmtdate }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted">Only create a PO once the client has confirmed the date.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Fee Amount</label>
+        <input type="number" step="0.01" min="0" name="fee_amount" id="fee_amount" class="form-control" value="0">
+        <small class="text-muted">Auto-prefilled from the trainer's rate per day × course duration — feel free to override.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Currency</label>
+        <input type="text" name="currency" class="form-control" value="RM">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s=='Draft' }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Issue date</label>
+        <input type="date" name="issue_date" class="form-control" value="{{ today }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Terms &amp; Conditions</label>
+        <textarea name="terms" class="form-control" rows="5">{{ default_terms }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Trainer's Responsibilities</label>
+        <textarea name="trainer_responsibilities" class="form-control" rows="8">{{ default_responsibilities }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Additional Documents</label>
+        <input type="file" name="documents" class="form-control" multiple>
+        <small class="text-muted">Max 2 MB per file.</small>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes (internal only)</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+      </div>
+      {% if conflicts %}
+      <div class="col-12 form-check">
+        <input type="checkbox" name="confirm_despite_conflict" class="form-check-input" id="confirm_conflict" value="1">
+        <label class="form-check-label" for="confirm_conflict">I understand there's a date conflict — create this PO anyway.</label>
+      </div>
+      {% endif %}
+    </div>
+
+    <hr>
+    <h6>Additional Items <span class="text-muted small fw-normal">(optional — materials, transport, per-diem, etc., on top of the trainer fee above)</span></h6>
+    <div class="table-responsive">
+      <table class="table table-sm" id="items-table">
+        <thead><tr><th style="width:50%">Description</th><th>Qty</th><th>Unit price (RM)</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><input type="text" name="item_description" class="form-control form-control-sm" placeholder="e.g. Training materials"></td>
+            <td><input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm" value="1"></td>
+            <td><input type="number" step="0.01" min="0" name="item_unit_price" class="form-control form-control-sm" value="0"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add item</button>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Purchase Order</button>
+      <a href="{{ url_for('purchase_orders.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function rowTemplate() {
+  const tbody = document.querySelector('#items-table tbody');
+  const first = tbody.querySelector('tr').cloneNode(true);
+  first.querySelectorAll('input').forEach(i => i.value = i.name === 'item_quantity' ? 1 : (i.name === 'item_unit_price' ? 0 : ''));
+  return first;
+}
+document.getElementById('add-row').addEventListener('click', function () {
+  document.querySelector('#items-table tbody').appendChild(rowTemplate());
+});
+document.querySelector('#items-table').addEventListener('click', function (e) {
+  if (e.target.classList.contains('remove-row')) {
+    const rows = document.querySelectorAll('#items-table tbody tr');
+    if (rows.length > 1) e.target.closest('tr').remove();
+  }
+});
+
+// Auto-prefill the fee amount from the selected trainer's Rate Per Day x the
+// selected session's course duration (days) — e.g. RM 1,000/day x 2 days = RM 2,000.
+(function () {
+  const trainerSelect = document.getElementById('trainer_select');
+  const sessionSelect = document.getElementById('session_select');
+  const feeInput = document.getElementById('fee_amount');
+  let feeTouchedManually = false;
+
+  feeInput.addEventListener('input', function () { feeTouchedManually = true; });
+
+  function updateFee() {
+    if (feeTouchedManually) return;
+    const rate = parseFloat(trainerSelect.selectedOptions[0]?.dataset.rate || '0');
+    const duration = parseFloat(sessionSelect.selectedOptions[0]?.dataset.duration || '0');
+    if (rate > 0 && duration > 0) {
+      feeInput.value = (rate * duration).toFixed(2);
+      feeTouchedManually = false; // programmatic change shouldn't count as "manual"
+    }
+  }
+  trainerSelect.addEventListener('change', updateFee);
+  sessionSelect.addEventListener('change', updateFee);
+  updateFee();
+})();
+</script>
+{% endblock %}

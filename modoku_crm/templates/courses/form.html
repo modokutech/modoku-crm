@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Course' if course else 'New Course' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Course' if course else 'New Course' }}</h4></div>
+<div class="card p-4" style="max-width:700px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Course code</label>
+        <input type="text" name="code" class="form-control" value="{{ (course.code or '') if course else '' }}" placeholder="e.g. HR-101">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">Title *</label>
+        <input type="text" name="title" class="form-control" required value="{{ (course.title or '') if course else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Category</label>
+        <input type="text" name="category" class="form-control" value="{{ (course.category or '') if course else '' }}" placeholder="e.g. Leadership, IT, Compliance">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Duration (days)</label>
+        <input type="number" step="0.5" min="0.5" name="duration_days" class="form-control" value="{{ course.duration_days if course else 1 }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">In-house Price (RM) *</label>
+        <input type="number" step="0.01" min="0" name="price_inhouse" class="form-control" required value="{{ course.price_inhouse if course else 0 }}">
+      </div>
+      <div class="col-md-5">
+        <label class="form-label">Public Price (RM, per pax per day) *</label>
+        <input type="number" step="0.01" min="0" name="price_public" class="form-control" required value="{{ course.price_public if course else 0 }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">HRDCorp Programme No.</label>
+        <input type="text" name="hrdcorp_programme_no" class="form-control" value="{{ (course.hrdcorp_programme_no or '') if course else '' }}" placeholder="e.g. 10001112345">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Description</label>
+        <textarea name="description" class="form-control" rows="3">{{ (course.description or '') if course else '' }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Course Outline {% if not (course and course.outline_file) %}*{% endif %}</label>
+        <input type="file" name="outline_file" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx" {% if not (course and course.outline_file) %}required{% endif %}>
+        {% if course and course.outline_file %}
+        <small class="text-muted">Currently on file: <a href="{{ url_for('courses.download_outline', course_id=course.id) }}" target="_blank">view current file</a> — choosing a new one will replace it. Max 2 MB.</small>
+        {% else %}
+        <small class="text-muted">Required — used for the HRDCorp Grant Documents on each class of this course. Max 2 MB.</small>
+        {% endif %}
+      </div>
+      <div class="col-md-6 form-check ms-1 mt-2">
+        <input type="checkbox" name="hrdf_claimable" class="form-check-input" id="hrdf" {{ 'checked' if course and course.hrdf_claimable }}>
+        <label class="form-check-label" for="hrdf">HRDCorp claimable course</label>
+      </div>
+      {% if course %}
+      <div class="col-12 form-check ms-1 mt-2">
+        <input type="checkbox" name="active" class="form-check-input" id="active" {{ 'checked' if course.active }}>
+        <label class="form-check-label text-nowrap" for="active">Active (visible for new sessions/enrollments)</label>
+      </div>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Course</button>
+      <a href="{{ url_for('courses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

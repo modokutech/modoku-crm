@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Link Not Found{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <div class="mb-2"><i class="bi bi-exclamation-triangle text-warning" style="font-size:2.5rem"></i></div>
+    <h5 class="fw-semibold mb-2">Link Not Found</h5>
+    <p class="small text-muted mb-0">
+      This link isn't valid. Please check the email again, or contact us at
+      <a href="mailto:hello@modoku.tech">hello@modoku.tech</a> for a new one.
+    </p>
+  </div>
+</div>
+{% endblock %}

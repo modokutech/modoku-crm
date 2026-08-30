@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}T3 Attendance List — {{ s.course_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">T3 Attendance List</h4>
+    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdate }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-robot me-1"></i>AI Match Attendance
+    </a>
+    <a href="{{ url_for('sessions.t3_attendance_form', session_id=s.id) }}" class="btn btn-sm btn-outline-success" target="_blank">
+      <i class="bi bi-printer me-1"></i>Print T3 Attendance Form
+    </a>
+    <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Back to Class</a>
+  </div>
+</div>
+
+<p class="text-muted small">
+  This list is just for the printed HRDCorp T3 attendance sheet for this training day — it's kept
+  separate from your Enrolled Participants list, so names here don't affect enrollment counts,
+  invoicing, or HRDF claim tracking.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card p-3 mb-3">
+      <h6>Add Participant</h6>
+      <form method="post" action="{{ url_for('t3.add', session_id=s.id) }}">
+        {{ csrf_field()|safe }}
+        <div class="mb-2">
+          <label class="form-label small">Name *</label>
+          <input type="text" name="name" class="form-control form-control-sm" required>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small">IC No.</label>
+            <input type="text" name="ic_no" class="form-control form-control-sm">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Gender</label>
+            <select name="gender" class="form-select form-select-sm">
+              <option value="">—</option>
+              {% for g in genders %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small">Employer</label>
+            <input type="text" name="employer_name" class="form-control form-control-sm">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Citizenship</label>
+            <select name="citizenship" class="form-select form-select-sm">
+              {% for c in citizenships %}<option value="{{ c }}" {{ 'selected' if c == 'Malaysian' }}>{{ c }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-success btn-sm w-100" type="submit">Add</button>
+      </form>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <h6>Bulk Add — Paste</h6>
+      <form method="post" action="{{ url_for('t3.bulk_add', session_id=s.id) }}">
+        {{ csrf_field()|safe }}
+        <textarea name="bulk_text" class="form-control mb-2" rows="6" placeholder="Ahmad bin Ali, 900101-14-5566, Nusantara Sdn Bhd, M
+Siti binti Hassan, 920315-08-1122, Nusantara Sdn Bhd, F
+Ravi Kumar" required></textarea>
+        <small class="text-muted d-block mb-2">One per line: <strong>Name, IC No., Employer, Gender</strong> — only Name is required.</small>
+        <button class="btn btn-outline-success btn-sm w-100" type="submit">Add Pasted Names</button>
+      </form>
+    </div>
+
+    <div class="card p-3">
+      <h6>Bulk Add — Upload CSV</h6>
+      <form method="post" action="{{ url_for('t3.csv_upload', session_id=s.id) }}" enctype="multipart/form-data">
+        {{ csrf_field()|safe }}
+        <input type="file" name="csv_file" class="form-control form-control-sm mb-2" accept=".csv" required>
+        <small class="text-muted d-block mb-2">Columns (header row optional): <strong>Name, IC No, Employer, Gender, Citizenship</strong>. Max 2 MB.</small>
+        <button class="btn btn-outline-success btn-sm w-100" type="submit">Upload CSV</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card p-3">
+      <h6 class="mb-2">Participants ({{ participants|length }})</h6>
+      {% if participants %}
+      <form id="bulkForm" method="post">
+        {{ csrf_field()|safe }}
+        <input type="hidden" name="session_id" value="{{ s.id }}">
+        <div class="d-flex align-items-center gap-2 mb-2 bulk-actions-bar flex-wrap">
+          <span class="text-muted small" id="selectedCount">0 selected</span>
+          <button type="submit" formaction="{{ url_for('t3.bulk_attended') }}" name="attended" value="1"
+                  class="btn btn-sm btn-outline-success ms-auto">
+            <i class="bi bi-check-circle me-1"></i>Mark Attended
+          </button>
+          <button type="submit" formaction="{{ url_for('t3.bulk_attended') }}" name="attended" value="0"
+                  class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle me-1"></i>Unmark
+          </button>
+          <button type="submit" formaction="{{ url_for('t3.bulk_delete') }}" class="btn btn-sm btn-outline-danger"
+                  onclick="return confirm('Remove all selected participants from the attendance list?');">
+            <i class="bi bi-trash me-1"></i>Delete Selected
+          </button>
+        </div>
+        <p class="small text-muted">
+          Cross-check against the returned/signed attendance form, then tick and mark who actually attended.
+          {% if total_days > 1 %}
+          This class runs {{ total_days }} days — a participant needs every day covered (shown as
+          "X/{{ total_days }} Days" below) before they're certificate-eligible; ticking
+          <strong>Mark Attended</strong> here certifies all {{ total_days }} days at once.
+          {% endif %}
+          Only fully-attended participants below will be able to claim their e-Certificate at
+          <a href="{{ url_for('certificates.lookup', _external=True) }}" target="_blank">{{ url_for('certificates.lookup', _external=True) }}</a>
+          using their training start date and IC number.
+        </p>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr>
+              <th style="width:2.2rem"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+              <th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th><th>Citizenship</th><th>Attended</th><th></th>
+            </tr></thead>
+            <tbody>
+            {% for row in participants %}
+            {% set p = row.p %}
+            <tr>
+              <td><input type="checkbox" name="participant_ids" value="{{ p.id }}" class="form-check-input row-check"></td>
+              <td style="cursor:pointer" onclick="window.location='{{ url_for('t3.edit', participant_id=p.id) }}'">{{ p.name }}</td>
+              <td class="small">{{ p.ic_no or '-' }}</td>
+              <td class="small">{{ p.employer_name or '-' }}</td>
+              <td class="small">{{ p.gender or '-' }}</td>
+              <td class="small">{{ p.citizenship or 'Malaysian' }}</td>
+              <td>
+                {% if total_days > 1 %}
+                  {% if p.attended %}<span class="badge bg-success">{{ row.days_done }}/{{ total_days }} Days</span>
+                  {% elif row.days_done > 0 %}<span class="badge bg-warning text-dark">{{ row.days_done }}/{{ total_days }} Days</span>
+                  {% else %}<span class="badge bg-light text-muted border">—</span>{% endif %}
+                {% else %}
+                  {% if p.attended %}<span class="badge bg-success">Attended</span>
+                  {% else %}<span class="badge bg-light text-muted border">—</span>{% endif %}
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <button type="submit" formaction="{{ url_for('t3.delete', participant_id=p.id) }}"
+                        class="btn btn-sm btn-outline-danger" title="Remove"
+                        onclick="return confirm('Remove this participant from the attendance list?');">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </form>
+      {% else %}<p class="text-muted mb-0 small">No participants on the attendance list yet — add them individually, paste a list, or upload a CSV.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const selectAll = document.getElementById('selectAll');
+  const rowChecks = document.querySelectorAll('.row-check');
+  const countLabel = document.getElementById('selectedCount');
+  if (!selectAll) return;
+
+  function updateCount() {
+    const n = document.querySelectorAll('.row-check:checked').length;
+    countLabel.textContent = n + ' selected';
+  }
+  selectAll.addEventListener('change', function () {
+    rowChecks.forEach(cb => { cb.checked = selectAll.checked; });
+    updateCount();
+  });
+  rowChecks.forEach(cb => cb.addEventListener('change', updateCount));
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Activity Heatmap — {{ year }}{% endblock %}
+{% block content %}
+<style>
+  .heatmap-cell {
+    width: 11px; height: 11px; border-radius: 2px; background: #ebedf0;
+  }
+  .heatmap-cell.level-1 { background: #c9e3c6; }
+  .heatmap-cell.level-2 { background: #8fcf89; }
+  .heatmap-cell.level-3 { background: #4fae48; }
+  .heatmap-cell.level-4 { background: var(--brand, #216e2b); }
+  .heatmap-month-label { font-size: .68rem; color: #6c757d; }
+  .heatmap-legend .heatmap-cell { display: inline-block; vertical-align: middle; }
+  .trainer-heat-cell {
+    text-align: center; border-radius: 4px; font-size: .72rem; padding: .25rem 0;
+  }
+  .trainer-heat-cell.level-0 { background: #f3f4f6; color: #adb5bd; }
+  .trainer-heat-cell.level-1 { background: #c9e3c6; }
+  .trainer-heat-cell.level-2 { background: #8fcf89; }
+  .trainer-heat-cell.level-3 { background: #4fae48; color:#fff; }
+  .trainer-heat-cell.level-4 { background: var(--brand, #216e2b); color:#fff; }
+</style>
+
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Activity Heatmap</h4>
+    <small class="text-muted">How busy the year has been — Classes running per day, and training days delivered per trainer.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <form class="d-flex gap-2" method="get">
+      <select name="year" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+        {% for y in available_years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <h6 class="mb-1">Classes</h6>
+  <p class="text-muted small mb-3">Each square is one day of {{ year }}, shaded by how many classes (any status except Cancelled) were running that day.</p>
+  <div style="overflow-x:auto">
+    <div class="d-flex gap-1">
+      {% for week in weeks %}
+      <div class="d-flex flex-column gap-1">
+        {% for cell in week %}
+        <div class="heatmap-cell {{ 'level-' ~ cell.level if cell.in_year else '' }}"
+             style="{{ 'visibility:hidden' if not cell.in_year }}"
+             title="{{ cell.date }}: {{ cell.count }} class{{ 'es' if cell.count != 1 }}"></div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="heatmap-legend small text-muted mt-2">
+    Less
+    <span class="heatmap-cell"></span>
+    <span class="heatmap-cell level-1"></span>
+    <span class="heatmap-cell level-2"></span>
+    <span class="heatmap-cell level-3"></span>
+    <span class="heatmap-cell level-4"></span>
+    More
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6 class="mb-1">Trainers</h6>
+  <p class="text-muted small mb-3">Training days delivered per trainer per month, for {{ year }} — based on Confirmed Purchase Orders (same figure as the Trainer Log).</p>
+  {% if trainer_pivot %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" style="font-size:.8rem">
+      <thead>
+        <tr>
+          <th>Trainer</th>
+          {% for m in month_labels %}<th class="text-center heatmap-month-label">{{ m }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in trainer_pivot %}
+        <tr>
+          <td class="fw-semibold text-nowrap">
+            <a href="{{ url_for('trainer_utilization.detail', trainer_id=t.trainer_id) }}" class="link-plain">{{ t.trainer_name }}</a>
+          </td>
+          {% for cell in t.months %}
+          <td class="p-1">
+            <div class="trainer-heat-cell level-{{ cell.level }}" title="{{ cell.days }} day(s), RM {{ '%.0f'|format(cell.amount) }}">{{ cell.days or '' }}</div>
+          </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No trainers on file yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

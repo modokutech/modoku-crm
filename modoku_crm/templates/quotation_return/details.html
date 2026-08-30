@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Return Signed Quotation{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:460px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Return Signed Quotation</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ q.quote_no }}</div>
+      <div class="small text-muted">{{ q.company_name_override or q.client_company_name or '' }}</div>
+      {% if q.course_title %}<div class="small text-muted">{{ q.course_title }}</div>{% endif %}
+    </div>
+
+    {% if q.signed_received_at %}
+    <div class="alert alert-success small mb-3">
+      <i class="bi bi-check-circle-fill me-1"></i>We've already received your signed copy — thank you!
+      If you need to send an updated copy, you can upload it again below.
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('quotation_return.submit', token=token) }}" enctype="multipart/form-data">
+      {{ csrf_field()|safe }}
+      <div class="mb-3">
+        <label class="form-label">Signed quotation <span class="text-muted small">(PDF or Word doc, max 2 MB)</span></label>
+        <input type="file" name="signed_file" class="form-control" accept=".pdf,.doc,.docx" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Your email <span class="text-muted small">(so we can send you the attendance form &amp; calendar invite)</span></label>
+        <input type="email" name="client_email" class="form-control" value="{{ q.sent_to_email or '' }}" placeholder="you@company.com">
+      </div>
+      <button type="submit" class="btn btn-success w-100"><i class="bi bi-upload me-1"></i>Submit Signed Copy</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

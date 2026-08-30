@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Return Signed JD14 Form{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:460px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Return Signed JD14 Form</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ s.course_title }}</div>
+      <div class="small text-muted">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} – {{ s.end_date|fmtdate }}{% endif %}</div>
+      {% if s.venue %}<div class="small text-muted">{{ s.venue }}</div>{% endif %}
+    </div>
+
+    {% if s.jd14_file %}
+    <div class="alert alert-success small mb-3">
+      <i class="bi bi-check-circle-fill me-1"></i>We've already received a signed copy — thank you!
+      If you need to send an updated copy, you can upload it again below.
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('jd14_return.submit', token=token) }}" enctype="multipart/form-data">
+      {{ csrf_field()|safe }}
+      <div class="mb-3">
+        <label class="form-label">Signed JD14 Form <span class="text-muted small">(one file only — PDF, Word doc, or photo, max 2 MB)</span></label>
+        <input type="file" name="jd14_file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
+      </div>
+      <button type="submit" class="btn btn-success w-100"><i class="bi bi-upload me-1"></i>Submit Signed Copy</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

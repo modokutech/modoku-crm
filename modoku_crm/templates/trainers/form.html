@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Trainer' if trainer else 'New Trainer' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Trainer' if trainer else 'New Trainer' }}</h4></div>
+<div class="card p-4" style="max-width:600px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="mb-3 d-flex align-items-center gap-3">
+      {% if trainer and trainer.avatar_file %}
+      <img src="{{ url_for('trainers.avatar', trainer_id=trainer.id) }}" class="avatar-lg" alt="">
+      {% else %}
+      <span class="avatar-lg avatar-fallback">{{ (trainer.name[:1]|upper) if trainer else '?' }}</span>
+      {% endif %}
+      <div class="flex-grow-1">
+        <label class="form-label">Display picture</label>
+        <input type="file" name="avatar_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        <small class="text-muted">Shown on the trainers list and this page. PNG, JPG or WEBP. Max 2 MB.</small>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Name *</label>
+      <input type="text" name="name" class="form-control" required value="{{ (trainer.name or '') if trainer else '' }}">
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{{ (trainer.email or '') if trainer else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Phone</label>
+        <input type="text" name="phone" class="form-control" value="{{ (trainer.phone or '') if trainer else '' }}">
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Specialization</label>
+        <input type="text" name="specialization" class="form-control" value="{{ (trainer.specialization or '') if trainer else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Rate Per Day (RM)</label>
+        <input type="number" step="0.01" min="0" name="rate_per_day" class="form-control" value="{{ trainer.rate_per_day if trainer else 0 }}">
+        <small class="text-muted">Used to auto-prefill the Purchase Order fee (rate × course duration).</small>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-control" rows="3">{{ (trainer.notes or '') if trainer else '' }}</textarea>
+    </div>
+
+    <hr>
+    <h6 class="text-muted text-uppercase small mb-2">Documents</h6>
+    <p class="small text-muted">Accepted: PDF, Word, or image files. Max 1 MB each.</p>
+    <div class="mb-3">
+      <label class="form-label">Trainer Profile / CV {% if not (trainer and trainer.profile_file) %}*{% endif %}</label>
+      <input type="file" name="profile_file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" {% if not (trainer and trainer.profile_file) %}required{% endif %}>
+      {% if trainer and trainer.profile_file %}
+      <small class="text-muted">Currently on file: <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='profile_file') }}" target="_blank">view current file</a> — choosing a new one will replace it. Max 1 MB.</small>
+      {% else %}
+      <small class="text-muted">Required. Max 1 MB.</small>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Accredited Certificate (e.g. HRDCorp) {% if not (trainer and trainer.accredited_cert_file) %}*{% endif %}</label>
+      <input type="file" name="accredited_cert_file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" {% if not (trainer and trainer.accredited_cert_file) %}required{% endif %}>
+      {% if trainer and trainer.accredited_cert_file %}
+      <small class="text-muted">Currently on file: <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='accredited_cert_file') }}" target="_blank">view current file</a> — choosing a new one will replace it. Max 1 MB.</small>
+      {% else %}
+      <small class="text-muted">Required — used for the HRDCorp Grant Documents on each class this trainer delivers. Max 1 MB.</small>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      <label class="form-label">TTT (Train-the-Trainer) Certificate</label>
+      <input type="file" name="ttt_cert_file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">
+      {% if trainer and trainer.ttt_cert_file %}
+      <small class="text-muted">Currently on file: <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='ttt_cert_file') }}" target="_blank">view current file</a> — choosing a new one will replace it. Max 1 MB.</small>
+      {% else %}
+      <small class="text-muted">Max 1 MB.</small>
+      {% endif %}
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Trainer</button>
+      <a href="{{ url_for('trainers.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

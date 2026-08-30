@@ -1,0 +1,630 @@
+:root {
+  --brand: #0c45a6;
+  --brand-dark: #082e70;
+  --brand-accent: #fbaf17;
+}
+
+html {
+  /* Slightly smaller base size across the whole app (was the 16px default). */
+  font-size: 15px;
+}
+
+body {
+  background: #f4f6f8;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Primary action buttons use the brand blue rather than Bootstrap's default green,
+   so the app reads as one consistent brand rather than mixed colors. */
+.btn-success {
+  --bs-btn-bg: var(--brand);
+  --bs-btn-border-color: var(--brand);
+  --bs-btn-hover-bg: #0a3a8a;
+  --bs-btn-hover-border-color: #0a3a8a;
+  --bs-btn-active-bg: #082e70;
+  --bs-btn-active-border-color: #082e70;
+  --bs-btn-disabled-bg: var(--brand);
+  --bs-btn-disabled-border-color: var(--brand);
+}
+
+.sidebar {
+  width: 250px;
+  min-width: 250px;
+  background: linear-gradient(180deg, var(--brand-dark), var(--brand));
+  color: #fff;
+}
+
+/* The nav list is the only part of the sidebar that scrolls — the logo
+   pane stays pinned at the top and the "Signed in as" footer stays pinned
+   at the bottom, even when there are more nav links than fit the
+   viewport (e.g. the full Admin section). */
+.sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  /* Bootstrap's base .nav class sets flex-wrap: wrap — combined with
+     flex-direction: column (from .flex-column) and this element's
+     constrained height, that wrap causes overflowing items to spill into a
+     NEW COLUMN to the right instead of scrolling vertically, which is
+     exactly the "rest of the tabs go to the right" bug. Force nowrap so
+     the list only ever grows downward, where overflow-y: auto can scroll it. */
+  flex-wrap: nowrap !important;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.85);
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.sidebar .nav-link.active {
+  background: var(--brand-accent);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.sidebar .nav-link:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Section separators in the sidebar — groups CMS / TMS / Reports / Admin
+   items apart so the nav reads as distinct areas of the app rather than
+   one long flat list. */
+.sidebar-nav .nav-section-label {
+  margin-top: 0.6rem;
+  padding: 0.6rem 0.6rem 0.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.sidebar-nav .nav-divider {
+  margin: 0.6rem 0.4rem 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #fff;
+}
+
+/* Sidebar logo pane: breathing room from the top/left edge of the sidebar,
+   plus a subtle bottom border to separate it from the nav below. */
+.brand-pane {
+  padding: 0.85rem 0.75rem 1.1rem;
+  margin: -0.25rem -0.25rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.brand-logo {
+  width: 83px;
+  height: auto;
+  display: block;
+  /* The logo's own orange reads fine on the dark sidebar as-is; a soft
+     drop shadow keeps it legible against the gradient without recoloring it. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+
+/* Small circular avatar shown next to the signed-in user's name at the
+   bottom of the sidebar — a real uploaded photo (users.avatar_file) when
+   there is one, otherwise a plain initial-letter fallback so the layout
+   never depends on whether staff have uploaded a display picture. */
+.sidebar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sidebar-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-accent);
+  color: #1a1a1a;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.brand-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--brand-accent);
+  color: #1a1a1a;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content-area {
+  max-width: 100%;
+}
+
+.card {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card {
+  border-radius: 16px;
+  color: #fff;
+  padding: 1.75rem 1.85rem;
+  min-height: 148px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card .stat-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.text-white-75 {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.stat-card .stat-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0.2rem 0;
+}
+
+/* Bright backgrounds (e.g. the brand yellow) need dark text to stay
+   readable — same pairing already used for the active sidebar pill. */
+.stat-card-dark-text {
+  color: #1a1a1a;
+}
+.stat-card-dark-text .stat-label {
+  color: rgba(26, 26, 26, 0.7);
+}
+.stat-card-dark-text .small {
+  color: rgba(26, 26, 26, 0.65) !important;
+}
+
+/* Friendlier welcome banner at the top of the dashboard. */
+.welcome-banner {
+  border-radius: 16px;
+  padding: 1.6rem 2rem;
+  color: #fff;
+  background: linear-gradient(120deg, var(--brand-dark), var(--brand) 65%, #1461d6);
+  box-shadow: 0 8px 20px rgba(12, 69, 166, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-banner::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  top: -60px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(251, 175, 23, 0.18);
+}
+
+.welcome-banner h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.table thead th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  border-bottom-width: 1px;
+}
+
+.badge-status {
+  font-weight: 600;
+  padding: 0.4em 0.7em;
+}
+
+/* Small pulsing dot used inside the "Ongoing" status badge (Classes list)
+   to signal the class is live right now. Uses currentColor so it matches
+   whatever text color the badge already has (e.g. text-dark on bg-warning),
+   and animates scale/opacity rather than a color-dependent box-shadow glow
+   so it works regardless of badge color. */
+@keyframes badge-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.7); opacity: 0.35; }
+}
+.badge-pulse-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 5px;
+  animation: badge-pulse-dot 1.2s ease-in-out infinite;
+}
+
+.badge-brand {
+  background: var(--brand);
+  color: #fff;
+}
+
+.flash-wrap {
+  margin-bottom: 1rem;
+}
+
+.auth-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  /* modoku-bg-gradient.jpg is the actual background on every front-end/guest
+     page; the linear-gradient is a fallback layer only (shown if the
+     image can't load, and briefly while it does) — and on pages that also
+     play auth-bg-video (login), the video sits on top of both. */
+  background-image: url('../img/modoku-bg-gradient.jpg'),
+    linear-gradient(135deg, var(--brand-dark), var(--brand) 60%, var(--brand-accent));
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+}
+
+.auth-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.auth-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+/* T3 (HRDCorp SBL-KHAS) Attendance Form — mimics the official
+   PSMB/SBL-KHAS/T3/01 layout so the printout matches the real form. */
+.t3-form {
+  font-size: 0.92rem;
+}
+
+.t3-box {
+  border: 1px solid #333;
+  padding: 0.6rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.t3-header-row .t3-box:first-child {
+  min-width: 170px;
+}
+
+.t3-header-row .t3-box:last-child {
+  max-width: 280px;
+}
+
+.t3-fill {
+  border-bottom: 1px solid #333;
+}
+
+.t3-table th,
+.t3-table td {
+  border-color: #333 !important;
+  vertical-align: middle;
+}
+
+.t3-table td {
+  height: 2.2rem;
+}
+
+/* Small class-identifying code stamped in the corner of the printed T3
+   form — trainers key this into the public Return Attendance Form page so
+   we know which class a scanned/photographed sheet belongs to. */
+.t3-code-stamp {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.6rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  color: #9aa1ab;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+@media print {
+  .t3-page-break {
+    page-break-before: always;
+  }
+}
+
+.doc-logo {
+  /* +40% from the original 45px, per request for quotations/invoices/POs */
+  width: 63px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+/* Invoice document — modeled on the reference Modoku invoice template:
+   thin gold frame, blue accent labels, a divider-ruled header. */
+.invoice-doc {
+  border: 6px solid var(--brand-accent);
+  padding: 2rem !important;
+}
+.invoice-doc-logo {
+  width: 90px;
+  height: auto;
+}
+.invoice-doc-rule {
+  border-top: 1px solid #d8dce3;
+  opacity: 1;
+  margin: 0.6rem 0;
+}
+.invoice-doc-table thead th {
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid var(--brand);
+}
+.invoice-doc-table td {
+  border-bottom: none;
+  vertical-align: top;
+}
+.invoice-doc-subrow td {
+  padding-top: 0;
+  padding-bottom: 0.75rem;
+}
+.invoice-doc-totals td {
+  border: none;
+  padding: 0.3rem 0.5rem;
+}
+
+@media print {
+  .invoice-doc {
+    border-width: 5px;
+  }
+}
+
+/* Terms & Conditions / Trainer's Responsibilities / Quotation clauses:
+   ~4px smaller than surrounding body text, with auto-numbered/bulleted
+   lines (see the `linelist` Jinja filter) instead of manual <br> entry. */
+.doc-small-text {
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+.doc-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.doc-list li {
+  margin-bottom: 0.35rem;
+}
+.doc-list li:last-child {
+  margin-bottom: 0;
+}
+
+.login-logo {
+  width: 150px;
+  height: auto;
+}
+
+.login-logo-sm {
+  /* +30% from the original 64px, then +30% again per follow-up request */
+  width: 108px;
+  height: auto;
+  /* Extra breathing room below the logo on every public/front-end page —
+     overrides the inline mb-2 utility class those pages use (same
+     specificity, but this rule loads after bootstrap.css so it wins). Set
+     here rather than per-page so it stays consistent everywhere at once. */
+  margin-bottom: 1.25rem !important;
+}
+
+.login-title {
+  /* Bootstrap's h4 is 1.5rem — 30% smaller, Inter Semibold */
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.auth-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 16px;
+}
+
+.avatar-thumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.avatar-fallback {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.avatar-lg.avatar-fallback {
+  font-size: 1.6rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* --- Component shapes borrowed from the reference layout: pill buttons,
+   solid pill status badges, underline tabs, roomier table rows — colors and
+   font stay as already set (brand blue/yellow, Inter). --- */
+
+.btn {
+  border-radius: 50rem;
+  font-weight: 600;
+  padding-left: 1.1rem;
+  padding-right: 1.1rem;
+}
+
+.btn-sm {
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+}
+
+/* Icon-only / tight buttons (pagination, remove-row "x", etc.) keep a normal
+   radius so they don't look like odd tiny pills. */
+.btn-close,
+.remove-row {
+  border-radius: 0.375rem;
+}
+
+.badge-status {
+  border-radius: 50rem;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.45em 0.85em;
+}
+
+.date-group-tag {
+  display: inline-block;
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3f4650;
+  background: #eceff2;
+  margin-bottom: 0.6rem;
+}
+
+/* Keeps schedule-style tables from reflowing when a cell has long text —
+   columns hold their width and overflow text truncates with an ellipsis
+   instead of pushing the next column out of line. */
+.table-fixed-layout {
+  table-layout: fixed;
+}
+
+/* Dashboard summary tables (upcoming sessions, recent leads): row links
+   read as plain text, not underlined hyperlinks. */
+.link-plain {
+  text-decoration: none;
+  color: inherit;
+}
+.link-plain:hover {
+  text-decoration: none;
+  color: var(--brand);
+}
+
+.nav-tabs {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.nav-tabs .nav-link {
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: #6b7280;
+  font-weight: 600;
+  padding: 0.6rem 0.25rem;
+  margin-right: 1.5rem;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-link:hover {
+  color: var(--brand);
+  background: transparent;
+  border-bottom-color: var(--brand);
+}
+
+.table td,
+.table th {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.table > :not(caption) > * > * {
+  border-bottom-color: #eef0f2;
+}
+
+/* Printing (invoices, purchase orders, etc.): show only the document itself —
+   no sidebar nav, no flash messages, no buttons. */
+/* Training Schedule Calendar tab (FullCalendar): the reference design has
+   no underlines anywhere on event/day text or links. */
+.fc,
+.fc a,
+.fc-event,
+.fc-event-title,
+.fc-event-time,
+.fc-daygrid-day-number,
+.fc-col-header-cell-cushion {
+  text-decoration: none !important;
+}
+
+@media print {
+  .sidebar,
+  .flash-wrap,
+  .d-print-none {
+    display: none !important;
+  }
+  main.content-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .card {
+    box-shadow: none !important;
+  }
+}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Submit Your Invoice{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap" style="align-items:flex-start;padding-top:40px;">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:760px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Submit Your Invoice</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ po.po_no }}{% if po.description %} — {{ po.description }}{% endif %}</div>
+      {% if po.job_end_date %}<div class="small text-muted">Job completed: {{ po.job_end_date|fmtdate }}</div>{% endif %}
+      <div class="small text-muted">Vendor: {{ po.vendor_name }}</div>
+    </div>
+
+    <p class="small text-muted">This job has now finished — please upload your invoice below (and
+      any claim documents, if you have separate files). PDF, Word, or Excel files only; you can select more
+      than one file at once, and you can come back to add more later if needed.</p>
+
+    {% if documents %}
+    <div class="mb-3">
+      <p class="small fw-semibold mb-1">Already submitted</p>
+      <ul class="list-unstyled small mb-0">
+        {% for doc in documents %}
+        <li class="mb-1"><i class="bi bi-file-earmark-check text-success me-1"></i>{{ doc.original_name }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('vendor_invoice.submit', token=token) }}" enctype="multipart/form-data">
+      {{ csrf_field()|safe }}
+      <label class="form-label small fw-semibold">Upload invoice / claim document(s)</label>
+      <input type="file" name="invoice_files" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple class="form-control mb-1" required>
+      <small class="text-muted d-block mb-3">Max 2 MB per file.</small>
+      <button class="btn btn-success" type="submit">Submit</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

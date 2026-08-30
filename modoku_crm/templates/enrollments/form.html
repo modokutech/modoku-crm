@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Enrollment' if enrollment else 'New Enrollment' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Enrollment' if enrollment else 'Enroll Participant' }}</h4></div>
+<div class="card p-4" style="max-width:760px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label">Session *</label>
+        <select name="session_id" class="form-select" required>
+          <option value="">Select session</option>
+          {% for s in sessions %}
+          <option value="{{ s.id }}"
+            {{ 'selected' if (enrollment and enrollment.session_id == s.id) or (not enrollment and preselect_session == s.id) }}>
+            {{ s.title }} — {{ s.start_date|fmtdate }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          {% for st in statuses %}
+          <option value="{{ st }}" {{ 'selected' if enrollment and enrollment.status == st }}>{{ st }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12"><hr class="my-1"></div>
+      <div class="col-md-6">
+        <label class="form-label">Participant name *</label>
+        <input type="text" name="participant_name" class="form-control" required value="{{ (enrollment.participant_name or '') if enrollment else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Email</label>
+        <input type="email" name="participant_email" class="form-control" value="{{ (enrollment.participant_email or '') if enrollment else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Phone</label>
+        <input type="text" name="participant_phone" class="form-control" value="{{ (enrollment.participant_phone or '') if enrollment else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">IC No. (NRIC)</label>
+        <input type="text" name="ic_no" class="form-control" placeholder="e.g. 900101-14-5566" value="{{ (enrollment.ic_no or '') if enrollment else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Gender</label>
+        <select name="gender" class="form-select">
+          <option value="">—</option>
+          {% for g in genders %}
+          <option value="{{ g }}" {{ 'selected' if enrollment and enrollment.gender == g }}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Citizenship</label>
+        <select name="citizenship" class="form-select">
+          {% for c in citizenships %}
+          <option value="{{ c }}" {{ 'selected' if (enrollment and enrollment.citizenship == c) or (not enrollment and c == 'Malaysian') }}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Linked lead (optional)</label>
+        <select name="lead_id" class="form-select">
+          <option value="">—</option>
+          {% for l in leads %}
+          <option value="{{ l.id }}" {{ 'selected' if enrollment and enrollment.lead_id == l.id }}>{{ l.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Sponsoring company (optional)</label>
+        <select name="company_id" class="form-select">
+          <option value="">—</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}" {{ 'selected' if enrollment and enrollment.company_id == c.id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12"><hr class="my-1"></div>
+      <div class="col-md-4">
+        <label class="form-label">HRDCorp claim status</label>
+        <select name="hrdf_claim_status" class="form-select">
+          {% for h in hrdf_statuses %}
+          <option value="{{ h }}" {{ 'selected' if enrollment and enrollment.hrdf_claim_status == h }}>{{ h }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">HRDCorp claim / grant no.</label>
+        <input type="text" name="hrdf_claim_no" class="form-control" value="{{ (enrollment.hrdf_claim_no or '') if enrollment else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Amount (RM)</label>
+        <input type="number" step="0.01" min="0" name="amount" class="form-control" value="{{ enrollment.amount if enrollment else 0 }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="2">{{ (enrollment.notes or '') if enrollment else '' }}</textarea>
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Enrollment</button>
+      {% if enrollment %}
+      <form method="post" action="{{ url_for('enrollments.delete', enrollment_id=enrollment.id) }}" onsubmit="return confirm('Remove this enrollment?');" class="d-inline">
+        {{ csrf_field()|safe }}
+        <button class="btn btn-outline-danger">Delete</button>
+      </form>
+      {% endif %}
+      <a href="{{ url_for('enrollments.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

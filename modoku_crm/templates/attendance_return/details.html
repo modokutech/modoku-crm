@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Return Attendance Form{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow" style="max-width:440px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Confirm Your Class</h4>
+    </div>
+
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ s.course_title }}</div>
+      <div class="small text-muted">{{ s.start_date|fmtdaterange(s.end_date) }}</div>
+      {% if s.venue %}<div class="small text-muted">{{ s.venue }}</div>{% endif %}
+      {% if s.trainer_name %}<div class="small text-muted">Trainer: {{ s.trainer_name }}</div>{% endif %}
+    </div>
+
+    {% if s.status in ('Ongoing', 'Completed') %}
+    <form method="post" action="{{ url_for('attendance_return.submit', code=code) }}" enctype="multipart/form-data">
+      {{ csrf_field()|safe }}
+      <div class="mb-3">
+        <label class="form-label">Photo(s) of the signed attendance form</label>
+        <input type="file" name="photos" class="form-control" accept="image/*,.pdf" capture="environment" multiple required>
+        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet — you can select several at once. Max 2 MB per photo.</small>
+        <small class="text-warning-emphasis d-block mt-1">
+          <i class="bi bi-camera me-1"></i>Please take a clear photo in good lighting. The system reads
+          it automatically, so a blurry or dark photo may not work.
+        </small>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Note <span class="text-muted small">(optional)</span></label>
+        <input type="text" name="note" class="form-control" placeholder="e.g. Day 2 of 2">
+      </div>
+      <button type="submit" class="btn btn-success w-100"><i class="bi bi-upload me-1"></i>Submit</button>
+      <a href="{{ url_for('attendance_return.lookup') }}" class="btn btn-outline-secondary w-100 mt-2">Wrong class? Enter a different code</a>
+    </form>
+    {% else %}
+    <div class="alert alert-warning small mb-3">
+      This class hasn't started yet — the attendance form can only be submitted once training is underway or finished.
+    </div>
+    <a href="{{ url_for('attendance_return.lookup') }}" class="btn btn-outline-secondary w-100">Wrong class? Enter a different code</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

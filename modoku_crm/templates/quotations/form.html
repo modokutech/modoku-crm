@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if is_edit else 'New' }} Quotation{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ ('Edit Quotation ' + quotation.quote_no) if is_edit else 'New Quotation' }}</h4></div>
+
+<div class="card p-4" style="max-width:1140px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Class <span class="text-muted small fw-normal">(optional — link a Class to enable the signed-return &amp; T3 form workflow)</span></label>
+        <select name="session_id" id="session_select" class="form-select">
+          <option value="">Not linked to a Class</option>
+          {% for s in linkable_sessions %}
+          <option value="{{ s.id }}" data-course-title="{{ s.course_title }}"
+            data-client-company-id="{{ s.client_company_id or '' }}" data-pic-name="{{ s.pic_name or '' }}"
+            data-venue="{{ s.venue or '' }}"
+            {{ 'selected' if quotation and quotation.session_id == s.id }}>
+            {{ s.course_title }} — {{ s.start_date|fmtdaterange(s.end_date) }} ({{ s.status }})
+          </option>
+          {% endfor %}
+        </select>
+        <small class="text-muted" id="session_help">No suitable Class yet? <a href="{{ url_for('sessions.new') }}" target="_blank">Create one with status "Proposed"</a> first.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Client Company</label>
+        <select name="client_company_id" id="company_select" class="form-select">
+          <option value="">Select company (optional)</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}"
+            data-address="{{ c.address or '' }}" data-phone="{{ c.phone or '' }}"
+            {{ 'selected' if (quotation and quotation.client_company_id == c.id) or preselect_company == c.id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <small class="text-muted" id="company_help"></small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Attention To</label>
+        <select name="attention_to" id="attention_to_select" class="form-select" style="display:none" disabled>
+        </select>
+        <input type="text" name="attention_to" id="attention_to_input" class="form-control"
+               value="{{ quotation.attention_to if quotation else '' }}" placeholder="Contact person's name">
+        <small class="text-muted" id="attention_to_help">Pick a Client Company to choose from its Leads, or type a name directly.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Company Name <span class="text-muted small fw-normal">(override, optional)</span></label>
+        <input type="text" name="company_name_override" id="company_name_override" class="form-control" value="{{ quotation.company_name_override if quotation else '' }}" placeholder="Leave blank to use the selected company's name">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Address</label>
+        <input type="text" name="address" id="address_field" class="form-control" value="{{ quotation.address if quotation else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tel</label>
+        <input type="text" name="tel" id="tel_field" class="form-control" value="{{ quotation.tel if quotation else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Date</label>
+        <input type="date" name="quote_date" class="form-control" value="{{ today }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Ref. No.</label>
+        <input type="text" name="ref_no" class="form-control" value="{{ quotation.ref_no if quotation else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Course / Programme Title</label>
+        <input type="text" name="course_title" id="course_title_field" class="form-control" value="{{ quotation.course_title if quotation else '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Training Mode</label>
+        <select name="training_mode" id="training_mode_select" class="form-select">
+          {% for m in training_modes %}<option value="{{ m }}" {{ 'selected' if (quotation.training_mode if quotation else 'Physical') == m }}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Venue</label>
+        <input type="text" name="venue" id="venue_field" class="form-control" value="{{ quotation.venue if quotation else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Valid Until</label>
+        <input type="date" name="valid_until" id="valid_until_field" class="form-control" value="{{ default_valid_until }}">
+        <small class="text-muted">Defaults to 7 days from the quotation date.</small>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-select">
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if (quotation.status if quotation else 'Draft') == s }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <div class="form-check">
+          <input type="checkbox" name="is_hrdcorp" id="is_hrdcorp" class="form-check-input" value="1" {{ 'checked' if quotation and quotation.is_hrdcorp }}>
+          <label class="form-check-label" for="is_hrdcorp">HRDCorp (SBL-Khas) filename</label>
+        </div>
+      </div>
+      <!-- Hidden for now per Erik's request — field (and the saved value, if any) is untouched, just not shown. -->
+      <div class="col-12" style="display:none">
+        <label class="form-label">Filename / Title <span class="text-muted small fw-normal">(override, optional — otherwise auto-generated)</span></label>
+        <input type="text" name="title_override" class="form-control" value="{{ quotation.title_override if quotation else '' }}"
+               placeholder="e.g. Modoku x Acme Sdn Bhd Quotation — Leadership Course 30.8.2026">
+      </div>
+    </div>
+
+    <hr>
+    <h6>Items</h6>
+    <div class="table-responsive">
+      <table class="table table-sm" id="items-table">
+        <thead><tr><th>No</th><th style="width:16%">Programme</th><th style="width:7%">No of Pax</th><th>Training Type</th><th>Duration</th><th>Date</th><th>End Date <span class="text-muted small fw-normal">(optional)</span></th><th>Time <span class="text-muted small fw-normal">(optional)</span></th><th>Investment Fees (RM)</th><th></th></tr></thead>
+        <tbody>
+          {% if items %}
+          {% for item in items %}
+          {% set item_time_start, item_time_end = item.item_time|default(None)|_split_training_time %}
+          <tr>
+            <td class="row-no">{{ loop.index }}</td>
+            <td><input type="text" name="item_programme" class="form-control form-control-sm" value="{{ item.programme }}"></td>
+            <td><input type="number" min="1" name="item_pax" class="form-control form-control-sm" value="{{ item.no_of_pax }}"></td>
+            <td>
+              <select name="item_training_type" class="form-select form-select-sm">
+                <option value="">-</option>
+                {% for t in training_types %}<option value="{{ t }}" {{ 'selected' if item.training_type == t }}>{{ t }}</option>{% endfor %}
+              </select>
+            </td>
+            <td><input type="text" name="item_duration" class="form-control form-control-sm" value="{{ item.duration or '' }}" placeholder="e.g. 2 days"></td>
+            <td><input type="date" name="item_date" class="form-control form-control-sm" value="{{ item.item_date or '' }}"></td>
+            <td><input type="date" name="item_date_end" class="form-control form-control-sm" value="{{ item.item_date_end or '' }}"></td>
+            <td class="d-flex gap-1">
+              <input type="time" name="item_time_start" class="form-control form-control-sm" value="{{ item_time_start }}">
+              <input type="time" name="item_time_end" class="form-control form-control-sm" value="{{ item_time_end }}">
+            </td>
+            <td><input type="number" step="0.01" min="0" name="item_fee" class="form-control form-control-sm" value="{{ item.investment_fee }}"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td class="row-no">1</td>
+            <td><input type="text" name="item_programme" class="form-control form-control-sm" placeholder="Programme name"></td>
+            <td><input type="number" min="1" name="item_pax" class="form-control form-control-sm" value="1"></td>
+            <td>
+              <select name="item_training_type" class="form-select form-select-sm">
+                <option value="">-</option>
+                {% for t in training_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+              </select>
+            </td>
+            <td><input type="text" name="item_duration" class="form-control form-control-sm" placeholder="e.g. 2 days"></td>
+            <td><input type="date" name="item_date" class="form-control form-control-sm"></td>
+            <td><input type="date" name="item_date_end" class="form-control form-control-sm"></td>
+            <td class="d-flex gap-1">
+              <input type="time" name="item_time_start" class="form-control form-control-sm">
+              <input type="time" name="item_time_end" class="form-control form-control-sm">
+            </td>
+            <td><input type="number" step="0.01" min="0" name="item_fee" class="form-control form-control-sm" value="0"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add item</button>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label class="form-label">SST Rate (%) <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="number" step="0.01" min="0" name="sst_rate" class="form-control" value="{{ quotation.sst_rate if quotation else 0 }}">
+      </div>
+    </div>
+
+    <div class="col-12">
+      <label class="form-label">Terms &amp; Conditions <span class="text-muted small fw-normal">(one point per line — auto-numbered)</span></label>
+      <textarea name="terms" id="terms_field" class="form-control" rows="7">{{ default_terms }}</textarea>
+    </div>
+    <div class="col-12 mt-3">
+      <label class="form-label">Notes (internal only)</label>
+      <textarea name="notes" class="form-control" rows="2">{{ quotation.notes if quotation else '' }}</textarea>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Quotation</button>
+      <a href="{{ url_for('quotations.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function renumberRows() {
+  document.querySelectorAll('#items-table tbody tr').forEach((row, idx) => {
+    row.querySelector('.row-no').textContent = idx + 1;
+  });
+}
+function rowTemplate() {
+  const tbody = document.querySelector('#items-table tbody');
+  const first = tbody.querySelector('tr').cloneNode(true);
+  first.querySelectorAll('input').forEach(i => {
+    if (i.name === 'item_pax') i.value = 1;
+    else if (i.name === 'item_fee') i.value = 0;
+    else i.value = '';
+  });
+  first.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  return first;
+}
+document.getElementById('add-row').addEventListener('click', function () {
+  document.querySelector('#items-table tbody').appendChild(rowTemplate());
+  renumberRows();
+});
+document.querySelector('#items-table').addEventListener('click', function (e) {
+  if (e.target.classList.contains('remove-row')) {
+    const rows = document.querySelectorAll('#items-table tbody tr');
+    if (rows.length > 1) e.target.closest('tr').remove();
+    renumberRows();
+  }
+});
+
+// Auto-fill address/tel (and suggested company name) from the selected client company.
+(function () {
+  const companySelect = document.getElementById('company_select');
+  const addressField = document.getElementById('address_field');
+  const telField = document.getElementById('tel_field');
+  function updateFromCompany() {
+    const opt = companySelect.selectedOptions[0];
+    if (!opt || !opt.value) return;
+    if (!addressField.value) addressField.value = opt.dataset.address || '';
+    if (!telField.value) telField.value = opt.dataset.phone || '';
+  }
+  companySelect.addEventListener('change', function () {
+    addressField.value = this.selectedOptions[0]?.dataset.address || '';
+    telField.value = this.selectedOptions[0]?.dataset.phone || '';
+  });
+  {% if not quotation %}updateFromCompany();{% endif %}
+})();
+
+// Class → Client Company / Attention To / Course Title / first item's
+// Programme are all derived from the linked Class when one is chosen
+// (the Class already knows its client company and PIC), so picking a
+// Class fills them in automatically. Leaving "Not linked to a Class"
+// selected keeps everything as plain manual fields. "Attention To" is
+// additionally a dropdown of that company's Leads whenever ANY company is
+// set (whether via the Class or picked directly) — falling back to a free
+// text box when no company is chosen, since there's nothing to list.
+(function () {
+  const LEADS = {{ (leads or [])|tojson }};
+  const LEADS_NEW_URL = {{ url_for('leads.new')|tojson }};
+  const sessionSelect = document.getElementById('session_select');
+  const companySelect = document.getElementById('company_select');
+  const courseTitleField = document.getElementById('course_title_field');
+  const venueField = document.getElementById('venue_field');
+  const attnSelect = document.getElementById('attention_to_select');
+  const attnInput = document.getElementById('attention_to_input');
+  const firstItemProgramme = document.querySelector('#items-table tbody tr:first-child input[name="item_programme"]');
+
+  function leadsForCompany(companyId) {
+    if (!companyId) return [];
+    return LEADS.filter(l => String(l.company_id) === String(companyId));
+  }
+
+  // Rebuilds the Attention To control for the given company, keeping
+  // `keepName` selected/typed if provided (adds it as an extra option if
+  // it isn't one of that company's leads — e.g. a name typed by hand
+  // before a company was chosen, or a class's PIC who isn't in Leads).
+  function setAttentionTo(companyId, keepName) {
+    const leads = leadsForCompany(companyId);
+    if (companyId) {
+      attnSelect.innerHTML = '<option value="">Select contact</option>';
+      let matched = false;
+      leads.forEach(function (lead) {
+        const opt = document.createElement('option');
+        opt.value = lead.name;
+        opt.textContent = lead.name;
+        if (keepName && lead.name === keepName) { opt.selected = true; matched = true; }
+        attnSelect.appendChild(opt);
+      });
+      if (keepName && !matched) {
+        const opt = document.createElement('option');
+        opt.value = keepName;
+        opt.textContent = keepName + ' (not in Leads)';
+        opt.selected = true;
+        attnSelect.appendChild(opt);
+      }
+      attnSelect.style.display = '';
+      attnSelect.disabled = false;
+      attnInput.style.display = 'none';
+      attnInput.disabled = true;
+      const addLeadUrl = LEADS_NEW_URL + '?company_id=' + encodeURIComponent(companyId);
+      document.getElementById('attention_to_help').innerHTML =
+        'Choose from this company\'s Leads — <a href="' + addLeadUrl + '" target="_blank">add a new Lead</a> first if the contact isn\'t listed yet.';
+    } else {
+      attnSelect.style.display = 'none';
+      attnSelect.disabled = true;
+      attnInput.style.display = '';
+      attnInput.disabled = false;
+      if (keepName) attnInput.value = keepName;
+      document.getElementById('attention_to_help').textContent =
+        'Pick a Client Company to choose from its Leads, or type a name directly.';
+    }
+  }
+
+  function applyClass(opt) {
+    if (opt && opt.dataset.courseTitle) {
+      courseTitleField.value = opt.dataset.courseTitle;
+      if (firstItemProgramme) firstItemProgramme.value = opt.dataset.courseTitle;
+    }
+    // Venue is obtained from the linked Class (prefilled, still editable
+    // afterwards) — when nothing is linked, it's simply left as whatever
+    // the user typed manually.
+    if (opt) venueField.value = opt.dataset.venue || '';
+    const companyId = opt ? opt.dataset.clientCompanyId : '';
+    if (companyId) {
+      companySelect.value = companyId;
+      const companyOpt = companySelect.selectedOptions[0];
+      if (companyOpt) {
+        addressFieldFill(companyOpt);
+      }
+      setAttentionTo(companyId, opt.dataset.picName || '');
+      document.getElementById('company_help').textContent = "Set from the linked Class — pick a different Class, or unlink it, to change.";
+    } else {
+      document.getElementById('company_help').textContent = '';
+    }
+  }
+
+  function addressFieldFill(companyOpt) {
+    const addressField = document.getElementById('address_field');
+    const telField = document.getElementById('tel_field');
+    addressField.value = companyOpt.dataset.address || '';
+    telField.value = companyOpt.dataset.phone || '';
+  }
+
+  sessionSelect.addEventListener('change', function () {
+    applyClass(this.selectedOptions[0] && this.value ? this.selectedOptions[0] : null);
+  });
+  companySelect.addEventListener('change', function () {
+    setAttentionTo(this.value, null);
+  });
+
+  // Initial state on page load: an existing quotation (or a validation-
+  // failure re-render) already has its company_id/attention_to values —
+  // build the dropdown around those rather than starting from scratch.
+  const initialCompanyId = companySelect.value;
+  const initialAttentionTo = {{ (quotation.attention_to if quotation else '')|tojson }};
+  setAttentionTo(initialCompanyId, initialAttentionTo || null);
+})();
+
+// Keep the Terms & Conditions textarea's <venue>/mode/valid-until wording in
+// sync with the actual field values, mirroring _default_terms() in
+// quotations.py. We stop auto-regenerating as soon as the user manually
+// edits the textarea (or, when editing an existing quotation, from the
+// start — their saved custom wording is never silently overwritten).
+(function () {
+  const modeField = document.getElementById('training_mode_select');
+  const venueField = document.getElementById('venue_field');
+  const validUntilField = document.getElementById('valid_until_field');
+  const termsField = document.getElementById('terms_field');
+  let touched = {{ 'true' if quotation else 'false' }};
+
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function fmtDdMYyyy(iso) {
+    if (!iso) return '';
+    const parts = iso.split('-');
+    if (parts.length !== 3) return iso;
+    const [y, m, d] = parts;
+    const monthIdx = parseInt(m, 10) - 1;
+    const monthName = MONTH_NAMES[monthIdx] || m;
+    return `${parseInt(d, 10)} ${monthName} ${y}`;
+  }
+
+  function buildDefaultTerms() {
+    const mode = (modeField.value || '<training mode>').toLowerCase();
+    const venue = venueField.value.trim() || '<venue>';
+    const validUntil = validUntilField.value
+      ? fmtDdMYyyy(validUntilField.value)
+      : '<7 days from the quotation date>';
+    return (
+      `The training will be conducted ${mode} at ${venue} as agreed between both parties.\n` +
+      `This course is HRDC SBL-Khas Claimable.\n` +
+      `Any balance amount not eligible for HRDC claim shall be borne and paid by the client.\n` +
+      `Any cancellation / reschedule must be informed at least 14 working days prior to the training date. ` +
+      `Otherwise, a 50% cancellation fee will be imposed. Last minute rescheduling is subject to a 50% ` +
+      `penalty surcharge.\n` +
+      `This above-mentioned quotation is valid until ${validUntil}.`
+    );
+  }
+
+  termsField.addEventListener('input', function () { touched = true; });
+  [modeField, venueField, validUntilField].forEach(function (field) {
+    field.addEventListener('input', function () {
+      if (!touched) termsField.value = buildDefaultTerms();
+    });
+  });
+})();
+</script>
+{% endblock %}

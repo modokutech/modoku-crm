@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Lead' if lead else 'New Lead' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h4 class="mb-0">{{ 'Edit Lead' if lead else 'New Lead / Enquiry' }}</h4>
+</div>
+<div class="card p-4" style="max-width:720px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">PIC Name *</label>
+        <input type="text" name="name" class="form-control" required value="{{ (lead.name or '') if lead else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Role</label>
+        <input type="text" name="role" class="form-control" placeholder="e.g. HR Manager" value="{{ (lead.role or '') if lead else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Status</label>
+        <select name="status" id="status_select" class="form-select">
+          {% for s in statuses %}
+          <option value="{{ s }}" {{ 'selected' if lead and lead.status == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6" id="lost_reason_field" style="display:none;">
+        <label class="form-label">Lost Reason</label>
+        <input type="text" name="lost_reason" class="form-control" placeholder="e.g. Budget cut, went with a competitor" value="{{ (lead.lost_reason or '') if lead else '' }}">
+        <small class="text-muted">Critical for later analysis — why this lead didn't convert.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{{ (lead.email or '') if lead else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Phone</label>
+        <input type="text" name="phone" class="form-control" value="{{ (lead.phone or '') if lead else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">LinkedIn</label>
+        <input type="url" name="linkedin_url" class="form-control" placeholder="https://linkedin.com/in/..." value="{{ (lead.linkedin_url or '') if lead else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Namecard</label>
+        <input type="file" name="namecard_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        {% if lead and lead.namecard_file %}
+        <small class="text-muted">Choosing a new one will replace the current namecard. Max 2 MB.</small>
+        {% else %}
+        <small class="text-muted">Max 2 MB.</small>
+        {% endif %}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Company (if corporate)</label>
+        <div class="d-flex gap-2">
+          <select name="company_id" id="company_id" class="form-select">
+            <option value="">— Individual / none —</option>
+            {% for c in companies %}
+            <option value="{{ c.id }}" {{ 'selected' if (lead and lead.company_id == c.id) or (not lead and preselect_company_id == c.id) }}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#quickAddCompanyModal">+ New</button>
+        </div>
+        <small class="text-muted">Don't see the company? Click "+ New" to add it without losing this form.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Source</label>
+        <select name="source" class="form-select">
+          <option value="">—</option>
+          {% for s in sources %}
+          <option value="{{ s }}" {{ 'selected' if lead and lead.source == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Assigned to</label>
+        <select name="assigned_to" class="form-select">
+          <option value="">Unassigned</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {{ 'selected' if lead and lead.assigned_to == u.id }}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Interested course</label>
+        <select name="interested_course_id" class="form-select">
+          <option value="">—</option>
+          {% for c in courses %}
+          <option value="{{ c.id }}" {{ 'selected' if lead and lead.interested_course_id == c.id }}>{{ c.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Next follow-up date</label>
+        <input type="date" name="next_follow_up" class="form-control" value="{{ (lead.next_follow_up or '') if lead else '' }}">
+        <small class="text-muted">When should this lead be called/contacted next? Shows up on the Call List.</small>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Notes</label>
+        <textarea name="notes" class="form-control" rows="3">{{ (lead.notes or '') if lead else '' }}</textarea>
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Lead</button>
+      <a href="{{ url_for('leads.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<!-- Quick-add company modal: lets a salesperson create a brand-new company
+     right from the lead form, without losing anything already typed in. -->
+<div class="modal fade" id="quickAddCompanyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Company</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="quickAddCompanyError" class="alert alert-danger d-none"></div>
+        <div class="mb-3">
+          <label class="form-label">Company name *</label>
+          <input type="text" id="qc_name" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Industry</label>
+          <input type="text" id="qc_industry" class="form-control">
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Phone</label>
+            <input type="text" id="qc_phone" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" id="qc_email" class="form-control">
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">You can fill in the rest (address, SST no., TIN, etc.) later from the Clients page.</small>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-success" id="qc_save">Save Company</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('qc_save').addEventListener('click', function () {
+  const name = document.getElementById('qc_name').value.trim();
+  const errorBox = document.getElementById('quickAddCompanyError');
+  errorBox.classList.add('d-none');
+  if (!name) {
+    errorBox.textContent = 'Company name is required.';
+    errorBox.classList.remove('d-none');
+    return;
+  }
+  const body = new URLSearchParams({
+    name: name,
+    industry: document.getElementById('qc_industry').value,
+    phone: document.getElementById('qc_phone').value,
+    email: document.getElementById('qc_email').value,
+  });
+  fetch("{{ url_for('companies.quick_add') }}", { method: 'POST', body: body })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) {
+        errorBox.textContent = data.error || 'Could not save company.';
+        errorBox.classList.remove('d-none');
+        return;
+      }
+      const select = document.getElementById('company_id');
+      const opt = document.createElement('option');
+      opt.value = data.id;
+      opt.textContent = data.name;
+      opt.selected = true;
+      select.appendChild(opt);
+      bootstrap.Modal.getInstance(document.getElementById('quickAddCompanyModal')).hide();
+      document.getElementById('qc_name').value = '';
+      document.getElementById('qc_industry').value = '';
+      document.getElementById('qc_phone').value = '';
+      document.getElementById('qc_email').value = '';
+    })
+    .catch(() => {
+      errorBox.textContent = 'Something went wrong — please try again.';
+      errorBox.classList.remove('d-none');
+    });
+});
+
+function toggleLostReason() {
+  const field = document.getElementById('lost_reason_field');
+  field.style.display = document.getElementById('status_select').value === 'Lost' ? '' : 'none';
+}
+document.getElementById('status_select').addEventListener('change', toggleLostReason);
+toggleLostReason();
+</script>
+{% endblock %}

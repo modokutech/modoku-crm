@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Hotel' if hotel else 'New Hotel' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Hotel' if hotel else 'New Hotel' }}</h4></div>
+<div class="card p-4" style="max-width:860px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <h6 class="text-muted text-uppercase small mb-2">Hotel Info</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Hotel name *</label>
+        <input type="text" name="name" class="form-control" required value="{{ (hotel.name or '') if hotel else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Location</label>
+        <input type="text" name="location" class="form-control" value="{{ (hotel.location or '') if hotel else '' }}" placeholder="e.g. Kuala Lumpur">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Minimum Pax</label>
+        <input type="number" min="0" name="minimum_pax" class="form-control" value="{{ (hotel.minimum_pax or '') if hotel else '' }}">
+      </div>
+    </div>
+
+    <h6 class="text-muted text-uppercase small mb-2">Contact Person</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Name</label>
+        <input type="text" name="contact_name" class="form-control" value="{{ (hotel.contact_name or '') if hotel else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Position</label>
+        <input type="text" name="contact_position" class="form-control" value="{{ (hotel.contact_position or '') if hotel else '' }}" placeholder="e.g. Sales Manager">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Phone</label>
+        <input type="text" name="contact_phone" class="form-control" value="{{ (hotel.contact_phone or '') if hotel else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        <input type="email" name="contact_email" class="form-control" value="{{ (hotel.contact_email or '') if hotel else '' }}">
+      </div>
+    </div>
+
+    <h6 class="text-muted text-uppercase small mb-2">Rate per Day</h6>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label class="form-label">Full-day Meeting Package (RM)</label>
+        <input type="number" step="0.01" min="0" name="rate_full_day" class="form-control" value="{{ (hotel.rate_full_day or '') if hotel else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Half-day Meeting Package (RM)</label>
+        <input type="number" step="0.01" min="0" name="rate_half_day" class="form-control" value="{{ (hotel.rate_half_day or '') if hotel else '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Others (RM)</label>
+        <div class="d-flex gap-2">
+          <input type="text" name="rate_others_label" class="form-control" placeholder="Label, e.g. Overnight" value="{{ (hotel.rate_others_label or '') if hotel else '' }}">
+          <input type="number" step="0.01" min="0" name="rate_others_amount" class="form-control" placeholder="Amount" value="{{ (hotel.rate_others_amount or '') if hotel else '' }}">
+        </div>
+      </div>
+    </div>
+
+    <h6 class="text-muted text-uppercase small mb-2">Capacity (by room / hall)</h6>
+    <div class="table-responsive">
+      <table class="table table-sm" id="capacity-table">
+        <thead><tr><th style="width:60%">Room / Hall Name</th><th>Pax Capacity</th><th></th></tr></thead>
+        <tbody>
+          {% if capacities %}
+          {% for cap in capacities %}
+          <tr>
+            <td><input type="text" name="room_name" class="form-control form-control-sm" value="{{ cap.room_name }}" placeholder="e.g. Ballroom 1"></td>
+            <td><input type="number" min="0" name="room_pax" class="form-control form-control-sm" value="{{ cap.pax_capacity or '' }}" placeholder="e.g. 200"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td><input type="text" name="room_name" class="form-control form-control-sm" placeholder="e.g. Ballroom 1"></td>
+            <td><input type="number" min="0" name="room_pax" class="form-control form-control-sm" placeholder="e.g. 200"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add room</button>
+
+    <div class="mb-3">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-control" rows="2">{{ (hotel.notes or '') if hotel else '' }}</textarea>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Hotel</button>
+      <a href="{{ url_for('hotels.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function rowTemplate() {
+  const tbody = document.querySelector('#capacity-table tbody');
+  const first = tbody.querySelector('tr').cloneNode(true);
+  first.querySelectorAll('input').forEach(i => { i.value = ''; });
+  return first;
+}
+document.getElementById('add-row').addEventListener('click', function () {
+  document.querySelector('#capacity-table tbody').appendChild(rowTemplate());
+});
+document.querySelector('#capacity-table').addEventListener('click', function (e) {
+  if (e.target.classList.contains('remove-row')) {
+    const rows = document.querySelectorAll('#capacity-table tbody tr');
+    if (rows.length > 1) e.target.closest('tr').remove();
+  }
+});
+</script>
+{% endblock %}

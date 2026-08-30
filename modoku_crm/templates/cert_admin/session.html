@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Certificates — {{ s.course_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Certificates</h4>
+    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('cert_admin.download_zip', session_id=s.id) }}" class="btn btn-sm btn-success">
+      <i class="bi bi-file-zip me-1"></i>Download All as Zip
+    </a>
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">T3 Attendance List</a>
+    <a href="{{ url_for('cert_admin.index') }}" class="btn btn-sm btn-outline-secondary">Back to Certificates</a>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6 class="mb-2">Participants ({{ participants|length }})</h6>
+  {% if participants %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th>Name</th><th>IC No.</th><th>Certificate</th><th></th></tr></thead>
+      <tbody>
+        {% for p in participants %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td class="small">{{ p.ic_no or '-' }}</td>
+          <td class="small">
+            {% if p.cert_filename %}
+            <span class="badge bg-success">Ready</span>
+            <span class="text-muted">{{ p.cert_generated_at|fmtdatetime }}</span>
+            {% else %}
+            <span class="badge bg-light text-muted border">Generating on next view</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('cert_admin.download_one', participant_id=p.id) }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-download me-1"></i>View / Download
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0 small">No participants marked attended yet — cross-check and mark attendance on
+    the <a href="{{ url_for('t3.manage', session_id=s.id) }}">T3 Attendance List</a> first.</p>
+  {% endif %}
+</div>
+{% endblock %}

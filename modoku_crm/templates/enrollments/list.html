@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Enrollments{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Enrollments</h4>
+    <small class="text-muted">Participants registered across all sessions, with HRDCorp claim tracking.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('enrollments.export', hrdf=current_hrdf) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('enrollments.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Enrollment</a>
+  </div>
+</div>
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-3">
+      <select name="hrdf" class="form-select">
+        <option value="">All HRDCorp statuses</option>
+        {% for h in hrdf_statuses %}
+        <option value="{{ h }}" {{ 'selected' if h == current_hrdf }}>{{ h }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit">Filter</button></div>
+  </form>
+</div>
+<div class="card p-3">
+  {% if enrollments %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Participant</th><th>Course</th><th>Training Date</th><th>Company</th><th>Status</th><th>HRDCorp Claim</th><th>Amount</th><th></th></tr></thead>
+      <tbody>
+      {% for e in enrollments %}
+        <tr>
+          <td class="fw-semibold" style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">{{ e.participant_name }}</td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">{{ e.course_title }}</td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">{{ e.start_date|fmtdate }}</td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">{{ e.company_name or '-' }}</td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">
+            <span class="badge
+              {% if e.status == 'Completed' %}bg-success
+              {% elif e.status == 'Cancelled' %}bg-danger
+              {% elif e.status == 'No-show' %}bg-secondary
+              {% elif e.status == 'Attended' %}bg-info text-dark
+              {% else %}bg-primary{% endif %}">{{ e.status }}</span></td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">
+            <span class="badge
+              {% if e.hrdf_claim_status == 'Claimed' %}bg-success
+              {% elif e.hrdf_claim_status == 'Rejected' %}bg-danger
+              {% elif e.hrdf_claim_status == 'Pending' %}bg-warning text-dark
+              {% elif e.hrdf_claim_status == 'Approved' %}bg-info text-dark
+              {% else %}bg-light text-dark{% endif %}">{{ e.hrdf_claim_status }}</span>
+          </td>
+          <td style="cursor:pointer" onclick="window.location='{{ url_for('enrollments.edit', enrollment_id=e.id) }}'">RM {{ e.amount|fmtmoney }}</td>
+          <td class="text-end">
+            <form method="post" action="{{ url_for('enrollments.delete', enrollment_id=e.id) }}" onsubmit="event.stopPropagation(); return confirm('Remove this participant?');">
+              {{ csrf_field()|safe }}
+              <button class="btn btn-sm btn-outline-danger" title="Remove participant"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">No enrollments yet.</p>{% endif %}
+</div>
+{% endblock %}

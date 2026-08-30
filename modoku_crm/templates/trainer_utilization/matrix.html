@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Class × Trainer Matrix — {{ month_label }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Class &times; Trainer Matrix</h4>
+    <small class="text-muted"><a href="{{ url_for('trainer_utilization.index') }}" class="link-plain">← Back to Trainer Log</a></small>
+  </div>
+  <div class="d-flex gap-2">
+    <form class="d-flex gap-2" method="get">
+      <input type="month" name="month" class="form-control form-control-sm" value="{{ ym }}" onchange="this.form.submit()" style="width:auto">
+    </form>
+  </div>
+</div>
+
+<div class="card p-3">
+  <p class="text-muted small mb-3">
+    Confirmed classes for {{ month_label }} (rows) against every trainer (columns) — a cell shows the
+    class dates when that trainer is assigned to it. Based on classes with at least one Confirmed
+    Purchase Order.
+  </p>
+  {% if rows and trainers %}
+  <div class="table-responsive">
+    <table class="table table-sm table-bordered align-middle" style="font-size:.8rem">
+      <thead class="table-light">
+        <tr>
+          <th style="min-width:220px">Class</th>
+          {% for t in trainers %}
+          <th class="text-center text-nowrap">{{ t.name }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td class="fw-semibold text-nowrap">
+            <a href="{{ url_for('sessions.view', session_id=row.session.id) }}" class="link-plain">{{ row.session.course_title }}</a>
+            <div class="small text-muted">{{ row.session.session_code or '' }}</div>
+          </td>
+          {% for cell in row.cells %}
+          <td class="text-center {% if not cell %}text-muted{% endif %}">{{ cell or '-' }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% elif not trainers %}
+  <p class="text-muted mb-0">No trainers on file yet.</p>
+  {% else %}
+  <p class="text-muted mb-0">No Confirmed classes scheduled for {{ month_label }}.</p>
+  {% endif %}
+</div>
+{% endblock %}

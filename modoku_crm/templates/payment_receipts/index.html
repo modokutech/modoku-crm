@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Payment Receipts{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Payment Receipts</h4>
+    <small class="text-muted">Trainer and Vendor Purchase Orders with an invoice on file — click one to upload the payment receipt and email it.</small>
+  </div>
+</div>
+<div class="card p-3">
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Ref (PO No.)</th><th>Name</th><th>Class</th><th>Date Submitted</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr onclick="window.location='{{ url_for('payment_receipts.go', kind=row.kind, po_id=row.po_id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ row.ref }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.course_title }}</td>
+          <td>{{ row.date_submitted|fmtdatetime }}</td>
+          <td class="text-end">{{ row.currency }} {{ row.amount|fmtmoney }}</td>
+          <td>
+            <span class="badge badge-status {{ 'bg-success' if row.status == 'Paid' else 'bg-light text-dark' }}">{{ row.status }}</span>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">No invoices have been submitted by trainers or vendors yet.</p>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Your Certificate Is Ready{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <div class="mb-2"><i class="bi bi-award-fill text-success" style="font-size:2.5rem"></i></div>
+    <h5 class="fw-semibold mb-2">Your Certificate Is Ready!</h5>
+    <p class="small text-muted mb-3">
+      Congratulations, <strong>{{ p.name }}</strong> — your Certificate of Participation for
+      <strong>{{ p.course_title }}</strong> ({{ date_range }}) is ready to download.
+    </p>
+    <form method="post" action="{{ url_for('certificates.download') }}">
+      {{ csrf_field()|safe }}
+      <input type="hidden" name="start_date" value="{{ start_date }}">
+      <input type="hidden" name="ic_no" value="{{ ic_no }}">
+      <button type="submit" class="btn btn-success w-100"><i class="bi bi-download me-1"></i>Download Certificate</button>
+    </form>
+    <a href="{{ url_for('certificates.lookup') }}" class="btn btn-outline-secondary w-100 mt-2">Look Up Another</a>
+  </div>
+</div>
+{% endblock %}

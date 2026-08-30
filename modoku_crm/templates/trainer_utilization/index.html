@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Trainer Log{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Trainer Log</h4>
+    <small class="text-muted">Training days delivered and amount paid per trainer, based on Confirmed Purchase Orders.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('trainer_utilization.yearly') }}" class="btn btn-outline-secondary"><i class="bi bi-calendar-range me-1"></i>Yearly View</a>
+    <a href="{{ url_for('trainer_utilization.matrix') }}" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3 me-1"></i>Class × Trainer Matrix</a>
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('trainer_utilization.export', sort=tsort, dir=tdir) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Confirmed Classes</div>
+      <div class="stat-value">{{ grand_classes }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0891b2;">
+      <div class="small text-white-50">Total Days Delivered</div>
+      <div class="stat-value">{{ grand_days }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Total Paid to Trainers</div>
+      <div class="stat-value">RM {{ grand_amount|fmtmoney }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <h6>By Trainer</h6>
+  {% if trainers %}
+  {% macro tsort_link(key, label) %}
+    <a href="{{ url_for('trainer_utilization.index', sort=key, dir='asc' if tsort==key and tdir=='desc' else 'desc', msort=msort, mdir=mdir) }}"
+       class="text-decoration-none text-reset">
+      {{ label }}
+      {% if tsort == key %}<i class="bi bi-caret-{{ 'up' if tdir=='asc' else 'down' }}-fill small"></i>{% endif %}
+    </a>
+  {% endmacro %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Trainer</th><th class="text-end">Confirmed Classes</th><th class="text-end">{{ tsort_link('days', 'Total Day') }}</th><th class="text-end">{{ tsort_link('amount', 'Total Paid (RM)') }}</th></tr></thead>
+      <tbody>
+      {% for t in trainers %}
+        <tr onclick="window.location='{{ url_for('trainer_utilization.detail', trainer_id=t.trainer_id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ t.trainer_name }}</td>
+          <td class="text-end">{{ t.class_count }}</td>
+          <td class="text-end">{{ t.total_days }}</td>
+          <td class="text-end">{{ t.total_amount|fmtmoney }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No Confirmed Purchase Orders yet — utilization appears here once a class's PO is Confirmed.</p>
+  {% endif %}
+</div>
+
+<div class="card p-3 mt-3">
+  <h6>By Month <span class="text-muted small fw-normal">(training start date)</span></h6>
+  {% if by_month %}
+  {% macro msort_link(key, label) %}
+    <a href="{{ url_for('trainer_utilization.index', msort=key, mdir='asc' if msort==key and mdir=='desc' else 'desc', sort=tsort, dir=tdir) }}"
+       class="text-decoration-none text-reset">
+      {{ label }}
+      {% if msort == key %}<i class="bi bi-caret-{{ 'up' if mdir=='asc' else 'down' }}-fill small"></i>{% endif %}
+    </a>
+  {% endmacro %}
+  <div class="table-responsive">
+    <table class="table table-sm">
+      <thead><tr><th>{{ msort_link('month', 'Month') }}</th><th class="text-end">Classes</th><th class="text-end">{{ msort_link('days', 'Day') }}</th><th class="text-end">{{ msort_link('amount', 'Amount (RM)') }}</th></tr></thead>
+      <tbody>
+      {% for m in by_month %}
+        <tr><td>{{ m.label }}</td><td class="text-end">{{ m.class_count }}</td><td class="text-end">{{ m.total_days }}</td><td class="text-end">{{ m.total_amount|fmtmoney }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted small mb-0">No data yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}{{ po.po_no }}{% endblock %}
+{% block content %}
+<div class="page-header d-print-none">
+  <div>
+    <h4 class="mb-0">{{ po.po_no }}</h4>
+    <small class="text-muted">{{ po.vendor_name or 'Vendor removed' }}{% if po.course_title %} · {{ po.course_title }}{% endif %}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <form method="post" action="{{ url_for('vendor_purchase_orders.update_status', po_id=po.id) }}" class="d-flex gap-1">
+      {{ csrf_field()|safe }}
+      <select name="status" class="form-select form-select-sm">
+        {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == po.status }}>{{ s }}</option>{% endfor %}
+      </select>
+      <button class="btn btn-sm btn-outline-secondary">Update</button>
+    </form>
+    <a href="{{ url_for('vendor_purchase_orders.edit', po_id=po.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+    <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">Print / PDF</button>
+    <a href="{{ url_for('vendor_purchase_orders.download', po_id=po.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Download</a>
+    <form method="post" action="{{ url_for('vendor_purchase_orders.delete', po_id=po.id) }}" onsubmit="return confirm('Delete this vendor purchase order?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-sm btn-outline-danger">Delete</button>
+    </form>
+  </div>
+</div>
+
+{% if not mail_configured %}
+<div class="alert alert-warning d-print-none">
+  Email sending isn't set up yet — an admin needs to configure SMTP settings (see README) before
+  vendor purchase orders can be emailed directly from here.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-4">
+      <div class="d-flex justify-content-between mb-4">
+        <div class="d-flex align-items-start gap-2">
+          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="doc-logo">
+          <div>
+            <div class="fw-bold">Modoku Tech Sdn Bhd (1390352-H)</div>
+            <div class="small text-muted">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</div>
+            <div class="small text-muted">hello@modoku.tech</div>
+          </div>
+        </div>
+        <div class="text-end">
+          <h5 class="mb-0">PURCHASE ORDER</h5>
+          <div class="text-muted">{{ po.po_no }}</div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="small text-muted text-uppercase">Issued To (Vendor)</div>
+          <div class="fw-semibold">{{ po.vendor_name or 'Vendor removed' }}</div>
+          <div>{{ po.vendor_email or '' }}</div>
+          <div>{{ po.vendor_phone or '' }}</div>
+        </div>
+        <div class="col-md-6 text-md-end">
+          <div><span class="text-muted">Issue date:</span> {{ po.issue_date|fmtdate }}</div>
+          {% if po.job_end_date %}<div><span class="text-muted">Job finishes:</span> {{ po.job_end_date|fmtdate }}</div>{% endif %}
+          <div><span class="text-muted">Status:</span>
+            <span class="badge badge-status
+              {% if po.status == 'Confirmed' %}bg-success
+              {% elif po.status == 'Cancelled' %}bg-danger
+              {% elif po.status == 'Sent' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">{{ po.status }}</span>
+          </div>
+          {% if po.sent_at %}<div class="small text-muted">Emailed to {{ po.sent_to_email }} on {{ po.sent_at|fmtdatetime }}</div>{% endif %}
+        </div>
+      </div>
+
+      {% if po.course_title %}
+      <div class="mb-3">
+        <div class="small text-muted text-uppercase">For Class</div>
+        <div>{{ po.course_title }} — {{ po.start_date|fmtdate }}{% if po.end_date and po.end_date != po.start_date %} – {{ po.end_date|fmtdate }}{% endif %}{% if po.venue %} · {{ po.venue }}{% endif %}</div>
+      </div>
+      {% endif %}
+
+      <table class="table table-sm">
+        <thead><tr><th colspan="2">Description</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+          <tr>
+            <td colspan="2">{{ po.description or '-' }}</td>
+            <td class="text-end">{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
+          </tr>
+          {% for item in items %}
+          <tr>
+            <td colspan="2">{{ item.description }} {% if item.quantity != 1 %}<span class="text-muted small">× {{ item.quantity }} @ {{ po.currency }} {{ item.unit_price|fmtmoney }}</span>{% endif %}</td>
+            <td class="text-end">{{ po.currency }} {{ item.amount|fmtmoney }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="fw-bold">
+            <td colspan="2" class="text-end">Total</td>
+            <td class="text-end">{{ po.currency }} {{ grand_total|fmtmoney }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {% if po.terms %}<div class="mt-3"><div class="small text-muted text-uppercase">Terms &amp; Conditions</div><div class="doc-small-text">{{ po.terms|linelist }}</div></div>{% endif %}
+      {% if po.notes %}<div class="mt-3 d-print-none"><div class="small text-muted text-uppercase">Internal Notes</div><p>{{ po.notes }}</p></div>{% endif %}
+    </div>
+
+    <div class="card p-4 mt-3 d-print-none">
+      <h6>Additional Documents</h6>
+      {% if documents %}
+      <ul class="list-unstyled mb-3">
+        {% for doc in documents %}
+        <li class="d-flex justify-content-between align-items-center mb-2">
+          <a href="{{ url_for('vendor_purchase_orders.download_document', po_id=po.id, doc_id=doc.id) }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ doc.original_name }}</a>
+          <form method="post" action="{{ url_for('vendor_purchase_orders.delete_document', po_id=po.id, doc_id=doc.id) }}" onsubmit="return confirm('Remove this document?');">
+            {{ csrf_field()|safe }}
+            <button class="btn btn-sm btn-outline-danger">Remove</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-muted small mb-3">No additional documents uploaded yet.</p>{% endif %}
+      <form method="post" action="{{ url_for('vendor_purchase_orders.upload_documents', po_id=po.id) }}" enctype="multipart/form-data" class="d-flex gap-2">
+        {{ csrf_field()|safe }}
+        <input type="file" name="documents" class="form-control form-control-sm" multiple required>
+        <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
+      </form>
+      <small class="text-muted">Max 2 MB per file.</small>
+    </div>
+
+    <div class="card p-4 mt-3 d-print-none">
+      <h6>Invoice Submitted by Vendor</h6>
+      <p class="small text-muted mb-2">Sent to the vendor automatically once the job end date above has passed on a Confirmed PO — anything they upload (invoices, claims) appears here.</p>
+      {% if invoice_documents %}
+      <ul class="list-unstyled small mb-0">
+        {% for doc in invoice_documents %}
+        <li class="mb-1">
+          <i class="bi bi-file-earmark-check text-success me-1"></i>
+          <a href="{{ url_for('vendor_purchase_orders.download_invoice_document', po_id=po.id, doc_id=doc.id) }}" target="_blank">{{ doc.original_name }}</a>
+          <span class="text-muted">— {{ doc.uploaded_at }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="small text-muted mb-0">No documents uploaded yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-4 d-print-none">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Payment Receipt</h6>
+        <span class="badge {{ 'bg-success' if po.payment_status == 'Paid' else 'bg-light text-dark' }}">{{ po.payment_status or 'Unpaid' }}</span>
+      </div>
+      <p class="small text-muted mb-2">Once the invoice has been processed and finance has paid the vendor, upload the payment receipt(s) here and email it to them.</p>
+      {% if payment_receipts %}
+      <ul class="list-unstyled small mb-2">
+        {% for doc in payment_receipts %}
+        <li class="d-flex justify-content-between align-items-center mb-1">
+          <a href="{{ url_for('vendor_purchase_orders.download_payment_receipt', po_id=po.id, doc_id=doc.id) }}" target="_blank"><i class="bi bi-receipt me-1"></i>{{ doc.original_name }}</a>
+          <form method="post" action="{{ url_for('vendor_purchase_orders.delete_payment_receipt', po_id=po.id, doc_id=doc.id) }}" onsubmit="return confirm('Remove this file?');">
+            {{ csrf_field()|safe }}
+            <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-x"></i></button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="small text-muted mb-2">No payment receipt uploaded yet.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('vendor_purchase_orders.upload_payment_receipts', po_id=po.id) }}" enctype="multipart/form-data" class="d-flex gap-2 mb-3">
+        {{ csrf_field()|safe }}
+        <input type="file" name="payment_receipts" class="form-control form-control-sm" multiple required>
+        <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
+      </form>
+      {% if payment_receipts %}
+      {% if po.payment_receipt_sent_at %}
+      <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Already emailed to {{ po.payment_receipt_sent_to }} on {{ po.payment_receipt_sent_at|fmtdatetime }}.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('vendor_purchase_orders.send_payment_receipt_email', po_id=po.id) }}"
+            onsubmit="return {{ 'confirm(\'A payment receipt was already emailed on ' ~ (po.payment_receipt_sent_at|fmtdatetime) ~ '. Send again?\')' if po.payment_receipt_sent_at else 'true' }};">
+        {{ csrf_field()|safe }}
+        <div class="mb-2">
+          <label class="form-label small">Send to</label>
+          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ po.vendor_email or '' }}" placeholder="vendor@email.com" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
+          <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Subject</label>
+          <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_payment_receipt_email_subject }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Message</label>
+          <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_payment_receipt_email_body }}</textarea>
+          <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+        </div>
+        <button class="btn btn-success btn-sm w-100" type="submit" {{ 'disabled' if not mail_configured }}>
+          <i class="bi bi-envelope me-1"></i>{{ 'Resend' if po.payment_receipt_sent_at else 'Send' }} Payment Receipt
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="card p-3 mt-3">
+      <h6>Send to Vendor</h6>
+      <p class="small text-muted mb-2">Emails this PO directly, with the PDF attached.</p>
+      <p class="small text-muted mb-2">
+        <i class="bi bi-paperclip me-1"></i>Attachments:
+        <span class="badge bg-light text-dark border">{{ po.po_no }}.pdf</span>
+        {% for doc in documents %}
+        <span class="badge bg-light text-dark border">{{ doc.original_name }}</span>
+        {% endfor %}
+      </p>
+      {% if po.sent_at %}
+      <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Already emailed to {{ po.sent_to_email }} on {{ po.sent_at|fmtdatetime }}.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('vendor_purchase_orders.send_email', po_id=po.id) }}"
+            onsubmit="return {{ 'confirm(\'This PO was already emailed on ' ~ (po.sent_at|fmtdatetime) ~ '. Send again?\')' if po.sent_at else 'true' }};">
+        {{ csrf_field()|safe }}
+        <div class="mb-2">
+          <label class="form-label small">Send to</label>
+          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ po.vendor_email or '' }}" placeholder="vendor@email.com" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
+          <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Subject</label>
+          <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_email_subject }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Message</label>
+          <textarea name="body" class="form-control form-control-sm" rows="8">{{ default_email_body }}</textarea>
+          <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+        </div>
+        <button class="btn btn-success btn-sm w-100" type="submit" {{ 'disabled' if not mail_configured }}>
+          <i class="bi bi-envelope me-1"></i>{{ 'Resend' if po.sent_at else 'Send' }} Vendor PO Email
+        </button>
+      </form>
+    </div>
+
+    <div class="card p-3 mt-3">
+      <h6>Confirm / Reject Link</h6>
+      <p class="small text-muted mb-2">Included automatically in the PO email above — the vendor can confirm
+        or reject straight from there, no login needed. Status updates to Confirmed or Cancelled accordingly.</p>
+      {% if po.status in ('Confirmed', 'Cancelled') and po.confirm_responded_at %}
+      <p class="small {{ 'text-success' if po.status == 'Confirmed' else 'text-muted' }} mb-2">
+        <i class="bi bi-{{ 'check-circle-fill' if po.status == 'Confirmed' else 'x-circle' }} me-1"></i>
+        Vendor responded ({{ po.status }}) on {{ po.confirm_responded_at|fmtdatetime }}.
+      </p>
+      {% endif %}
+      <div class="input-group input-group-sm">
+        <input type="text" class="form-control" value="{{ confirm_url }}" readonly id="vendorPoConfirmLinkInput">
+        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('vendorPoConfirmLinkInput').value)">Copy</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

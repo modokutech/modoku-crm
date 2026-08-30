@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Data Export{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Data Export</h4>
+    <small class="text-muted">Admin-only.</small>
+  </div>
+</div>
+
+<div class="card p-4" style="max-width:700px;">
+  <p class="text-muted">
+    Download everything from a given year as a single zip file — one folder per Class, each with its
+    attendance sheets/photos, evaluation report, training banner, JD14, client logo, trainer invoice
+    documents and Purchase Order documents, plus a CSV summary of the whole year.
+  </p>
+  {% if years %}
+  <div class="list-group">
+    {% for yr in years %}
+    <a href="{{ url_for('export.download_year', year=yr) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">{{ yr }}</span>
+      <span class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Download zip</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No classes scheduled yet — nothing to export.</p>
+  {% endif %}
+</div>
+
+<div class="card p-4 mt-3" style="max-width:700px;">
+  <h6 class="mb-2">Database Backup</h6>
+  <p class="text-muted small mb-3">
+    Download a complete snapshot of the database as it is right now — every table, not just Classes.
+    This is a manual, on-demand copy for peace of mind before a risky change, or just to keep a copy
+    yourself. For real day-to-day protection, ask whoever manages the server to set up an automated
+    nightly backup there — this button is a supplement to that, not a replacement for it.
+  </p>
+  <a href="{{ url_for('export.db_backup') }}" class="btn btn-outline-secondary align-self-start">
+    <i class="bi bi-download me-1"></i>Download Database Backup
+  </a>
+</div>
+{% endblock %}

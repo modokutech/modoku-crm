@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Bulk Add Participants{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Bulk Add Participants</h4>
+    <small class="text-muted">{{ session.course_title }} · {{ session.start_date|fmtdate }}</small>
+  </div>
+</div>
+
+<div class="card p-4" style="max-width:640px;">
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Sponsoring company (applies to all, optional)</label>
+        <select name="company_id" class="form-select">
+          <option value="">— Individual / none —</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Status (applies to all)</label>
+        <select name="status" class="form-select">
+          <option value="Registered" selected>Registered</option>
+          <option value="Attended">Attended</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label">Participants — one per line</label>
+        <textarea name="bulk_text" class="form-control" rows="12" placeholder="Ahmad bin Ali, 900101-14-5566, M
+Siti binti Hassan, 920315-08-1122, F
+Ravi Kumar" required></textarea>
+        <small class="text-muted">Format per line: <strong>Name, IC No., Gender</strong> — only Name is required, the rest can be filled in later from each participant's own edit page. Email, phone and company (other than the one selected above) can also be added afterward if needed.</small>
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Add Participants</button>
+      <a href="{{ url_for('sessions.view', session_id=session.id) }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

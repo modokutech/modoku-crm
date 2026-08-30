@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Leads</h4>
+    <small class="text-muted">Track prospective trainees and companies through your sales pipeline.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('leads.export', q=q, status=current_status) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('leads.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Lead</a>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2 align-items-end" method="get">
+    <div class="col-md-4">
+      <label class="form-label small text-muted mb-1">Search</label>
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Name, email or phone">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small text-muted mb-1">Status</label>
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if s == current_status }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-secondary w-100" type="submit">Filter</button>
+    </div>
+  </form>
+</div>
+
+<div class="card p-3">
+  {% if leads %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>PIC Name</th><th>Role</th><th>Company</th><th>Contact</th><th>Source</th><th>Status</th><th>Assigned</th><th>Added</th></tr></thead>
+      <tbody>
+      {% for l in leads %}
+        <tr onclick="window.location='{{ url_for('leads.view', lead_id=l.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ l.name }}</td>
+          <td>{{ l.role or '-' }}</td>
+          <td>{{ l.company_name or '-' }}</td>
+          <td class="small">{{ l.email or '' }}{% if l.email and l.phone %}<br>{% endif %}{{ l.phone or '' }}</td>
+          <td>{{ l.source or '-' }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if l.status == 'Deal Closed' %}bg-success
+              {% elif l.status == 'Lost' %}bg-danger
+              {% elif l.status == 'New' %}badge-brand
+              {% elif l.status == 'Proposal Sent' %}bg-primary-subtle text-primary-emphasis
+              {% elif l.status == 'Had Meeting' %}bg-warning-subtle text-warning-emphasis
+              {% else %}bg-info-subtle text-info-emphasis{% endif %}">
+              {{ l.status }}
+            </span>
+          </td>
+          <td>{{ l.assigned_name or '-' }}</td>
+          <td class="small text-muted">{{ l.created_at|fmtdate }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No leads match your filters yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}T3 Attendance Form — {{ s.course_title }}{% endblock %}
+{% block content %}
+<div class="page-header d-print-none">
+  <div>
+    <h4 class="mb-0">T3 Attendance Form</h4>
+    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdate }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}" class="btn btn-sm btn-outline-success">Manage Participants</a>
+    <button onclick="window.print()" class="btn btn-sm btn-success">Print / PDF</button>
+    <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="collapse" data-bs-target="#emailT3FormPanel">
+      <i class="bi bi-envelope me-1"></i>Email T3 Form to Trainer
+    </button>
+    <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Back</a>
+  </div>
+</div>
+
+<form method="get" class="d-print-none mb-3 card p-3" style="max-width:520px;">
+  <div class="d-flex align-items-end gap-2 mb-1">
+    <div>
+      <label class="form-label small mb-1">Extra blank rows</label>
+      <input type="number" name="extra_blank_rows" min="0" max="50" class="form-control form-control-sm"
+             value="{{ extra_blank_rows }}" style="width:100px">
+    </div>
+    <button type="submit" class="btn btn-sm btn-outline-secondary">Apply</button>
+  </div>
+  <small class="text-muted">Adds extra empty rows to the form below (and the emailed PDF) for last-minute
+    walk-in participants to fill in by hand on the printed sheet.</small>
+</form>
+
+<div class="collapse d-print-none mb-3" id="emailT3FormPanel">
+  <div class="card p-3">
+    <p class="small fw-semibold mb-1">Email T3 Form to Trainer</p>
+    <p class="small text-muted mb-2">
+      Sends the printable attendance form as a PDF attachment — for when the client hasn't filled in the
+      online form, so the trainer can print it out and get it signed manually.
+    </p>
+    <p class="small text-muted mb-2">
+      <i class="bi bi-paperclip me-1"></i>Attachments:
+      <span class="badge bg-light text-dark border">{{ t3_form_pdf_filename }}</span>
+    </p>
+    {% if not s.trainer_email %}
+    <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>No trainer email on file for this class — <a href="{{ url_for('sessions.edit', session_id=s.id) }}">assign a trainer on Edit</a>, or just type an address below.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('sessions.email_t3_form', session_id=s.id) }}">
+      {{ csrf_field()|safe }}
+      <input type="hidden" name="extra_blank_rows" value="{{ extra_blank_rows }}">
+      <div class="mb-2">
+        <label class="form-label small">Send to</label>
+        <input type="email" name="to_email" class="form-control form-control-sm" value="{{ s.trainer_email or '' }}" placeholder="trainer@email.com" required>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Subject</label>
+        <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_t3_form_email_subject }}">
+      </div>
+      <div class="mb-2">
+        <label class="form-label small">Message</label>
+        <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_t3_form_email_body }}</textarea>
+        <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+      </div>
+      <button class="btn btn-sm btn-success w-100" type="submit" {{ 'disabled' if not mail_configured }}>
+        <i class="bi bi-envelope me-1"></i>Send T3 Form
+      </button>
+    </form>
+  </div>
+</div>
+
+{% for day in training_days %}
+<div class="card p-4 t3-form position-relative {% if not loop.first %}mt-3 t3-page-break{% endif %}">
+  <div class="t3-code-stamp d-print-block">{{ s.session_code }}</div>
+  <p class="fw-bold text-center mb-3">FOR SBL-KHAS SCHEME ONLY</p>
+
+  <div class="d-flex justify-content-between align-items-stretch gap-3 mb-4 t3-header-row">
+    <div class="t3-box text-center">
+      <strong>PSMB/SBL-KHAS/T3/01</strong>
+    </div>
+    <div class="text-center flex-grow-1 d-flex align-items-center justify-content-center">
+      <h5 class="mb-0 fw-bold">ATTENDANCE LIST</h5>
+    </div>
+    <div class="t3-box text-center small">
+      This attendance list must be enclosed when submitting the claim form PSMB/SBL-KHAS/JD/14
+    </div>
+  </div>
+
+  <table class="table table-borderless table-sm w-auto mb-4">
+    <tr>
+      <td class="text-nowrap fw-semibold" style="width:140px;">Course Title</td>
+      <td class="text-nowrap">:</td>
+      <td class="t3-fill">{{ s.course_title }}</td>
+    </tr>
+    <tr>
+      <td class="text-nowrap fw-semibold">Dates of Training</td>
+      <td class="text-nowrap">:</td>
+      <td class="t3-fill">
+        {{ day|fmtdate }}{% if training_days|length > 1 %} (Day {{ loop.index }}){% endif %}
+      </td>
+    </tr>
+  </table>
+
+  <table class="table table-bordered table-sm t3-table mb-4">
+    <thead>
+      <tr class="text-center">
+        <th style="width:4%">No.</th>
+        <th>Name of Trainee(s)</th>
+        <th>Name of Employer(s)</th>
+        <th style="width:14%">NRIC</th>
+        <th style="width:11%">Citizenship</th>
+        <th style="width:7%">Sex</th>
+        <th style="width:16%">Signature*</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in participants %}
+      <tr>
+        <td class="text-center">{{ loop.index }}</td>
+        <td>{{ p.name }}</td>
+        <td>{{ p.employer_name or '' }}</td>
+        <td>{{ p.ic_no or '' }}</td>
+        <td>{{ p.citizenship or 'Malaysian' }}</td>
+        <td class="text-center">{{ (p.gender or '')[:1] }}</td>
+        <td></td>
+      </tr>
+      {% endfor %}
+      {% for _ in range((6 - participants|length if participants|length < 6 else 0) + extra_blank_rows) %}
+      <tr>
+        <td class="text-center">&nbsp;</td>
+        <td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="fw-bold mb-3">I certify that all trainees listed above had fully attended the training.</p>
+
+  <table class="table table-borderless table-sm mb-4">
+    <tr>
+      <td class="text-nowrap" style="width:110px;">NAME</td>
+      <td class="text-nowrap" style="width:20px;">:</td>
+      <td class="t3-fill" style="width:38%;"></td>
+      <td class="text-nowrap" style="width:110px;">SIGNATURE</td>
+      <td class="text-nowrap" style="width:20px;">:</td>
+      <td class="t3-fill"></td>
+    </tr>
+    <tr>
+      <td class="text-nowrap align-top">DESIGNATION</td>
+      <td class="align-top">:</td>
+      <td class="t3-fill align-top">
+        <div class="small text-muted">Managing Director/General Manager/Principal</div>
+      </td>
+      <td class="text-nowrap">DATE</td>
+      <td>:</td>
+      <td class="t3-fill"></td>
+    </tr>
+    <tr>
+      <td class="text-nowrap align-top">TRAINING<br>PROVIDER'S STAMP</td>
+      <td class="align-top">:</td>
+      <td colspan="4"></td>
+    </tr>
+  </table>
+
+  <p class="small fst-italic mb-1">* Note: 1. Please make a separate attachment if more space is required</p>
+  <p class="small fst-italic mb-0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. This attendance list must be prepared on daily basis and signed by the trainee in <strong>each column</strong> of the relevant date of training if he/she had attended the programme on that day</p>
+</div>
+{% endfor %}
+{% endblock %}

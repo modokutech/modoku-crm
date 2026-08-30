@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Staff' if user else 'New Staff' }}{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Staff Account' if user else 'New Staff Account' }}</h4></div>
+<div class="card p-4" style="max-width:560px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="mb-3 d-flex align-items-center gap-3">
+      {% if user and user.avatar_file %}
+      <img src="{{ url_for('users.avatar', user_id=user.id) }}" class="avatar-lg" alt="">
+      {% else %}
+      <span class="avatar-lg avatar-fallback">{{ (user.name[:1]|upper) if user else '?' }}</span>
+      {% endif %}
+      <div class="flex-grow-1">
+        <label class="form-label">Display picture</label>
+        <input type="file" name="avatar_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        <small class="text-muted">PNG, JPG or WEBP. Max 2 MB.</small>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Full name *</label>
+      <input type="text" name="name" class="form-control" required value="{{ (user.name or '') if user else '' }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email {{ '' if user else '*' }}</label>
+      <input type="email" name="email" class="form-control" {{ 'required' if not user }} value="{{ (user.email or '') if user else '' }}" {{ 'readonly' if user }} {% if not user %}pattern=".+@modoku\.tech"{% endif %}>
+      {% if not user %}<small class="text-muted">Must be a @modoku.tech address.</small>{% endif %}
+    </div>
+    <div class="mb-3">
+      <label class="form-label">{{ 'New password (leave blank to keep current)' if user else 'Password *' }}</label>
+      <input type="password" name="password" class="form-control" minlength="8" {{ 'required' if not user }}>
+      <small class="text-muted">At least 8 characters.</small>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Role</label>
+        <select name="role" class="form-select">
+          <option value="staff" {{ 'selected' if user and user.role=='staff' }}>Staff (sales/ops)</option>
+          <option value="admin" {{ 'selected' if user and user.role=='admin' }}>Admin</option>
+        </select>
+      </div>
+      {% if user %}
+      <div class="col-md-6 d-flex align-items-end">
+        <div class="form-check">
+          <input type="checkbox" name="active" class="form-check-input" id="active" {{ 'checked' if user.active }}>
+          <label class="form-check-label" for="active">Account active</label>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save</button>
+      <a href="{{ url_for('users.index') }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

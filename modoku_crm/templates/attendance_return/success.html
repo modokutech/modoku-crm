@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Submitted{% endblock %}
+{% block guest_content %}
+<div class="auth-wrap">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow text-center">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+    <div class="mb-2"><i class="bi bi-check-circle-fill text-success" style="font-size:2.5rem"></i></div>
+    <h5 class="fw-semibold mb-2">Thank you!</h5>
+    <p class="small text-muted mb-3">
+      The signed attendance form for <strong>{{ s.course_title }}</strong>
+      ({{ s.start_date|fmtdaterange(s.end_date) }}) has been received. The office has been notified.
+    </p>
+    {% if ai_summary and ai_summary.mismatches %}
+    <div class="alert alert-warning text-start small mb-3">
+      <i class="bi bi-exclamation-triangle me-1"></i>
+      <strong>{{ 'One of the photos' if ai_summary.mismatches|length == 1 else ai_summary.mismatches|length ~ ' of the photos' }}
+      doesn't look right</strong> and wasn't counted yet — please double check:
+      <ul class="mb-0 mt-1 ps-3">
+        {% for m in ai_summary.mismatches %}
+        <li>{{ m.reason }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% elif ai_summary %}
+    <p class="small text-success mb-3">
+      <i class="bi bi-robot me-1"></i>Attendance was read and marked automatically from the photo{{ 's' if ai_summary.total_read != 1 }} — no further action needed.
+    </p>
+    {% endif %}
+    <a href="{{ url_for('attendance_return.lookup') }}" class="btn btn-outline-secondary w-100">Submit Another</a>
+  </div>
+</div>
+{% endblock %}

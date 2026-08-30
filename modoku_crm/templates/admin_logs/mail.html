@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mail Log{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">Mail Log</h4></div>
+
+<div class="card p-3 mb-3">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label small">Status</label>
+      <select name="status" class="form-select form-select-sm">
+        <option value="">All statuses</option>
+        <option value="sent" {{ 'selected' if selected_status == 'sent' }}>Sent</option>
+        <option value="failed" {{ 'selected' if selected_status == 'failed' }}>Failed</option>
+        <option value="not_configured" {{ 'selected' if selected_status == 'not_configured' }}>Not configured</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Filter</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle">
+      <thead><tr><th>When</th><th>To</th><th>CC</th><th>Subject</th><th>Status</th><th>Related</th><th>Sent by</th><th>Error</th></tr></thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="text-nowrap">{{ e.created_at|fmtdatetime }}</td>
+          <td>{{ e.to_email }}</td>
+          <td class="small text-muted">{{ e.cc_email or '' }}</td>
+          <td>{{ e.subject or '' }}</td>
+          <td>
+            <span class="badge {% if e.status == 'sent' %}bg-success{% elif e.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ e.status|replace('_', ' ') }}</span>
+          </td>
+          <td>{{ e.related_type or '' }}{% if e.related_id %} #{{ e.related_id }}{% endif %}</td>
+          <td>{{ e.sent_by_name or '—' }}</td>
+          <td class="small text-danger">{{ e.error or '' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">No mail activity recorded yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="small text-muted mt-2">Showing the most recent {{ row_limit }} entries.</p>
+{% endblock %}

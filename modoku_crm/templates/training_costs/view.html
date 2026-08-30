@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}Training Costs — {{ s.course_title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Training Costs</h4>
+    <small class="text-muted"><a href="{{ url_for('sessions.view', session_id=s.id) }}" class="link-plain">← Back to {{ s.course_title }}</a></small>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0c45a6;">
+      <div class="small text-white-50">Total Costing</div>
+      <div class="stat-value" id="stat_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Gross Profit</div>
+      <div class="stat-value" id="stat_gross_profit">RM {{ computed.gross_profit|fmtmoney }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card" style="background:#0891b2;">
+      <div class="small text-white-50">Gross Profit %</div>
+      <div class="stat-value" id="stat_gross_profit_pct">{{ computed.gross_profit_pct }}%</div>
+    </div>
+  </div>
+</div>
+
+<form method="post" class="card p-4" id="costs-form">
+  {{ csrf_field()|safe }}
+  <p class="small text-muted">Training days for this class: <strong>{{ training_days }}</strong> — Lunch, Tea Break, Meeting Package, and Laptop Rental are billed per participant per day and multiply by this automatically. Totals below update live as you type.</p>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-6"><label class="form-label small mb-0">No. of Participants</label><input type="number" min="0" id="pax_count" name="pax_count" class="form-control form-control-sm" value="{{ costs.pax_count }}"></div>
+      </div>
+
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6">Lunch <span class="text-muted small">Per Pax/Day</span></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="lunch_rate" name="lunch_rate" class="form-control form-control-sm" value="{{ costs.lunch_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_lunch">= RM {{ computed.total_lunch|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6">Tea Break <span class="text-muted small">Per Pax/Day</span></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="tea_break_rate" name="tea_break_rate" class="form-control form-control-sm" value="{{ costs.tea_break_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_tea_break">= RM {{ computed.total_tea_break|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-6">Meeting Package <span class="text-muted small">Per Pax/Day</span></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="meeting_package_rate" name="meeting_package_rate" class="form-control form-control-sm" value="{{ costs.meeting_package_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_meeting_package">= RM {{ computed.total_meeting_package|fmtmoney }}</div>
+      </div>
+
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Laptop Rental (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="laptop_rental_qty" name="laptop_rental_qty" class="form-control form-control-sm" value="{{ costs.laptop_rental_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="laptop_rental_rate" name="laptop_rental_rate" class="form-control form-control-sm" placeholder="Per Pax/Day" value="{{ costs.laptop_rental_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_laptop_rental">= RM {{ computed.total_laptop_rental|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Courseware (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="courseware_qty" name="courseware_qty" class="form-control form-control-sm" value="{{ costs.courseware_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="courseware_rate" name="courseware_rate" class="form-control form-control-sm" placeholder="Per Pax" value="{{ costs.courseware_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_courseware">= RM {{ computed.total_courseware|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Manual (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="manual_qty" name="manual_qty" class="form-control form-control-sm" value="{{ costs.manual_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="manual_rate" name="manual_rate" class="form-control form-control-sm" placeholder="Per Pax" value="{{ costs.manual_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_manual">= RM {{ computed.total_manual|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Book (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="book_qty" name="book_qty" class="form-control form-control-sm" value="{{ costs.book_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="book_rate" name="book_rate" class="form-control form-control-sm" placeholder="Per Pax" value="{{ costs.book_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_book">= RM {{ computed.total_book|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Certificate (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="certificate_qty" name="certificate_qty" class="form-control form-control-sm" value="{{ costs.certificate_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="certificate_rate" name="certificate_rate" class="form-control form-control-sm" placeholder="Per Pax" value="{{ costs.certificate_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_certificate">= RM {{ computed.total_certificate|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-3">Cert Type</div>
+        <div class="col-9">
+          <select name="certificate_type" class="form-select form-select-sm" style="max-width:200px">
+            {% for ct in cert_types %}<option value="{{ ct }}" {{ 'selected' if costs.certificate_type == ct }}>{{ ct }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-3">Exam (Qty)</div>
+        <div class="col-3"><input type="number" min="0" id="exam_qty" name="exam_qty" class="form-control form-control-sm" value="{{ costs.exam_qty }}"></div>
+        <div class="col-3"><input type="number" step="0.01" min="0" id="exam_rate" name="exam_rate" class="form-control form-control-sm" placeholder="Per Pax" value="{{ costs.exam_rate }}"></div>
+        <div class="col-3 text-end small text-muted" id="preview_exam">= RM {{ computed.total_exam|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-3">Exam Type</div>
+        <div class="col-9">
+          <select name="exam_type" class="form-select form-select-sm" style="max-width:200px">
+            {% for et in exam_types %}<option value="{{ et }}" {{ 'selected' if costs.exam_type == et }}>{{ et }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <label class="form-label small mb-0">Remark</label>
+        <textarea name="others_remarks" class="form-control form-control-sm" rows="2">{{ costs.others_remarks }}</textarea>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6">Trainer Fee Per Day</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="trainer_fee_per_day" name="trainer_fee_per_day" class="form-control form-control-sm" value="{{ costs.trainer_fee_per_day }}"></div>
+      </div>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-6">Trainer Allowance Per Day</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="trainer_allowance_per_day" name="trainer_allowance_per_day" class="form-control form-control-sm" value="{{ costs.trainer_allowance_per_day }}"></div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6">Bus/Air Fee</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="bus_air_fee" name="bus_air_fee" class="form-control form-control-sm" value="{{ costs.bus_air_fee }}"></div>
+      </div>
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6">Venue Fee</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="venue_fee" name="venue_fee" class="form-control form-control-sm" value="{{ costs.venue_fee }}"></div>
+      </div>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-6">Hotel (Accommodation Fee)</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="hotel_fee" name="hotel_fee" class="form-control form-control-sm" value="{{ costs.hotel_fee }}"></div>
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label small mb-0">Other Fee Items</label>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="addFeeItemBtn">+ Add Fee Item</button>
+        </div>
+        <div id="customFeeItems">
+          {% for item in items %}
+          <div class="row g-2 align-items-center mb-1 custom-fee-item">
+            <div class="col-6"><input type="text" name="item_description" class="form-control form-control-sm" placeholder="Description" value="{{ item.description or '' }}"></div>
+            <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount" class="form-control form-control-sm custom-fee-amount" placeholder="Amount" value="{{ item.amount }}"></div>
+            <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-fee-item">&times;</button></div>
+          </div>
+          {% else %}
+          <div class="row g-2 align-items-center mb-1 custom-fee-item">
+            <div class="col-6"><input type="text" name="item_description" class="form-control form-control-sm" placeholder="Description"></div>
+            <div class="col-4"><input type="number" step="0.01" min="0" name="item_amount" class="form-control form-control-sm custom-fee-amount" placeholder="Amount"></div>
+            <div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-fee-item">&times;</button></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <hr>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-6">Training Revenue</div>
+        <div class="col-6"><input type="number" step="0.01" min="0" id="training_revenue" name="training_revenue" class="form-control form-control-sm" value="{{ costs.training_revenue }}"></div>
+      </div>
+
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-6 fw-semibold">Total Costing</div>
+        <div class="col-6 text-end fw-semibold" id="summary_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
+      </div>
+      <div class="row g-2 align-items-center">
+        <div class="col-6 fw-bold">Gross Profit / %</div>
+        <div class="col-6 text-end fw-bold"><span id="summary_gross_profit">RM {{ computed.gross_profit|fmtmoney }}</span> &nbsp; (<span id="summary_gross_profit_pct">{{ computed.gross_profit_pct }}</span>%)</div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="mt-3 d-flex gap-2">
+  <form method="post" action="{{ url_for('training_costs.reset', session_id=s.id) }}" onsubmit="return confirm('Clear all Training Costs figures for this class? This cannot be undone.');">
+    {{ csrf_field()|safe }}
+    <button class="btn btn-outline-danger" type="submit">Clear / Reset Costing</button>
+  </form>
+  <button class="btn btn-success" type="submit" form="costs-form">Save Training Costs</button>
+</div>
+
+<script>
+(function () {
+  var TRAINING_DAYS = {{ training_days|tojson }};
+
+  function num(id) {
+    var el = document.getElementById(id);
+    if (!el) { return 0; }
+    var v = parseFloat(el.value);
+    return isNaN(v) ? 0 : v;
+  }
+  function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2); }
+  function fmtMoney(n) {
+    return (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function setPreview(id, val) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = '= RM ' + fmtMoney(val); }
+  }
+  function setRM(id, val) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = 'RM ' + fmtMoney(val); }
+  }
+  function setPct(id, val) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = fmt(val); }
+  }
+
+  function recalc() {
+    var days = TRAINING_DAYS;
+    var pax = num('pax_count');
+
+    var lunch = num('lunch_rate') * pax * days;
+    var tea = num('tea_break_rate') * pax * days;
+    var meeting = num('meeting_package_rate') * pax * days;
+    var laptop = num('laptop_rental_rate') * num('laptop_rental_qty') * days;
+    var courseware = num('courseware_rate') * num('courseware_qty');
+    var manual = num('manual_rate') * num('manual_qty');
+    var book = num('book_rate') * num('book_qty');
+    var cert = num('certificate_rate') * num('certificate_qty');
+    var exam = num('exam_rate') * num('exam_qty');
+    var trainerFee = num('trainer_fee_per_day') * days;
+    var trainerAllowance = num('trainer_allowance_per_day') * days;
+    var busAir = num('bus_air_fee');
+    var venue = num('venue_fee');
+    var hotel = num('hotel_fee');
+
+    var customTotal = 0;
+    document.querySelectorAll('.custom-fee-amount').forEach(function (el) {
+      var v = parseFloat(el.value);
+      customTotal += isNaN(v) ? 0 : v;
+    });
+
+    var revenue = num('training_revenue');
+    var totalCosting = lunch + tea + meeting + laptop + courseware + manual + book + cert + exam
+      + customTotal + trainerFee + trainerAllowance + busAir + venue + hotel;
+    var grossProfit = revenue - totalCosting;
+    var grossProfitPct = revenue ? (grossProfit / revenue * 100) : 0;
+
+    setPreview('preview_lunch', lunch);
+    setPreview('preview_tea_break', tea);
+    setPreview('preview_meeting_package', meeting);
+    setPreview('preview_laptop_rental', laptop);
+    setPreview('preview_courseware', courseware);
+    setPreview('preview_manual', manual);
+    setPreview('preview_book', book);
+    setPreview('preview_certificate', cert);
+    setPreview('preview_exam', exam);
+
+    setRM('stat_total_costing', totalCosting);
+    setRM('stat_gross_profit', grossProfit);
+    setPct('stat_gross_profit_pct', grossProfitPct);
+    setRM('summary_total_costing', totalCosting);
+    setRM('summary_gross_profit', grossProfit);
+    setPct('summary_gross_profit_pct', grossProfitPct);
+  }
+
+  var form = document.getElementById('costs-form');
+  form.addEventListener('input', recalc);
+
+  document.getElementById('addFeeItemBtn').addEventListener('click', function () {
+    var container = document.getElementById('customFeeItems');
+    var row = document.createElement('div');
+    row.className = 'row g-2 align-items-center mb-1 custom-fee-item';
+    row.innerHTML =
+      '<div class="col-6"><input type="text" name="item_description" class="form-control form-control-sm" placeholder="Description"></div>' +
+      '<div class="col-4"><input type="number" step="0.01" min="0" name="item_amount" class="form-control form-control-sm custom-fee-amount" placeholder="Amount"></div>' +
+      '<div class="col-2"><button type="button" class="btn btn-sm btn-outline-danger w-100 remove-fee-item">&times;</button></div>';
+    container.appendChild(row);
+  });
+
+  document.getElementById('customFeeItems').addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-fee-item')) {
+      e.target.closest('.custom-fee-item').remove();
+      recalc();
+    }
+  });
+
+  recalc();
+})();
+</script>
+{% endblock %}

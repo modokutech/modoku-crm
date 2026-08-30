@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}How to Use{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">How to Use Modoku Hub</h4>
+    <small class="text-muted">4 tracks, 25 modules — jump to a section or click straight through.</small>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3" id="guideTabs"></div>
+
+<div class="card p-4 p-md-5">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2" id="guideDots"></div>
+
+  <div class="text-center" id="guideStepBody" style="min-height:280px;"></div>
+
+  <div class="d-flex justify-content-between align-items-center mt-4">
+    <button class="btn btn-outline-secondary" id="guidePrevBtn"><i class="bi bi-arrow-left me-1"></i>Back</button>
+    <span class="text-muted small text-center" id="guideCounter"></span>
+    <button class="btn btn-success" id="guideNextBtn">Next <i class="bi bi-arrow-right ms-1"></i></button>
+  </div>
+</div>
+
+<div class="card p-3 mt-3 text-center small text-muted">
+  <i class="bi bi-flag me-1"></i>Once a Class exists, its own page is home base — attendance, evaluation,
+  certificates, grant ID, JD14 and training costs all launch from there.
+</div>
+
+<style>
+.guide-tab {
+  border: 1px solid #d7ddd9; background: #fff; color: #5c655f; border-radius: 2rem;
+  padding: 0.4rem 0.9rem; font-size: 0.88rem; font-weight: 600; display: inline-flex;
+  align-items: center; gap: 0.4rem; cursor: pointer; transition: all .15s ease;
+}
+.guide-tab i { font-size: 0.95rem; }
+.guide-tab.is-active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.guide-dot {
+  width: 2rem; height: 2rem; border-radius: 50%; border: 2px solid #d7ddd9;
+  display: flex; align-items: center; justify-content: center; font-weight: 700;
+  color: #8a938e; background: #fff; cursor: pointer; flex-shrink: 0; font-size: 0.85rem;
+  transition: all .15s ease;
+}
+.guide-dot.is-done { border-color: var(--brand); color: var(--brand); background: #f4faf6; }
+.guide-dot.is-current { border-color: var(--brand); background: var(--brand); color: #fff; }
+.guide-dot-line { flex: 1 1 auto; height: 2px; background: #d7ddd9; margin: 0 4px; min-width: 0.75rem; }
+.guide-dot-line.is-done { background: var(--brand); }
+.guide-icon-circle {
+  width: 5rem; height: 5rem; border-radius: 50%; background: #f4faf6; color: var(--brand);
+  display: flex; align-items: center; justify-content: center; font-size: 2.2rem;
+  margin: 0 auto 1rem;
+}
+.guide-bullets { list-style: none; padding: 0; margin: 0 auto; max-width: 460px; text-align: left; }
+.guide-bullets li { padding: 0.35rem 0; font-size: 1.05rem; }
+.guide-bullets li i { color: var(--brand); margin-right: 0.5rem; }
+.guide-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem; max-width: 480px;
+  margin: 0.75rem auto 0; padding: 0.55rem 0.9rem; border-radius: 0.6rem; font-size: 0.92rem;
+  text-align: left;
+}
+.guide-chip-tip { background: #fff8e6; color: #7a5b00; }
+.guide-chip-auto { background: #eaf6ff; color: #0a5a8a; }
+</style>
+<script>
+(function () {
+  // Deliberately short per step — this is meant to be skimmed in a few
+  // clicks, not read like a manual. Anything the system does by itself is
+  // called out as an "auto" chip so staff can spot at a glance what they
+  // don't have to do by hand. "Next" walks through every track in order;
+  // the pills at top let staff jump straight to the section they need.
+  var CATEGORIES = [
+    {
+      key: 'core', label: 'Core Flow', icon: 'bi-signpost-2',
+      steps: [
+        { icon: 'bi-buildings', title: 'Client & Lead',
+          bullets: ['Add the Company under Clients', 'Add a Lead under it — becomes the class PIC'] },
+        { icon: 'bi-person-badge', title: 'Trainer',
+          bullets: ['Add the Trainer', 'Upload Profile + Accredited Cert now'],
+          auto: 'Reused later for the Grant Documents pack and the PO' },
+        { icon: 'bi-mortarboard', title: 'Course',
+          bullets: ['Check Courses — add the topic once if new'],
+          auto: 'Reused for every future run of this training' },
+        { icon: 'bi-calendar-event', title: 'Class',
+          bullets: ['New Class → status "Proposed"', 'Create it before anything is signed'],
+          tip: 'Key move: create it early — everything below plugs into this one record.' },
+        { icon: 'bi-person-check', title: 'Enrolled Participants',
+          bullets: ['Add participants right on the Class page', 'Tracks each person’s HRDF claim status'],
+          auto: 'Separate from the printed T3 list — doesn’t affect that count' },
+        { icon: 'bi-file-earmark-ruled', title: 'Quotation',
+          bullets: ['Send it, linked to the Proposed class'],
+          auto: 'Signed copy in → Class flips to Scheduled, attendance form + calendar invite auto-emailed' },
+        { icon: 'bi-file-earmark-text', title: 'Purchase Order',
+          bullets: ['Assign the trainer(s), send the PO'],
+          auto: 'Trainer confirms/rejects via their own link — you get notified either way' },
+        { icon: 'bi-receipt', title: 'Invoice',
+          bullets: ['Send it, linked to the Class'] },
+      ],
+    },
+    {
+      key: 'training', label: 'Training', icon: 'bi-calendar2-week',
+      steps: [
+        { icon: 'bi-award', title: 'HRDCorp Grant Documents',
+          bullets: ['Send the grant-docs pack 14 days before the training date — HRDC’s own rule', 'Client submits their Grant ID back via a link — no login needed'],
+          auto: 'Saved straight onto the class record and you’re notified' },
+        { icon: 'bi-clipboard-check', title: 'T3 Attendance Form',
+          bullets: ['Best: get the client to fill it online before training, then chase 1 day before for peace of mind', 'Fallback: print the hardcopy on the day and get participants to sign it', 'Trainer-only class: trainer distributes the form, gets every participant to sign, then returns it via their own coded link', 'Multi-day class: each day gets its own sheet, and a participant needs every day covered before they’re certificate-eligible'],
+          auto: 'Once a photo is returned, AI reads it, checks the class/date printed on the sheet actually match, then reads the signatures and marks that day attended by itself — no manual cross-check. A wrong-looking sheet (wrong class, wrong date) is flagged instead of guessed, and anything it can’t confidently read still shows up on AI Match Attendance for a quick look.' },
+        { icon: 'bi-patch-check', title: 'Evaluation & e-Certificates',
+          bullets: ['Evaluation Form + QR poster for the end of class', 'Participants self-serve their certificate afterwards, no login needed'],
+          auto: 'Every certificate stays browsable under the Certificates tab' },
+        { icon: 'bi-file-earmark-check', title: 'JD14 Form',
+          bullets: ['HRDCorp’s Joint Declaration Form (PSMB/SBL-KHAS/JD/14) — needs both parties’ signatures', 'Upload it once signed on your end, and the system emails the client a link to upload their signed copy back'] },
+        { icon: 'bi-calculator', title: 'Training Costs',
+          bullets: ['Optional per-class profit & loss worksheet', 'Button lives right on the Class page'] },
+      ],
+    },
+    {
+      key: 'money', label: 'Money', icon: 'bi-cash-stack',
+      steps: [
+        { icon: 'bi-truck', title: 'Vendor Purchase Orders',
+          bullets: ['Same Draft → Sent → Confirmed flow as trainer POs', 'For vendors instead — printing, transport, etc. — doesn’t need a class'] },
+        { icon: 'bi-receipt-cutoff', title: 'Invoice Uploads',
+          bullets: ['Trainer/vendor uploads their own invoice via the link on their PO', 'Shows on the PO page as "Invoice Submitted by Trainer/Vendor"'] },
+        { icon: 'bi-wallet2', title: 'Payment Receipts',
+          bullets: ['One combined list of every PO awaiting payment', 'Upload the receipt + amount on the PO page — flips it to Paid'] },
+        { icon: 'bi-cash-coin', title: 'Claims',
+          bullets: ['Anyone submits an expense claim by link — no login needed', 'Finance reviews, uploads the receipt, it auto-emails the claimant'] },
+      ],
+    },
+    {
+      key: 'admin', label: 'Insights & Admin', icon: 'bi-speedometer',
+      steps: [
+        { icon: 'bi-bar-chart-line', title: 'Reports',
+          bullets: ['Sales pipeline by status', 'Calls, emails and proposals sent, per salesperson'] },
+        { icon: 'bi-graph-up', title: 'Trainer Log',
+          bullets: ['Training days delivered and amount paid, per trainer'],
+          auto: 'Counts only Confirmed POs' },
+        { icon: 'bi-person-workspace', title: 'Sales Performance',
+          bullets: ['Same idea as Trainer Log, but by salesperson from Invoices raised'] },
+        { icon: 'bi-grid-3x3-gap', title: 'Activity Heatmap',
+          bullets: ['A calendar view of how busy the year’s been', 'A Classes view and a trainer-by-month view'] },
+        { icon: 'bi-bell', title: 'Notifications',
+          bullets: ['Your in-app inbox for things needing action', 'A quiet quotation, an overdue invoice, an overdue evaluation, etc.'] },
+        { icon: 'bi-toggles', title: 'Settings',
+          bullets: ['Admins can switch off modules the business isn’t using yet', 'Nothing is deleted — just hidden until switched back on'] },
+        { icon: 'bi-people', title: 'Staff Users & Logs',
+          bullets: ['Manage staff accounts (admin only)', 'Activity Log and Mail Log show who did what, and every email sent'] },
+        { icon: 'bi-file-earmark-zip', title: 'Data Export',
+          bullets: ['One click, one year → a zip organized by Class (admin only)', 'A local download — no cloud backup involved'] },
+      ],
+    },
+  ];
+
+  var currentCat = 0;
+  var currentStep = 0;
+  var tabsEl = document.getElementById('guideTabs');
+  var dotsEl = document.getElementById('guideDots');
+  var bodyEl = document.getElementById('guideStepBody');
+  var counterEl = document.getElementById('guideCounter');
+  var prevBtn = document.getElementById('guidePrevBtn');
+  var nextBtn = document.getElementById('guideNextBtn');
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    CATEGORIES.forEach(function (cat, i) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'guide-tab' + (i === currentCat ? ' is-active' : '');
+      btn.innerHTML = '<i class="bi ' + cat.icon + '"></i>' + cat.label;
+      btn.addEventListener('click', function () { goTo(i, 0); });
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function renderDots() {
+    var steps = CATEGORIES[currentCat].steps;
+    dotsEl.innerHTML = '';
+    steps.forEach(function (_, i) {
+      var dot = document.createElement('div');
+      dot.className = 'guide-dot' + (i === currentStep ? ' is-current' : i < currentStep ? ' is-done' : '');
+      dot.textContent = i < currentStep ? '✓' : (i + 1);
+      dot.addEventListener('click', function () { goTo(currentCat, i); });
+      dotsEl.appendChild(dot);
+      if (i < steps.length - 1) {
+        var line = document.createElement('div');
+        line.className = 'guide-dot-line' + (i < currentStep ? ' is-done' : '');
+        dotsEl.appendChild(line);
+      }
+    });
+  }
+
+  function renderStep() {
+    var s = CATEGORIES[currentCat].steps[currentStep];
+    var bulletsHtml = s.bullets.map(function (b) {
+      return '<li><i class="bi bi-check-circle-fill"></i>' + b + '</li>';
+    }).join('');
+    var extraHtml = '';
+    if (s.tip) {
+      extraHtml += '<div class="guide-chip guide-chip-tip"><i class="bi bi-lightbulb-fill"></i>' + s.tip + '</div>';
+    }
+    if (s.auto) {
+      extraHtml += '<div class="guide-chip guide-chip-auto"><i class="bi bi-robot"></i>' + s.auto + '</div>';
+    }
+    bodyEl.innerHTML =
+      '<div class="guide-icon-circle"><i class="bi ' + s.icon + '"></i></div>' +
+      '<h4 class="mb-3">' + s.title + '</h4>' +
+      '<ul class="guide-bullets">' + bulletsHtml + '</ul>' +
+      extraHtml;
+
+    var steps = CATEGORIES[currentCat].steps;
+    counterEl.innerHTML = 'Step ' + (currentStep + 1) + ' of ' + steps.length +
+      ' &middot; ' + CATEGORIES[currentCat].label;
+    prevBtn.disabled = (currentCat === 0 && currentStep === 0);
+
+    var isLastStepOfCat = currentStep === steps.length - 1;
+    var isLastCat = currentCat === CATEGORIES.length - 1;
+    if (isLastStepOfCat && isLastCat) {
+      nextBtn.innerHTML = 'Done <i class="bi bi-check-lg ms-1"></i>';
+    } else if (isLastStepOfCat) {
+      nextBtn.innerHTML = 'Next: ' + CATEGORIES[currentCat + 1].label + ' <i class="bi bi-arrow-right ms-1"></i>';
+    } else {
+      nextBtn.innerHTML = 'Next <i class="bi bi-arrow-right ms-1"></i>';
+    }
+  }
+
+  function goTo(catIndex, stepIndex) {
+    currentCat = Math.max(0, Math.min(CATEGORIES.length - 1, catIndex));
+    var maxStep = CATEGORIES[currentCat].steps.length - 1;
+    currentStep = Math.max(0, Math.min(maxStep, stepIndex));
+    renderTabs();
+    renderDots();
+    renderStep();
+  }
+
+  function goNext() {
+    var steps = CATEGORIES[currentCat].steps;
+    if (currentStep < steps.length - 1) {
+      goTo(currentCat, currentStep + 1);
+    } else if (currentCat < CATEGORIES.length - 1) {
+      goTo(currentCat + 1, 0);
+    } else {
+      goTo(0, 0);
+    }
+  }
+
+  function goPrev() {
+    if (currentStep > 0) {
+      goTo(currentCat, currentStep - 1);
+    } else if (currentCat > 0) {
+      var prevSteps = CATEGORIES[currentCat - 1].steps;
+      goTo(currentCat - 1, prevSteps.length - 1);
+    }
+  }
+
+  prevBtn.addEventListener('click', goPrev);
+  nextBtn.addEventListener('click', goNext);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') goNext();
+    if (e.key === 'ArrowLeft') goPrev();
+  });
+
+  goTo(0, 0);
+})();
+</script>
+{% endblock %}

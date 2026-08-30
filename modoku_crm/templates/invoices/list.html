@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Invoices</h4>
+    <small class="text-muted">Quotations and invoices for corporate training, with SST &amp; e-invoice fields.</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if g.user.role == 'admin' %}
+    <a href="{{ url_for('invoices.export', status=current_status) }}" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+    {% endif %}
+    <a href="{{ url_for('invoices.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Invoice</a>
+  </div>
+</div>
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if s == current_status }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit">Filter</button></div>
+  </form>
+</div>
+<div class="card p-3">
+  {% if invoices %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Invoice No.</th><th>Bill To</th><th>Date</th><th>Due</th><th class="text-end">Total (RM)</th><th>Created by</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for i in invoices %}
+        <tr onclick="window.location='{{ url_for('invoices.view', invoice_id=i.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ i.invoice_no }}</td>
+          <td>{{ i.company_name or i.bill_to_name }}</td>
+          <td>{{ i.invoice_date|fmtdate }}</td>
+          <td>{{ i.due_date|fmtdate }}</td>
+          <td class="text-end">{{ i.total|fmtmoney }}</td>
+          <td>{{ i.created_by_name or '—' }}</td>
+          <td>
+            <span class="badge badge-status
+              {% if i.status == 'Paid' %}bg-success
+              {% elif i.status == 'Overdue' %}bg-danger
+              {% elif i.status == 'Cancelled' %}bg-secondary
+              {% elif i.status == 'Sent' %}bg-warning text-dark
+              {% else %}bg-light text-dark{% endif %}">{{ i.status }}</span>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">No invoices yet.</p>{% endif %}
+</div>
+{% endblock %}

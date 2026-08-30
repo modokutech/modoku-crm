@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="page-header"><h4 class="mb-0">My Profile</h4></div>
+
+{% if not user.position or not user.signature_file %}
+<div class="alert alert-warning">
+  Add your <strong>position</strong> and <strong>signature</strong> below — they're required to complete the
+  "Authorised by" section on Purchase Orders and the sign-off on Quotations.
+</div>
+{% endif %}
+
+<div class="card p-4" style="max-width:600px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="mb-3 d-flex align-items-center gap-3">
+      {% if user.avatar_file %}
+      <img src="{{ url_for('profile.avatar') }}" class="avatar-lg" alt="">
+      {% else %}
+      <span class="avatar-lg avatar-fallback">{{ user.name[:1]|upper }}</span>
+      {% endif %}
+      <div class="flex-grow-1">
+        <label class="form-label">Display picture</label>
+        <input type="file" name="avatar_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        <small class="text-muted">Max 2 MB.</small>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Full name *</label>
+      <input type="text" name="name" class="form-control" required value="{{ user.name }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" class="form-control" value="{{ user.email }}" readonly>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Position / Job Title *</label>
+        <input type="text" name="position" class="form-control" placeholder="e.g. Sales Executive" value="{{ user.position or '' }}">
+        <small class="text-muted">Shown under your signature on documents.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Contact Phone *</label>
+        <input type="text" name="contact_phone" class="form-control" placeholder="e.g. +60 12-345 6789" value="{{ user.contact_phone or '' }}">
+        <small class="text-muted">Shown on Quotations so clients can reach you.</small>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Signature *</label>
+      {% if user.signature_file %}
+      <div class="mb-2"><img src="{{ url_for('profile.signature') }}" alt="Signature" style="max-height:70px;"></div>
+      {% endif %}
+      <input type="file" name="signature_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+      <small class="text-muted">A transparent PNG of your signature works best. Used on Purchase Orders and Quotations. Max 2 MB.</small>
+    </div>
+    <hr>
+    <h6 class="text-muted text-uppercase small mb-2">Change Password</h6>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">Current password</label>
+        <input type="password" name="current_password" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">New password</label>
+        <input type="password" name="new_password" class="form-control">
+      </div>
+    </div>
+    <div class="mt-4 d-flex gap-2">
+      <button class="btn btn-success" type="submit">Save Profile</button>
+    </div>
+  </form>
+</div>
+
+<div class="card p-4 mt-3" style="max-width:600px;">
+  <h6 class="mb-1"><i class="bi bi-calendar-check me-1"></i>Calendar Integration</h6>
+  <p class="small text-muted mb-3">
+    Connect your own Google or Outlook calendar. Once connected, every class will automatically get a
+    blocking event on your calendar the moment it's confirmed (Scheduled) — whether set directly or once
+    a signed quotation comes back.
+  </p>
+
+  <div class="d-flex align-items-center justify-content-between border rounded p-3 mb-2">
+    <div>
+      <div class="fw-semibold"><i class="bi bi-google me-1"></i>Google Calendar</div>
+      {% if google_connection %}
+      <div class="small text-success">Connected{% if google_connection.calendar_email %} as {{ google_connection.calendar_email }}{% endif %}</div>
+      {% elif google_configured %}
+      <div class="small text-muted">Not connected</div>
+      {% else %}
+      <div class="small text-muted">Not set up yet — ask an admin to configure it (see README).</div>
+      {% endif %}
+    </div>
+    {% if google_connection %}
+    <form method="post" action="{{ url_for('calendar_integration.disconnect_route', provider='google') }}" onsubmit="return confirm('Disconnect Google Calendar?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-sm btn-outline-danger">Disconnect</button>
+    </form>
+    {% else %}
+    <a href="{{ url_for('calendar_integration.connect_google') }}" class="btn btn-sm btn-outline-primary {{ 'disabled' if not google_configured }}">Connect</a>
+    {% endif %}
+  </div>
+
+  <div class="d-flex align-items-center justify-content-between border rounded p-3">
+    <div>
+      <div class="fw-semibold"><i class="bi bi-microsoft me-1"></i>Outlook Calendar</div>
+      {% if microsoft_connection %}
+      <div class="small text-success">Connected{% if microsoft_connection.calendar_email %} as {{ microsoft_connection.calendar_email }}{% endif %}</div>
+      {% elif microsoft_configured %}
+      <div class="small text-muted">Not connected</div>
+      {% else %}
+      <div class="small text-muted">Not set up yet — ask an admin to configure it (see README).</div>
+      {% endif %}
+    </div>
+    {% if microsoft_connection %}
+    <form method="post" action="{{ url_for('calendar_integration.disconnect_route', provider='microsoft') }}" onsubmit="return confirm('Disconnect Outlook Calendar?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-sm btn-outline-danger">Disconnect</button>
+    </form>
+    {% else %}
+    <a href="{{ url_for('calendar_integration.connect_microsoft') }}" class="btn btn-sm btn-outline-primary {{ 'disabled' if not microsoft_configured }}">Connect</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ course.title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ course.title }} {% if course.hrdf_claimable %}<span class="badge bg-success">HRDCorp</span>{% endif %}</h4>
+    <small class="text-muted">{{ course.code or '' }} {% if course.category %}· {{ course.category }}{% endif %}</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('sessions.new', course_id=course.id) }}" class="btn btn-success btn-sm">+ Schedule Class</a>
+    <a href="{{ url_for('courses.edit', course_id=course.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    <form method="post" action="{{ url_for('courses.delete', course_id=course.id) }}" onsubmit="return confirm('Delete this course?');">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-outline-danger btn-sm">Delete</button>
+    </form>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card p-3">
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted">Duration</td><td>{{ course.duration_days }} day(s)</td></tr>
+        <tr><td class="text-muted">In-house Price</td><td>RM {{ course.price_inhouse|fmtmoney }}</td></tr>
+        <tr><td class="text-muted">Public Price</td><td>RM {{ course.price_public|fmtmoney }} per pax per day</td></tr>
+        <tr><td class="text-muted">HRDCorp claimable</td><td>{{ 'Yes' if course.hrdf_claimable else 'No' }}</td></tr>
+        <tr><td class="text-muted">HRDCorp Programme No.</td><td>{{ course.hrdcorp_programme_no or '-' }}</td></tr>
+        <tr><td class="text-muted">Status</td><td>{{ 'Active' if course.active else 'Inactive' }}</td></tr>
+        <tr><td class="text-muted">Outline</td><td>
+          {% if course.outline_file %}<a href="{{ url_for('courses.download_outline', course_id=course.id) }}" target="_blank"><i class="bi bi-file-earmark-text me-1"></i>View outline</a>
+          {% else %}<span class="text-muted">Not uploaded</span>{% endif %}
+        </td></tr>
+      </table>
+      {% if course.description %}<hr><p class="mb-0 small">{{ course.description }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card p-3">
+      <h6>Classes</h6>
+      {% if sessions %}
+      <table class="table table-sm">
+        <thead><tr><th>Start</th><th>Venue</th><th>Trainer</th><th>Status</th><th>Enrolled</th></tr></thead>
+        <tbody>
+        {% for s in sessions %}
+        <tr onclick="window.location='{{ url_for('sessions.view', session_id=s.id) }}'" style="cursor:pointer">
+          <td>{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} - {{ s.end_date|fmtdate }}{% endif %}</td>
+          <td>{{ s.venue or '-' }}</td>
+          <td>{{ s.trainer_name or '-' }}</td>
+          <td><span class="badge bg-secondary-subtle text-secondary-emphasis">{{ s.status }}</span></td>
+          <td>{{ s.enrolled_count }}/{{ s.capacity }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="text-muted mb-0 small">No sessions scheduled for this course yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

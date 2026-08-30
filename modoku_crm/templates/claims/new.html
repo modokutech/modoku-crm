@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Submit a Claim{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Submit a Claim</h4>
+    <small class="text-muted">Pick the date of the class you're claiming for, then fill in your details.</small>
+  </div>
+  {% if g.user %}
+  <a href="{{ url_for('claims.index') }}" class="btn btn-outline-secondary">Back to Claims</a>
+  {% endif %}
+</div>
+
+<div class="card p-4" style="max-width:640px;">
+  <form method="get" action="{{ url_for('claims.new') }}" class="mb-4">
+    <label class="form-label small fw-semibold">Date of the class</label>
+    <div class="d-flex gap-2">
+      <input type="date" name="claim_date" class="form-control" value="{{ selected_date }}" max="{{ today }}" required>
+      <button class="btn btn-outline-success text-nowrap" type="submit">Find Classes</button>
+    </div>
+  </form>
+
+  {% if selected_date and not sessions_on_date %}
+  <div class="alert alert-warning mb-0">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    No classes found on {{ selected_date|fmtdate }} — please check the date and try again.
+    Only classes with a Scheduled, Ongoing or Completed status can be claimed against.
+  </div>
+  {% endif %}
+
+  {% if sessions_on_date %}
+  <form method="post" action="{{ url_for('claims.new') }}" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <input type="hidden" name="claim_date" value="{{ selected_date }}">
+
+    <label class="form-label small fw-semibold">Which class?</label>
+    <div class="mb-3">
+      {% for s in sessions_on_date %}
+      <div class="form-check border rounded p-2 mb-2">
+        <input class="form-check-input" type="radio" name="session_id" value="{{ s.id }}" id="claimSession{{ s.id }}" required {{ 'checked' if loop.first }}>
+        <label class="form-check-label" for="claimSession{{ s.id }}">
+          <span class="fw-semibold">{{ s.title }}</span>
+          <span class="text-muted small d-block">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} – {{ s.end_date|fmtdate }}{% endif %}{% if s.venue %} · {{ s.venue }}{% endif %}</span>
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+
+    <hr>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label small">Name</label>
+        <input type="text" name="claimant_name" class="form-control" value="{{ default_name }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Email</label>
+        <input type="email" name="claimant_email" class="form-control" value="{{ default_email }}" placeholder="name@email.com" required>
+        <small class="text-muted">So we know where to send the payment receipt once it's processed.</small>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label small">Bank Name</label>
+        <input type="text" name="bank_name" class="form-control" placeholder="e.g. Maybank" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Bank Account No.</label>
+        <input type="text" name="bank_account_no" class="form-control" required>
+      </div>
+    </div>
+    <p class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>The bank account must be under your own name — claims paid to a different account holder's name won't be processed.</p>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label small">Total Amount (RM)</label>
+        <input type="number" step="0.01" min="0" name="total_amount" class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Note / What is this claim for? <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" name="claim_note" class="form-control" placeholder="e.g. Transport, meals, training materials">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label small">Upload photos/files</label>
+      <input type="file" name="files" class="form-control" multiple>
+      <small class="text-muted">e.g. receipts, invoices — multiple files allowed. Max 2 MB per file.</small>
+    </div>
+
+    <button class="btn btn-success w-100" type="submit"><i class="bi bi-send me-1"></i>Submit Claim</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+{% block guest_content %}
+{# This page works without a login (see claims.py) — a visitor who isn't
+   signed in lands here instead of the sidebar layout above, so re-render
+   the same content block inside a plain, padded container. #}
+<div class="container-fluid p-4" style="max-width:1100px;margin:0 auto;">
+  {{ self.content() }}
+</div>
+{% endblock %}
