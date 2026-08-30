@@ -3,7 +3,6 @@ from datetime import date
 from flask import Blueprint, render_template, url_for
 
 from . import db, fmtmoney
-from . import news
 from . import sessions as _sessions
 from .auth import login_required
 
@@ -150,7 +149,6 @@ def index():
            ORDER BY l.created_at DESC LIMIT 6"""
     )
 
-    news_items, news_error = news.get_training_news(5)
     attention_sections = _attention_items()
 
     return render_template(
@@ -164,6 +162,4 @@ def index():
         overdue=overdue,
         pending_quotations=pending_quotations,
         recent_leads=recent_leads,
-        news_items=news_items,
-        news_error=news_error,
     )
