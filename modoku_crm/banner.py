@@ -54,17 +54,42 @@ def _wrap_text(draw, text, font, max_width, max_lines=2):
 
 
 def _title_lines(draw, title, font, max_width):
-    """Splits the title into up to two display lines. A colon in the title
-    (e.g. "Away Day: Step Up and Stand Out 2023") is treated as the natural
-    break, matching the reference banner's two-line layout; otherwise the
-    title is word-wrapped."""
+    """Splits the title into display lines for a given font. A colon in the
+    title (e.g. "Away Day: Step Up and Stand Out 2023") is treated as the
+    natural break between the two halves, matching the reference banner's
+    layout — but each half is still word-wrapped (not just split verbatim),
+    since a long half on its own can still be wider than the banner."""
     title = (title or "").strip()
     if not title:
         return []
     if ":" in title:
         head, _, tail = title.partition(":")
-        return [f"{head.strip()}:", tail.strip()]
-    return _wrap_text(draw, title, font, max_width, max_lines=2)
+        head_lines = _wrap_text(draw, f"{head.strip()}:", font, max_width, max_lines=2)
+        tail_lines = _wrap_text(draw, tail.strip(), font, max_width, max_lines=2)
+        return head_lines + tail_lines
+    return _wrap_text(draw, title, font, max_width, max_lines=3)
+
+
+def _fit_title(draw, title, max_width, start_size, min_size=42, max_lines=3):
+    """Picks the largest font size (from start_size down to min_size) at
+    which the whole title actually fits within max_width on every line —
+    so a long class title shrinks to fit the banner instead of running off
+    either edge, the way a fixed font size could. Falls back to the
+    smallest size (with lines beyond max_lines dropped) only in the
+    practically-impossible case where even that doesn't fit."""
+    title = (title or "").strip()
+    if not title:
+        return [], _font(FONT_BOLD, start_size)
+    size = start_size
+    while size >= min_size:
+        font = _font(FONT_BOLD, size)
+        lines = _title_lines(draw, title, font, max_width)
+        fits = len(lines) <= max_lines and all(draw.textlength(l, font=font) <= max_width for l in lines)
+        if fits:
+            return lines, font
+        size -= 2
+    font = _font(FONT_BOLD, min_size)
+    return _title_lines(draw, title, font, max_width)[:max_lines], font
 
 
 def _draw_shapes(canvas):
@@ -123,7 +148,10 @@ def generate_banner(title, training_time, start_date, end_date, venue,
 
     # --- Logo lockup: client logo | divider | Modoku logo, centered as a
     # group. If there's no client logo yet, just center the Modoku logo. ---
-    logo_box_h = 170
+    # Box height -20% from the original 170px, per request — shrinks both
+    # the Modoku wordmark and any uploaded client logo together, since both
+    # are scaled to fit this same box.
+    logo_box_h = 136
     gap = 40
 
     def _load_logo(path, max_h):
@@ -166,13 +194,16 @@ def generate_banner(title, training_time, start_date, end_date, venue,
                 x += divider_w + gap
 
     # --- Title ---
-    title_font = _font(FONT_BOLD, 84)
-    lines = _title_lines(draw, title, title_font, W - 400)
+    # Default size -10% from the original 84pt, per request; a long class
+    # title then shrinks further (down to min_size) so it always fits
+    # within the banner instead of running off either edge.
+    lines, title_font = _fit_title(draw, title, W - 400, start_size=76)
+    line_height = round(title_font.size * 1.15)
     y = 560
     for line in lines:
         lw = draw.textlength(line, font=title_font)
         draw.text(((W - lw) / 2, y), line, font=title_font, fill=TITLE_COLOR)
-        y += 96
+        y += line_height
 
     # --- Time / date ---
     y += 30
