@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>You're offline · Modoku Hub</title>
+  <meta name="theme-color" content="#0c45a6">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #082e70, #0c45a6 60%, #fbaf17);
+    }
+    .wrap {
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2.25rem 2rem;
+      max-width: 360px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+    }
+    .icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1.1rem;
+      color: #0c45a6;
+    }
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 0 0 0.5rem;
+    }
+    p {
+      font-size: 0.92rem;
+      color: #6b7280;
+      line-height: 1.5;
+      margin: 0 0 1.4rem;
+    }
+    button {
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #fff;
+      background: #0c45a6;
+      border: none;
+      border-radius: 50rem;
+      padding: 0.65rem 1.6rem;
+      cursor: pointer;
+    }
+    button:active {
+      background: #082e70;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+        <path d="M1 9a16 16 0 0 1 22 0M5 13a10 10 0 0 1 14 0M9 17a4 4 0 0 1 6 0" stroke-linecap="round"/>
+        <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/>
+        <circle cx="12" cy="21" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+      <h1>You're offline</h1>
+      <p>Modoku Hub needs an internet connection to load your data. Check your connection and try again.</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </div>
+</body>
+</html>

@@ -10,7 +10,10 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 
-FONT_DIR = "/usr/share/fonts/truetype/google-fonts"
+# Bundled inside the repo (not a system font package) so rendering doesn't
+# depend on fonts happening to be installed on whatever server runs this —
+# same self-contained-asset approach as the logo/background image.
+FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 FONT_BOLD = os.path.join(FONT_DIR, "Poppins-Bold.ttf")
 FONT_MEDIUM = os.path.join(FONT_DIR, "Poppins-Medium.ttf")
 FONT_REGULAR = os.path.join(FONT_DIR, "Poppins-Regular.ttf")

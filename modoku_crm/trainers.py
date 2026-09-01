@@ -132,10 +132,12 @@ def new():
         else:
             rate_per_day = request.form.get("rate_per_day") or 0
             trainer_id = db.execute(
-                "INSERT INTO trainers (name, email, phone, specialization, notes, rate_per_day) VALUES (?,?,?,?,?,?)",
+                """INSERT INTO trainers (name, email, phone, specialization, notes, rate_per_day,
+                       half_day_rate, outstation_rate) VALUES (?,?,?,?,?,?,?,?)""",
                 (name, request.form.get("email") or None, request.form.get("phone") or None,
                  request.form.get("specialization") or None, request.form.get("notes") or None,
-                 rate_per_day),
+                 rate_per_day, request.form.get("half_day_rate") or 0,
+                 request.form.get("outstation_rate") or 0),
             )
             _record_rate_change(trainer_id, 0, rate_per_day)
             _handle_document_uploads(trainer_id)
@@ -199,10 +201,12 @@ def edit(trainer_id):
         else:
             new_rate = request.form.get("rate_per_day") or 0
             db.execute(
-                "UPDATE trainers SET name=?, email=?, phone=?, specialization=?, notes=?, rate_per_day=? WHERE id=?",
+                """UPDATE trainers SET name=?, email=?, phone=?, specialization=?, notes=?, rate_per_day=?,
+                       half_day_rate=?, outstation_rate=? WHERE id=?""",
                 (name, request.form.get("email") or None, request.form.get("phone") or None,
                  request.form.get("specialization") or None, request.form.get("notes") or None,
-                 new_rate, trainer_id),
+                 new_rate, request.form.get("half_day_rate") or 0,
+                 request.form.get("outstation_rate") or 0, trainer_id),
             )
             _record_rate_change(trainer_id, trainer["rate_per_day"], new_rate)
             _handle_document_uploads(trainer_id)

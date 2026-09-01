@@ -28,6 +28,12 @@
         <tr><td class="text-muted">Address</td><td>{{ company.address or '-' }}{% if company.city %}, {{ company.city }}{% endif %}{% if company.postcode %} {{ company.postcode }}{% endif %}{% if company.state %}, {{ company.state }}{% endif %}</td></tr>
       </table>
     </div>
+    {% if company.notes %}
+    <div class="card p-3 mt-3">
+      <h6>Notes</h6>
+      <p class="mb-0 small" style="white-space: pre-wrap;">{{ company.notes }}</p>
+    </div>
+    {% endif %}
   </div>
   <div class="col-lg-8">
     <div class="card p-3 mb-3">

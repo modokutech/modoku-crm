@@ -42,6 +42,16 @@
         <small class="text-muted">Used to auto-prefill the Purchase Order fee (rate × course duration).</small>
       </div>
     </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Half-Day Rate (RM)</label>
+        <input type="number" step="0.01" min="0" name="half_day_rate" class="form-control" value="{{ trainer.half_day_rate if trainer else 0 }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Outstation Rate (RM)</label>
+        <input type="number" step="0.01" min="0" name="outstation_rate" class="form-control" value="{{ trainer.outstation_rate if trainer else 0 }}">
+      </div>
+    </div>
     <div class="mb-3">
       <label class="form-label">Notes</label>
       <textarea name="notes" class="form-control" rows="3">{{ (trainer.notes or '') if trainer else '' }}</textarea>
@@ -51,7 +61,7 @@
     <h6 class="text-muted text-uppercase small mb-2">Documents</h6>
     <p class="small text-muted">Accepted: PDF, Word, or image files. Max 1 MB each.</p>
     <div class="mb-3">
-      <label class="form-label">Trainer Profile / CV {% if not (trainer and trainer.profile_file) %}*{% endif %}</label>
+      <label class="form-label">Trainer Profile {% if not (trainer and trainer.profile_file) %}*{% endif %}</label>
       <input type="file" name="profile_file" class="form-control" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" {% if not (trainer and trainer.profile_file) %}required{% endif %}>
       {% if trainer and trainer.profile_file %}
       <small class="text-muted">Currently on file: <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='profile_file') }}" target="_blank">view current file</a> — choosing a new one will replace it. Max 1 MB.</small>

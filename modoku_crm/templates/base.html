@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Dashboard{% endblock %} · Modoku Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,11 +14,35 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+  <!-- PWA: lets Modoku Hub be "installed" to a phone's home screen and
+       launch full-screen like a native app, instead of opening in a browser
+       tab. See static/manifest.json and static/sw.js. -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="theme-color" content="#0c45a6">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Modoku Hub">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
 </head>
 <body>
 {% if g.user %}
+<div class="mobile-topbar d-flex align-items-center justify-content-between d-lg-none">
+  <button type="button" class="sidebar-toggle-btn" id="sidebarToggleBtn" aria-label="Open menu" aria-controls="appSidebar" aria-expanded="false">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="{{ url_for('dashboard.index') }}" class="text-decoration-none d-flex align-items-center gap-2">
+    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="mobile-topbar-logo">
+  </a>
+  <a href="{{ url_for('notifications.index') }}" class="mobile-topbar-bell position-relative" aria-label="Notifications">
+    <i class="bi bi-bell"></i>
+    {% if unread_notifications %}<span class="badge rounded-pill bg-danger mobile-topbar-badge">{{ unread_notifications }}</span>{% endif %}
+  </a>
+</div>
+<div class="sidebar-backdrop d-lg-none" id="sidebarBackdrop"></div>
 <div class="d-flex">
-  <nav class="sidebar d-flex flex-column p-3 vh-100 position-sticky top-0" style="overflow:hidden">
+  <nav class="sidebar d-flex flex-column p-3 vh-100 position-sticky top-0" id="appSidebar" style="overflow:hidden">
     <a href="{{ url_for('dashboard.index') }}" class="brand mb-4 text-decoration-none brand-pane flex-shrink-0">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="brand-logo">
       <small class="text-white-50 d-block mt-1">Modoku Hub</small>
@@ -65,6 +89,7 @@
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='heatmap' }}" href="{{ url_for('heatmap.index') }}"><i class="bi bi-grid-3x3-gap me-2"></i>Activity Heatmap</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='sales_performance' }}" href="{{ url_for('sales_performance.index') }}"><i class="bi bi-person-workspace me-2"></i>Sales Performance</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='reports' }}" href="{{ url_for('reports.index') }}"><i class="bi bi-bar-chart-line me-2"></i>Reports</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='library' }}" href="{{ url_for('library.index') }}"><i class="bi bi-folder2-open me-2"></i>Files</a></li>
 
       {% if g.user.role == 'admin' %}
       <li class="nav-divider"></li>
@@ -93,6 +118,7 @@
     {% include "_flash.html" %}
     {% block content %}{% endblock %}
   </main>
+  <div class="mobile-bottom-safe-area d-lg-none"></div>
 </div>
 {% else %}
   {% include "_flash.html" %}
@@ -128,6 +154,67 @@
     sessionStorage.setItem(key, String(nav.scrollTop));
   }, true);
 })();
+
+// Mobile off-canvas sidebar: below the lg breakpoint the sidebar is hidden
+// off-screen (see .sidebar CSS) and slides in as an overlay when the
+// hamburger button is tapped, with a dimmed backdrop to close it again.
+(function () {
+  var toggleBtn = document.getElementById('sidebarToggleBtn');
+  var sidebar = document.getElementById('appSidebar');
+  var backdrop = document.getElementById('sidebarBackdrop');
+  if (!toggleBtn || !sidebar || !backdrop) return;
+
+  function openSidebar() {
+    sidebar.classList.add('sidebar-open');
+    backdrop.classList.add('show');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('sidebar-locked');
+  }
+  function closeSidebar() {
+    sidebar.classList.remove('sidebar-open');
+    backdrop.classList.remove('show');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('sidebar-locked');
+  }
+  toggleBtn.addEventListener('click', function () {
+    if (sidebar.classList.contains('sidebar-open')) closeSidebar(); else openSidebar();
+  });
+  backdrop.addEventListener('click', closeSidebar);
+  // Tapping any nav link closes the drawer so the destination page is visible.
+  sidebar.querySelectorAll('.nav-link').forEach(function (link) {
+    link.addEventListener('click', closeSidebar);
+  });
+  // If the viewport is resized/rotated up past the mobile breakpoint while
+  // the drawer is open, drop the open state so it doesn't get stuck.
+  window.addEventListener('resize', function () {
+    if (window.innerWidth >= 992) closeSidebar();
+  });
+})();
+
+// Any table not already wrapped by a template author in .table-responsive
+// gets one added automatically, so every data table — including ones added
+// later — scrolls horizontally on narrow screens instead of blowing out
+// the page width.
+(function () {
+  document.querySelectorAll('table').forEach(function (table) {
+    if (table.closest('.table-responsive')) return;
+    var wrapper = document.createElement('div');
+    wrapper.className = 'table-responsive';
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+})();
+
+// Register the service worker so the app shell (layout, styles, icons) is
+// cached for near-instant repeat loads and basic offline resilience. Safe
+// to skip silently if the browser doesn't support it or over plain HTTP.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register("{{ url_for('service_worker') }}", { scope: '/' }).catch(function () {
+      // Non-fatal — the app works fine without the service worker.
+    });
+  });
+}
 </script>
 </body>
 </html>

@@ -679,6 +679,17 @@ CREATE TABLE IF NOT EXISTS staff_claim_receipts (
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS company_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT NOT NULL,             -- stored filename on disk (uuid-prefixed)
+    original_name TEXT NOT NULL,        -- original filename, shown to users on download
+    description TEXT,
+    tag TEXT NOT NULL DEFAULT 'Others', -- SSM | HRDC | LHDN | Kastam | Bank | Others
+    pinned INTEGER NOT NULL DEFAULT 0,
+    uploaded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_hotel_capacities_hotel ON hotel_capacities(hotel_id);
 CREATE INDEX IF NOT EXISTS idx_po_payment_receipts_po ON po_payment_receipts(po_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_po_payment_receipts_po ON vendor_po_payment_receipts(po_id);
@@ -713,6 +724,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_code ON course_sessions(session_c
 CREATE INDEX IF NOT EXISTS idx_attendance_returns_session ON attendance_returns(session_id);
 CREATE INDEX IF NOT EXISTS idx_certificates_session ON certificates(session_id);
 CREATE INDEX IF NOT EXISTS idx_t3_day_attendance_participant ON t3_day_attendance(participant_id);
+CREATE INDEX IF NOT EXISTS idx_company_files_pinned ON company_files(pinned);
 """
 
 
@@ -834,6 +846,15 @@ _COLUMN_MIGRATIONS = [
     ("attendance_returns", "ai_mismatch", "INTEGER NOT NULL DEFAULT 0"),
     ("attendance_returns", "ai_mismatch_reason", "TEXT"),
     ("attendance_returns", "ai_action", "TEXT"),
+    ("trainers", "half_day_rate", "REAL DEFAULT 0"),
+    ("trainers", "outstation_rate", "REAL DEFAULT 0"),
+    ("courses", "focus", "TEXT"),
+    # "This amount is SST included" — when set, the amounts typed on the
+    # form (item fees / unit prices) are treated as already SST-inclusive,
+    # and the stored subtotal/sst_amount are back-calculated so the grand
+    # total matches exactly what was typed, instead of SST being added on top.
+    ("quotations", "sst_inclusive", "INTEGER NOT NULL DEFAULT 0"),
+    ("invoices", "sst_inclusive", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
@@ -954,6 +975,19 @@ def _apply_light_migrations(db):
     db.execute("UPDATE purchase_orders SET currency = 'RM' WHERE currency = 'MYR'")
     db.execute("UPDATE vendor_purchase_orders SET currency = 'RM' WHERE currency = 'MYR'")
     db.execute("UPDATE invoices SET currency = 'RM' WHERE currency = 'MYR'")
+    db.commit()
+
+    # Data repair: a template bug rendered an unset (NULL) quotation field's
+    # value as the literal text "None" whenever that quotation was opened
+    # for editing — if the field was left untouched, saving the form wrote
+    # that literal text back as the real value (showing as "Company None" /
+    # a "None.pdf" attachment). The template is fixed so this can no longer
+    # happen going forward; this clears out any quotation that already got
+    # corrupted that way before the fix. Safe to re-run: nothing left to
+    # match once cleaned up.
+    for _col in ("attention_to", "company_name_override", "address", "tel", "ref_no",
+                 "course_title", "venue", "title_override", "notes"):
+        db.execute(f"UPDATE quotations SET {_col} = NULL WHERE {_col} = 'None'")
     db.commit()
 
 

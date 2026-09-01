@@ -216,8 +216,18 @@ def new():
                               item_date or None, date_end))
 
             sst_rate = float(request.form.get("sst_rate") or 0)
-            sst_amount = round(subtotal * sst_rate / 100, 2)
-            total = round(subtotal + sst_amount, 2)
+            sst_inclusive = 1 if request.form.get("sst_inclusive") else 0
+            if sst_inclusive and sst_rate:
+                # The typed unit prices/amounts already include SST (e.g. a
+                # client-quoted "RM21,000 all-in" price) — the total stays
+                # exactly what was entered, and subtotal/SST are backed out
+                # of it instead of SST being added on top.
+                total = round(subtotal, 2)
+                subtotal = round(total / (1 + sst_rate / 100), 2)
+                sst_amount = round(total - subtotal, 2)
+            else:
+                sst_amount = round(subtotal * sst_rate / 100, 2)
+                total = round(subtotal + sst_amount, 2)
 
             invoice_no = _next_invoice_no()
             invoice_date_value = request.form.get("invoice_date") or date.today().isoformat()
@@ -230,8 +240,8 @@ def new():
             invoice_id = db.execute(
                 """INSERT INTO invoices (invoice_no, company_id, bill_to_name, bill_to_address,
                        project_title, employer, grant_id, sst_reg_no, buyer_tin, invoice_date, due_date,
-                       currency, subtotal, sst_rate, sst_amount, total, status, notes, created_by)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       currency, subtotal, sst_rate, sst_inclusive, sst_amount, total, status, notes, created_by)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     invoice_no,
                     company_id,
@@ -247,6 +257,7 @@ def new():
                     request.form.get("currency") or "RM",
                     subtotal,
                     sst_rate,
+                    sst_inclusive,
                     sst_amount,
                     total,
                     request.form.get("status") or "Draft",

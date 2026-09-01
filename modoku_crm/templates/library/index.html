@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Files{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Company Files</h4>
+    <small class="text-muted">SSM, HRDCorp, LHDN, Kastam, bank documents and anything else the company needs to keep handy.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
+      <i class="bi bi-upload me-1"></i>Upload File
+    </button>
+  </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by filename or description">
+    </div>
+    <div class="col-md-3">
+      <select name="tag" class="form-select">
+        <option value="">All tags</option>
+        {% for label, _color in tags %}
+        <option value="{{ label }}" {{ 'selected' if tag == label }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-secondary w-100" type="submit">Filter</button>
+    </div>
+    {% if q or tag %}
+    <div class="col-md-2">
+      <a href="{{ url_for('library.index') }}" class="btn btn-link w-100">Clear</a>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<div class="card p-3">
+  {% if files %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th style="width:36px"></th><th>Filename</th><th>Tag</th><th>Description</th><th>Uploaded</th><th></th></tr></thead>
+      <tbody>
+      {% for f in files %}
+        <tr>
+          <td>
+            <form method="post" action="{{ url_for('library.toggle_pin', file_id=f.id) }}" class="d-inline">
+              {{ csrf_field()|safe }}
+              <button type="submit" class="btn btn-sm btn-link p-0 text-decoration-none" title="{{ 'Unpin' if f.pinned else 'Pin to top' }}">
+                {% if f.pinned %}<i class="bi bi-pin-angle-fill text-warning"></i>{% else %}<i class="bi bi-pin-angle text-muted"></i>{% endif %}
+              </button>
+            </form>
+          </td>
+          <td class="fw-semibold">
+            <a href="{{ url_for('library.download', file_id=f.id) }}" target="_blank" class="link-plain">
+              <i class="bi bi-file-earmark-text me-1"></i>{{ f.original_name }}
+            </a>
+          </td>
+          <td><span class="badge bg-{{ tag_colors.get(f.tag, 'secondary') }}">{{ f.tag }}</span></td>
+          <td class="text-muted small">{{ f.description or '-' }}</td>
+          <td class="text-muted small text-nowrap">{{ f.created_at|fmtdatetime }}{% if f.uploaded_by_name %} · {{ f.uploaded_by_name }}{% endif %}</td>
+          <td class="text-end text-nowrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editFileModal{{ f.id }}" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <form method="post" action="{{ url_for('library.delete', file_id=f.id) }}" class="d-inline" onsubmit="return confirm('Delete this file?');">
+              {{ csrf_field()|safe }}
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+
+        <div class="modal fade" id="editFileModal{{ f.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <form method="post" action="{{ url_for('library.edit', file_id=f.id) }}">
+                {{ csrf_field()|safe }}
+                <div class="modal-header">
+                  <h5 class="modal-title">Edit File</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                  <p class="small text-muted mb-3">{{ f.original_name }}</p>
+                  <div class="mb-3">
+                    <label class="form-label">Tag</label>
+                    <select name="tag" class="form-select">
+                      {% for label, _color in tags %}
+                      <option value="{{ label }}" {{ 'selected' if f.tag == label }}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="2">{{ f.description or '' }}</textarea>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="submit" class="btn btn-success">Save</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<p class="text-muted mb-0">{% if q or tag %}No files match your filter.{% else %}No files uploaded yet.{% endif %}</p>{% endif %}
+</div>
+
+<div class="modal fade" id="uploadFileModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{{ url_for('library.upload') }}" enctype="multipart/form-data">
+        {{ csrf_field()|safe }}
+        <div class="modal-header">
+          <h5 class="modal-title">Upload File</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">File *</label>
+            <input type="file" name="file" class="form-control" required>
+            <small class="text-muted">Max 2 MB.</small>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tag</label>
+            <select name="tag" class="form-select">
+              {% for label, _color in tags %}
+              <option value="{{ label }}" {{ 'selected' if label == 'Others' }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Description <span class="text-muted small">(optional)</span></label>
+            <textarea name="description" class="form-control" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

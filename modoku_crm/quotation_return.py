@@ -31,8 +31,11 @@ def _find_quotation(token):
     if not token:
         return None
     return db.query(
-        """SELECT q.*, co.name AS client_company_name FROM quotations q
+        """SELECT q.*, co.name AS client_company_name,
+                  cs.start_date AS training_start_date, cs.end_date AS training_end_date
+           FROM quotations q
            LEFT JOIN companies co ON co.id = q.client_company_id
+           LEFT JOIN course_sessions cs ON cs.id = q.session_id
            WHERE q.return_token = ?""",
         (token,), one=True,
     )

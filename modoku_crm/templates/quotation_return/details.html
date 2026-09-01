@@ -10,9 +10,10 @@
     </div>
 
     <div class="card bg-light border-0 p-3 mb-3">
-      <div class="fw-semibold">{{ q.quote_no }}</div>
-      <div class="small text-muted">{{ q.company_name_override or q.client_company_name or '' }}</div>
+      <div class="small text-muted">{{ q.quote_no }}</div>
+      <div class="fw-semibold">{{ q.company_name_override or q.client_company_name or '' }}</div>
       {% if q.course_title %}<div class="small text-muted">{{ q.course_title }}</div>{% endif %}
+      {% if q.training_start_date %}<div class="small text-muted">{{ q.training_start_date|fmtdaterange(q.training_end_date) }}</div>{% endif %}
     </div>
 
     {% if q.signed_received_at %}

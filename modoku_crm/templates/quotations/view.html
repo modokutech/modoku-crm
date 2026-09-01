@@ -101,7 +101,7 @@
           </tr>
           {% if q.sst_rate %}
           <tr>
-            <td colspan="7" class="text-end text-muted">SST ({{ q.sst_rate }}%)</td>
+            <td colspan="7" class="text-end text-muted">SST ({{ q.sst_rate }}%){% if q.sst_inclusive %} <span class="small">— amount inclusive</span>{% endif %}</td>
             <td class="text-end">RM {{ sst_amount|fmtmoney }}</td>
           </tr>
           {% endif %}
@@ -156,8 +156,8 @@
             onsubmit="return {{ 'confirm(\'This quotation was already emailed on ' ~ (q.sent_at|fmtdatetime) ~ '. Send again?\')' if q.sent_at else 'true' }};">
         {{ csrf_field()|safe }}
         <div class="mb-2">
-          <label class="form-label small">Send to</label>
-          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ q.client_company_email or '' }}" placeholder="client@email.com" required>
+          <label class="form-label small">Send to <span class="text-muted small fw-normal">(PIC — {{ q.attention_to or 'Attention To' }})</span></label>
+          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ q.pic_email or q.client_company_email or '' }}" placeholder="client@email.com" required>
         </div>
         <div class="mb-2">
           <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>

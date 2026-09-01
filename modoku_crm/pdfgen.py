@@ -589,7 +589,10 @@ _CERT_GRAY = (102, 102, 102)     # #666666
 
 _CERT_BG_TEXTURE_PATH = os.path.join("static", "img", "cert_bg_texture.png")
 
-_CERT_FONT_DIR = "/usr/share/fonts/truetype/google-fonts"
+# Bundled inside the repo (not a system font package) so rendering doesn't
+# depend on fonts happening to be installed on whatever server runs this —
+# same self-contained-asset approach as the logo/background texture above.
+_CERT_FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 _CERT_FONT_LIGHT = os.path.join(_CERT_FONT_DIR, "Poppins-Light.ttf")
 _CERT_FONT_REGULAR = os.path.join(_CERT_FONT_DIR, "Poppins-Regular.ttf")
 _CERT_FONT_ITALIC = os.path.join(_CERT_FONT_DIR, "Poppins-Italic.ttf")

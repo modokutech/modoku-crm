@@ -81,13 +81,14 @@ def new():
             flash("Course Outline document is required.", "danger")
         else:
             course_id = db.execute(
-                """INSERT INTO courses (code, title, category, description, duration_days,
+                """INSERT INTO courses (code, title, category, focus, description, duration_days,
                        price_inhouse, price_public, hrdcorp_programme_no, hrdf_claimable, active)
-                   VALUES (?,?,?,?,?,?,?,?,?,1)""",
+                   VALUES (?,?,?,?,?,?,?,?,?,?,1)""",
                 (
                     request.form.get("code") or None,
                     title,
                     request.form.get("category") or None,
+                    request.form.get("focus") or None,
                     request.form.get("description") or None,
                     request.form.get("duration_days") or 1,
                     request.form.get("price_inhouse") or 0,
@@ -137,12 +138,13 @@ def edit(course_id):
             flash("Course Outline document is required.", "danger")
         else:
             db.execute(
-                """UPDATE courses SET code=?, title=?, category=?, description=?, duration_days=?,
+                """UPDATE courses SET code=?, title=?, category=?, focus=?, description=?, duration_days=?,
                        price_inhouse=?, price_public=?, hrdcorp_programme_no=?, hrdf_claimable=?, active=? WHERE id=?""",
                 (
                     request.form.get("code") or None,
                     title,
                     request.form.get("category") or None,
+                    request.form.get("focus") or None,
                     request.form.get("description") or None,
                     request.form.get("duration_days") or 1,
                     request.form.get("price_inhouse") or 0,

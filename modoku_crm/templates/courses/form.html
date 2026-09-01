@@ -2,7 +2,7 @@
 {% block title %}{{ 'Edit Course' if course else 'New Course' }}{% endblock %}
 {% block content %}
 <div class="page-header"><h4 class="mb-0">{{ 'Edit Course' if course else 'New Course' }}</h4></div>
-<div class="card p-4" style="max-width:700px;">
+<div class="card p-4" style="max-width:770px;">
   <form method="post" enctype="multipart/form-data">
     {{ csrf_field()|safe }}
     <div class="row g-3 mb-3">
@@ -17,6 +17,10 @@
       <div class="col-md-6">
         <label class="form-label">Category</label>
         <input type="text" name="category" class="form-control" value="{{ (course.category or '') if course else '' }}" placeholder="e.g. Leadership, IT, Compliance">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Focus</label>
+        <input type="text" name="focus" class="form-control" value="{{ (course.focus or '') if course else '' }}" placeholder="e.g. Soft Skills, Technical, Safety">
       </div>
       <div class="col-md-3">
         <label class="form-label">Duration (days)</label>

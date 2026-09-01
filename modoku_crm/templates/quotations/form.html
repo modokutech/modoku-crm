@@ -12,9 +12,14 @@
         <select name="session_id" id="session_select" class="form-select">
           <option value="">Not linked to a Class</option>
           {% for s in linkable_sessions %}
+          {% set s_time_start, s_time_end = s.training_time|_split_training_time %}
           <option value="{{ s.id }}" data-course-title="{{ s.course_title }}"
             data-client-company-id="{{ s.client_company_id or '' }}" data-pic-name="{{ s.pic_name or '' }}"
             data-venue="{{ s.venue or '' }}"
+            data-capacity="{{ s.capacity or '' }}" data-training-type="{{ s.training_type or '' }}"
+            data-start-date="{{ s.start_date or '' }}" data-end-date="{{ s.end_date or '' }}"
+            data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
+            data-price-inhouse="{{ s.price_inhouse or 0 }}"
             {{ 'selected' if quotation and quotation.session_id == s.id }}>
             {{ s.course_title }} — {{ s.start_date|fmtdaterange(s.end_date) }} ({{ s.status }})
           </option>
@@ -39,20 +44,20 @@
         <select name="attention_to" id="attention_to_select" class="form-select" style="display:none" disabled>
         </select>
         <input type="text" name="attention_to" id="attention_to_input" class="form-control"
-               value="{{ quotation.attention_to if quotation else '' }}" placeholder="Contact person's name">
+               value="{{ (quotation.attention_to or '') if quotation else '' }}" placeholder="Contact person's name">
         <small class="text-muted" id="attention_to_help">Pick a Client Company to choose from its Leads, or type a name directly.</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Company Name <span class="text-muted small fw-normal">(override, optional)</span></label>
-        <input type="text" name="company_name_override" id="company_name_override" class="form-control" value="{{ quotation.company_name_override if quotation else '' }}" placeholder="Leave blank to use the selected company's name">
+        <input type="text" name="company_name_override" id="company_name_override" class="form-control" value="{{ (quotation.company_name_override or '') if quotation else '' }}" placeholder="Leave blank to use the selected company's name">
       </div>
       <div class="col-md-6">
         <label class="form-label">Address</label>
-        <input type="text" name="address" id="address_field" class="form-control" value="{{ quotation.address if quotation else '' }}">
+        <input type="text" name="address" id="address_field" class="form-control" value="{{ (quotation.address or '') if quotation else '' }}">
       </div>
       <div class="col-md-3">
         <label class="form-label">Tel</label>
-        <input type="text" name="tel" id="tel_field" class="form-control" value="{{ quotation.tel if quotation else '' }}">
+        <input type="text" name="tel" id="tel_field" class="form-control" value="{{ (quotation.tel or '') if quotation else '' }}">
       </div>
       <div class="col-md-3">
         <label class="form-label">Date</label>
@@ -60,11 +65,11 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Ref. No.</label>
-        <input type="text" name="ref_no" class="form-control" value="{{ quotation.ref_no if quotation else '' }}">
+        <input type="text" name="ref_no" class="form-control" value="{{ (quotation.ref_no or '') if quotation else '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Course / Programme Title</label>
-        <input type="text" name="course_title" id="course_title_field" class="form-control" value="{{ quotation.course_title if quotation else '' }}">
+        <input type="text" name="course_title" id="course_title_field" class="form-control" value="{{ (quotation.course_title or '') if quotation else '' }}">
       </div>
       <div class="col-md-3">
         <label class="form-label">Training Mode</label>
@@ -74,7 +79,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">Venue</label>
-        <input type="text" name="venue" id="venue_field" class="form-control" value="{{ quotation.venue if quotation else '' }}">
+        <input type="text" name="venue" id="venue_field" class="form-control" value="{{ (quotation.venue or '') if quotation else '' }}">
       </div>
       <div class="col-md-4">
         <label class="form-label">Valid Until</label>
@@ -96,7 +101,7 @@
       <!-- Hidden for now per Erik's request — field (and the saved value, if any) is untouched, just not shown. -->
       <div class="col-12" style="display:none">
         <label class="form-label">Filename / Title <span class="text-muted small fw-normal">(override, optional — otherwise auto-generated)</span></label>
-        <input type="text" name="title_override" class="form-control" value="{{ quotation.title_override if quotation else '' }}"
+        <input type="text" name="title_override" class="form-control" value="{{ (quotation.title_override or '') if quotation else '' }}"
                placeholder="e.g. Modoku x Acme Sdn Bhd Quotation — Leadership Course 30.8.2026">
       </div>
     </div>
@@ -159,9 +164,26 @@
     <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add item</button>
 
     <div class="row g-3 mb-3">
+      <div class="col-12">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="sst_inclusive_check" name="sst_inclusive" value="1" {{ 'checked' if quotation and quotation.sst_inclusive }}>
+          <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
+        </div>
+        <small class="text-muted d-block mb-2">Tick this if the Investment Fees below are all-in prices (SST already
+          included) — the sub-total and SST will be worked backwards from them so the total stays the same as what
+          you typed. Leave unticked to add SST on top instead.</small>
+      </div>
       <div class="col-md-3">
         <label class="form-label">SST Rate (%) <span class="text-muted small fw-normal">(optional)</span></label>
-        <input type="number" step="0.01" min="0" name="sst_rate" class="form-control" value="{{ quotation.sst_rate if quotation else 0 }}">
+        <input type="number" step="0.01" min="0" name="sst_rate" id="sst_rate_field" class="form-control" value="{{ quotation.sst_rate if quotation else 0 }}">
+      </div>
+      <div class="col-md-9">
+        <label class="form-label">Totals preview</label>
+        <div class="d-flex flex-wrap gap-4 align-items-baseline border rounded px-3 py-2 bg-light">
+          <div><span class="text-muted small d-block">Sub-total</span><span id="preview_subtotal" class="fw-semibold">RM 0.00</span></div>
+          <div><span class="text-muted small d-block">SST</span><span id="preview_sst" class="fw-semibold">RM 0.00</span></div>
+          <div><span class="text-muted small d-block">Total</span><span id="preview_total" class="fw-bold">RM 0.00</span></div>
+        </div>
       </div>
     </div>
 
@@ -171,7 +193,7 @@
     </div>
     <div class="col-12 mt-3">
       <label class="form-label">Notes (internal only)</label>
-      <textarea name="notes" class="form-control" rows="2">{{ quotation.notes if quotation else '' }}</textarea>
+      <textarea name="notes" class="form-control" rows="2">{{ (quotation.notes or '') if quotation else '' }}</textarea>
     </div>
 
     <div class="mt-4 d-flex gap-2">
@@ -210,6 +232,53 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   }
 });
 
+// Live Sub-total / SST / Total preview — recalculates as the user edits
+// item fees, the SST rate, or toggles "This amount is SST included".
+// Mirrors the server-side math in quotations.py's _totals() exactly, so
+// what's previewed here is what actually gets saved.
+(function () {
+  const sstInclusiveCheck = document.getElementById('sst_inclusive_check');
+  const sstRateField = document.getElementById('sst_rate_field');
+  const previewSubtotal = document.getElementById('preview_subtotal');
+  const previewSst = document.getElementById('preview_sst');
+  const previewTotal = document.getElementById('preview_total');
+
+  function fmt(n) {
+    return 'RM ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function recalc() {
+    let enteredTotal = 0;
+    document.querySelectorAll('#items-table tbody input[name="item_fee"]').forEach(function (input) {
+      enteredTotal += parseFloat(input.value) || 0;
+    });
+    const rate = parseFloat(sstRateField.value) || 0;
+    let subtotal, sstAmount, grandTotal;
+    if (sstInclusiveCheck.checked && rate) {
+      grandTotal = Math.round(enteredTotal * 100) / 100;
+      subtotal = Math.round((enteredTotal / (1 + rate / 100)) * 100) / 100;
+      sstAmount = Math.round((grandTotal - subtotal) * 100) / 100;
+    } else {
+      subtotal = enteredTotal;
+      sstAmount = Math.round(subtotal * rate) / 100;
+      grandTotal = Math.round((subtotal + sstAmount) * 100) / 100;
+    }
+    previewSubtotal.textContent = fmt(subtotal);
+    previewSst.textContent = fmt(sstAmount);
+    previewTotal.textContent = fmt(grandTotal);
+  }
+
+  document.querySelector('#items-table').addEventListener('input', function (e) {
+    if (e.target.name === 'item_fee') recalc();
+  });
+  document.querySelector('#items-table').addEventListener('click', function () {
+    setTimeout(recalc, 0); // let add/remove row finish first
+  });
+  sstRateField.addEventListener('input', recalc);
+  sstInclusiveCheck.addEventListener('change', recalc);
+  recalc();
+})();
+
 // Auto-fill address/tel (and suggested company name) from the selected client company.
 (function () {
   const companySelect = document.getElementById('company_select');
@@ -246,6 +315,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   const attnSelect = document.getElementById('attention_to_select');
   const attnInput = document.getElementById('attention_to_input');
   const firstItemProgramme = document.querySelector('#items-table tbody tr:first-child input[name="item_programme"]');
+  const firstItemRow = document.querySelector('#items-table tbody tr:first-child');
 
   function leadsForCompany(companyId) {
     if (!companyId) return [];
@@ -298,10 +368,46 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       courseTitleField.value = opt.dataset.courseTitle;
       if (firstItemProgramme) firstItemProgramme.value = opt.dataset.courseTitle;
     }
+    // No. of Pax, Training Type, Date/End Date, Time, and Investment Fee
+    // are all pulled straight from the linked Class onto the first item
+    // row — pax from the class's capacity, training type as set on the
+    // class, date/time as scheduled, and the fee from the course's
+    // in-house rate (this is only ever an in-house/on-site engagement, so
+    // the in-house rate — not the public rate — is the right default).
+    // Still fully editable afterwards, same as Venue above.
+    if (opt && firstItemRow) {
+      const pax = firstItemRow.querySelector('input[name="item_pax"]');
+      const trainingType = firstItemRow.querySelector('select[name="item_training_type"]');
+      const itemDate = firstItemRow.querySelector('input[name="item_date"]');
+      const itemDateEnd = firstItemRow.querySelector('input[name="item_date_end"]');
+      const timeStart = firstItemRow.querySelector('input[name="item_time_start"]');
+      const timeEnd = firstItemRow.querySelector('input[name="item_time_end"]');
+      const fee = firstItemRow.querySelector('input[name="item_fee"]');
+      if (pax && opt.dataset.capacity) pax.value = opt.dataset.capacity;
+      if (trainingType && opt.dataset.trainingType) {
+        const match = Array.from(trainingType.options).find(o => o.value === opt.dataset.trainingType);
+        if (match) trainingType.value = opt.dataset.trainingType;
+      }
+      if (itemDate) itemDate.value = opt.dataset.startDate || '';
+      if (itemDateEnd) itemDateEnd.value = opt.dataset.endDate || '';
+      if (timeStart) timeStart.value = opt.dataset.timeStart || '';
+      if (timeEnd) timeEnd.value = opt.dataset.timeEnd || '';
+      if (fee && opt.dataset.priceInhouse) {
+        fee.value = opt.dataset.priceInhouse;
+        fee.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
+      }
+    }
     // Venue is obtained from the linked Class (prefilled, still editable
     // afterwards) — when nothing is linked, it's simply left as whatever
-    // the user typed manually.
-    if (opt) venueField.value = opt.dataset.venue || '';
+    // the user typed manually. Setting .value in JS doesn't fire an
+    // 'input' event on its own, so without the dispatch below the Terms &
+    // Conditions text (which listens for that event to swap in the real
+    // venue) would keep showing the literal "<venue>" placeholder until
+    // the user manually clicked into/edited the Venue field themselves.
+    if (opt) {
+      venueField.value = opt.dataset.venue || '';
+      venueField.dispatchEvent(new Event('input', { bubbles: true }));
+    }
     const companyId = opt ? opt.dataset.clientCompanyId : '';
     if (companyId) {
       companySelect.value = companyId;

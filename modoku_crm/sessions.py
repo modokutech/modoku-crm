@@ -767,12 +767,24 @@ def index():
     )
 
     # Also hand the template plain JSON-able event data for the calendar view.
+    # FullCalendar treats an all-day event's "end" as EXCLUSIVE (the event
+    # visually spans up to, but not including, that date) — so a 2-day
+    # class running 29-30 Aug, passed straight through as end_date=30 Aug,
+    # rendered as covering only the 29th. Add one day to the last actual
+    # training day so the event correctly spans through it.
+    def _calendar_end(s):
+        last_day = s["end_date"] or s["start_date"]
+        try:
+            return (date.fromisoformat(last_day) + timedelta(days=1)).isoformat()
+        except (TypeError, ValueError):
+            return last_day
+
     calendar_events = [
         {
             "id": s["id"],
             "title": f"{s['course_title']} ({s['status']})",
             "start": s["start_date"],
-            "end": s["end_date"] or s["start_date"],
+            "end": _calendar_end(s),
             "url": url_for("sessions.view", session_id=s["id"]),
             "color": {
                 "Proposed": "#8a8a8a",

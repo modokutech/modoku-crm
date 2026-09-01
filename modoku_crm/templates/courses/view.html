@@ -19,7 +19,8 @@
   <div class="col-lg-4">
     <div class="card p-3">
       <table class="table table-sm table-borderless mb-0">
-        <tr><td class="text-muted">Duration</td><td>{{ course.duration_days }} day(s)</td></tr>
+        <tr><td class="text-muted">Duration</td><td>{{ course.duration_days|fmtdays }}</td></tr>
+        <tr><td class="text-muted">Focus</td><td>{{ course.focus or '-' }}</td></tr>
         <tr><td class="text-muted">In-house Price</td><td>RM {{ course.price_inhouse|fmtmoney }}</td></tr>
         <tr><td class="text-muted">Public Price</td><td>RM {{ course.price_public|fmtmoney }} per pax per day</td></tr>
         <tr><td class="text-muted">HRDCorp claimable</td><td>{{ 'Yes' if course.hrdf_claimable else 'No' }}</td></tr>

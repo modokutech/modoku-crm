@@ -292,10 +292,30 @@ def _handle_quotation_signed(quotation_id, client_email=None):
         current_app.logger.exception("Failed to send office notification for quotation %s", quotation_id)
 
 
-def _totals(items, sst_rate):
-    subtotal = sum(item["investment_fee"] for item in items)
-    sst_amount = round(subtotal * (sst_rate or 0) / 100, 2)
-    return subtotal, sst_amount, subtotal + sst_amount
+def _totals(items, sst_rate, sst_inclusive=False):
+    """Sums the items' investment fees and splits out SST.
+
+    Normally (sst_inclusive=False) the typed fees are treated as
+    pre-SST amounts: subtotal = sum of fees, SST is added on top, and the
+    grand total is subtotal + SST.
+
+    When sst_inclusive is set, the typed fees are treated as already
+    including SST (e.g. a client-quoted "RM21,000 all-in" price) — the
+    grand total stays exactly what was typed, and the subtotal/SST are
+    backed out of it instead: subtotal = total / (1 + rate), SST = total -
+    subtotal. E.g. RM21,000 at 8% becomes subtotal RM19,444.44 + SST
+    RM1,555.56 = RM21,000 again, rather than RM21,000 + 8% = RM22,680."""
+    entered_total = sum(item["investment_fee"] for item in items)
+    rate = sst_rate or 0
+    if sst_inclusive and rate:
+        grand_total = round(entered_total, 2)
+        subtotal = round(entered_total / (1 + rate / 100), 2)
+        sst_amount = round(grand_total - subtotal, 2)
+    else:
+        subtotal = entered_total
+        sst_amount = round(subtotal * rate / 100, 2)
+        grand_total = round(subtotal + sst_amount, 2)
+    return subtotal, sst_amount, grand_total
 
 
 def _has_valid_item(form):
@@ -377,6 +397,20 @@ def _save_items(quotation_id, form):
         )
 
 
+def _clean(value):
+    """Strips a submitted form field and returns None for blank input —
+    and, defensively, also for the literal text "None". A template bug
+    used to render an unset (Python None) field's value as the literal
+    string "None" in its HTML value="" attribute; if the user didn't touch
+    that field, the browser would submit that literal text back, which then
+    got saved as the real value (hence "Company None" / "None.pdf"). The
+    template rendering is now fixed so this can't happen going forward, but
+    this guard also quietly self-heals any quotation that already got
+    corrupted that way before the fix, the next time it's saved."""
+    text = (value or "").strip()
+    return None if text in ("", "None") else text
+
+
 def _form_common(request_form):
     client_company_id = request_form.get("client_company_id") or None
     quote_date = request_form.get("quote_date") or date.today().isoformat()
@@ -384,27 +418,28 @@ def _form_common(request_form):
         (datetime.strptime(quote_date, "%Y-%m-%d") + timedelta(days=7)).date().isoformat()
     )
     training_mode = request_form.get("training_mode") or "Physical"
-    venue = request_form.get("venue") or None
+    venue = _clean(request_form.get("venue"))
     terms = request_form.get("terms") or _default_terms(training_mode, venue, valid_until)
     return {
         "client_company_id": client_company_id,
         "session_id": request_form.get("session_id") or None,
-        "attention_to": request_form.get("attention_to") or None,
-        "company_name_override": request_form.get("company_name_override") or None,
-        "address": request_form.get("address") or None,
-        "tel": request_form.get("tel") or None,
+        "attention_to": _clean(request_form.get("attention_to")),
+        "company_name_override": _clean(request_form.get("company_name_override")),
+        "address": _clean(request_form.get("address")),
+        "tel": _clean(request_form.get("tel")),
         "quote_date": quote_date,
-        "ref_no": request_form.get("ref_no") or None,
-        "course_title": request_form.get("course_title") or None,
+        "ref_no": _clean(request_form.get("ref_no")),
+        "course_title": _clean(request_form.get("course_title")),
         "is_hrdcorp": 1 if request_form.get("is_hrdcorp") else 0,
-        "title_override": request_form.get("title_override") or None,
+        "title_override": _clean(request_form.get("title_override")),
         "training_mode": training_mode,
         "venue": venue,
         "valid_until": valid_until,
         "terms": terms,
         "sst_rate": float(request_form.get("sst_rate") or 0),
+        "sst_inclusive": 1 if request_form.get("sst_inclusive") else 0,
         "status": request_form.get("status") or "Draft",
-        "notes": request_form.get("notes") or None,
+        "notes": _clean(request_form.get("notes")),
     }
 
 
@@ -418,7 +453,8 @@ def _linkable_sessions(include_id=None):
     quotation never silently drops its existing link."""
     return db.query(
         """SELECT cs.id, cs.start_date, cs.end_date, cs.status, c.title AS course_title,
-                  cs.client_company_id, cs.venue, pic.id AS pic_lead_id, pic.name AS pic_name
+                  cs.client_company_id, cs.venue, pic.id AS pic_lead_id, pic.name AS pic_name,
+                  cs.capacity, cs.training_type, cs.training_time, c.price_inhouse
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
@@ -444,10 +480,12 @@ def _filtered_quotations():
     quotes = db.query(
         """SELECT q.*, co.name AS client_company_name, u.name AS created_by_name,
                   COALESCE((SELECT SUM(investment_fee) FROM quotation_items
-                            WHERE quotation_id = q.id), 0) AS subtotal
+                            WHERE quotation_id = q.id), 0) AS subtotal,
+                  cs.start_date AS training_start_date, cs.end_date AS training_end_date
            FROM quotations q
            LEFT JOIN companies co ON co.id = q.client_company_id
            LEFT JOIN users u ON u.id = q.created_by
+           LEFT JOIN course_sessions cs ON cs.id = q.session_id
            ORDER BY q.created_at DESC"""
     )
     return quotes
@@ -536,14 +574,16 @@ def new():
         quotation_id = db.execute(
             """INSERT INTO quotations (quote_no, base_date, revision, client_company_id, session_id, attention_to,
                    company_name_override, address, tel, quote_date, ref_no, course_title, is_hrdcorp,
-                   title_override, training_mode, venue, valid_until, terms, sst_rate, status, notes, created_by)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   title_override, training_mode, venue, valid_until, terms, sst_rate, sst_inclusive, status,
+                   notes, created_by)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 quote_no, base_date, revision, fields["client_company_id"], fields["session_id"],
                 fields["attention_to"], fields["company_name_override"], fields["address"], fields["tel"],
                 fields["quote_date"], fields["ref_no"], fields["course_title"], fields["is_hrdcorp"],
                 fields["title_override"], fields["training_mode"], fields["venue"], fields["valid_until"],
-                fields["terms"], fields["sst_rate"], fields["status"], fields["notes"], g.user["id"],
+                fields["terms"], fields["sst_rate"], fields["sst_inclusive"], fields["status"],
+                fields["notes"], g.user["id"],
             ),
         )
         _save_items(quotation_id, request.form)
@@ -569,7 +609,10 @@ def view(quotation_id):
         """SELECT q.*, co.name AS client_company_name, co.address AS client_company_address,
                   co.phone AS client_company_phone, co.email AS client_company_email,
                   u.name AS created_by_name, u.position AS created_by_position,
-                  u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature
+                  u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature,
+                  (SELECT l.email FROM leads l
+                     WHERE l.company_id = q.client_company_id AND l.name = q.attention_to
+                     ORDER BY l.email IS NULL, l.id LIMIT 1) AS pic_email
            FROM quotations q
            LEFT JOIN companies co ON co.id = q.client_company_id
            LEFT JOIN users u ON u.id = q.created_by
@@ -580,7 +623,7 @@ def view(quotation_id):
         flash("Quotation not found.", "danger")
         return redirect(url_for("quotations.index"))
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
-    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"])
+    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
     title = _document_title({**dict(q), "client_company_name": q["client_company_name"]})
 
     linked_session = None
@@ -618,7 +661,7 @@ def download(quotation_id):
         flash("Quotation not found.", "danger")
         return redirect(url_for("quotations.index"))
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
-    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"])
+    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
     title = _document_title({**dict(q), "client_company_name": q["client_company_name"]})
     try:
         from . import pdfgen
@@ -659,14 +702,14 @@ def edit(quotation_id):
             """UPDATE quotations SET client_company_id=?, session_id=?, attention_to=?, company_name_override=?,
                    address=?, tel=?, quote_date=?, ref_no=?, course_title=?, is_hrdcorp=?,
                    title_override=?, training_mode=?, venue=?, valid_until=?, terms=?, sst_rate=?,
-                   status=?, notes=?
+                   sst_inclusive=?, status=?, notes=?
                WHERE id=?""",
             (
                 fields["client_company_id"], fields["session_id"], fields["attention_to"],
                 fields["company_name_override"], fields["address"], fields["tel"], fields["quote_date"],
                 fields["ref_no"], fields["course_title"], fields["is_hrdcorp"], fields["title_override"],
                 fields["training_mode"], fields["venue"], fields["valid_until"], fields["terms"],
-                fields["sst_rate"], fields["status"], fields["notes"], quotation_id,
+                fields["sst_rate"], fields["sst_inclusive"], fields["status"], fields["notes"], quotation_id,
             ),
         )
         db.execute("DELETE FROM quotation_items WHERE quotation_id = ?", (quotation_id,))
@@ -720,7 +763,10 @@ def send_email(quotation_id):
         """SELECT q.*, co.name AS client_company_name, co.address AS client_company_address,
                   co.phone AS client_company_phone, co.email AS client_company_email,
                   u.name AS created_by_name, u.position AS created_by_position,
-                  u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature
+                  u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature,
+                  (SELECT l.email FROM leads l
+                     WHERE l.company_id = q.client_company_id AND l.name = q.attention_to
+                     ORDER BY l.email IS NULL, l.id LIMIT 1) AS pic_email
            FROM quotations q
            LEFT JOIN companies co ON co.id = q.client_company_id
            LEFT JOIN users u ON u.id = q.created_by
@@ -731,13 +777,17 @@ def send_email(quotation_id):
         flash("Quotation not found.", "danger")
         return redirect(url_for("quotations.index"))
 
-    to_email = request.form.get("to_email") or q["client_company_email"]
+    # Prefer the PIC's (Attention To) own email over the company's generic
+    # one — a quotation is addressed to a specific person, so that's who it
+    # should default to being emailed to; the company email is only a
+    # fallback for when that PIC isn't in Leads / has no email on file.
+    to_email = request.form.get("to_email") or q["pic_email"] or q["client_company_email"]
     if not to_email:
         flash("No client email on file — add one on the client's profile, or type an address to send to.", "danger")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
-    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"])
+    subtotal, sst_amount, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
     title = _document_title({**dict(q), "client_company_name": q["client_company_name"]})
 
     return_token = _ensure_return_token(quotation_id)

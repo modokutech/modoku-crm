@@ -92,14 +92,36 @@ def fmtdaterange(start_value, end_value=None):
 
 
 def fmtmoney(value):
-    """Renders a price/amount with a thousand-separator comma and 2 decimal
-    places — '1750' or '1750.0' both become '1,750.00'. None/blank is
-    treated as 0 so callers don't need an `or 0` guard everywhere."""
+    """Renders a price/amount with a thousand-separator comma — '1750' or
+    '1750.0' both become '1,750'. A whole-number amount drops the trailing
+    '.00' entirely ('21000.00' -> '21,000'); an amount with real cents
+    keeps them ('21000.10' -> '21,000.10'). None/blank is treated as 0 so
+    callers don't need an `or 0` guard everywhere.
+
+    This only affects on-screen HTML pages — the PDF generator (pdfgen.py)
+    formats its own amounts directly and never calls this filter, so
+    invoices/quotations/POs always show the full '.00' regardless."""
     try:
         amount = float(value) if value not in (None, "") else 0.0
     except (TypeError, ValueError):
         return str(value)
-    return f"{amount:,.2f}"
+    text = f"{amount:,.2f}"
+    if text.endswith(".00"):
+        text = text[:-3]
+    return text
+
+
+def fmtdays(value):
+    """Renders a course duration as '1 day' / '2.5 days' — singular only
+    for exactly 1, trailing '.0' dropped ('1.0' -> '1', '2.0' -> '2 days'),
+    a fractional value like 1.5 kept as-is."""
+    try:
+        amount = float(value) if value not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        return f"{value} day(s)"
+    text = f"{amount:g}"  # '1.0' -> '1', '2.5' -> '2.5'
+    label = "day" if amount == 1 else "days"
+    return f"{text} {label}"
 
 
 def create_app(config_object="config.Config"):
@@ -121,6 +143,7 @@ def create_app(config_object="config.Config"):
     app.jinja_env.filters["fmtdaterange"] = fmtdaterange
     app.jinja_env.filters["linelist"] = linelist
     app.jinja_env.filters["fmtmoney"] = fmtmoney
+    app.jinja_env.filters["fmtdays"] = fmtdays
 
     from .sessions import split_training_time as _split_training_time
     app.jinja_env.filters["_split_training_time"] = _split_training_time
@@ -166,6 +189,7 @@ def create_app(config_object="config.Config"):
     from . import heatmap
     from . import claims
     from . import payment_receipts
+    from . import library
     from . import jd14_return
     from . import guide
 
@@ -211,6 +235,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(heatmap.bp)
     app.register_blueprint(claims.bp)
     app.register_blueprint(payment_receipts.bp)
+    app.register_blueprint(library.bp)
 
     security.init_app(app)
 
@@ -252,6 +277,17 @@ def create_app(config_object="config.Config"):
     @app.route("/")
     def root():
         return redirect(url_for("dashboard.index"))
+
+    @app.route("/sw.js")
+    def service_worker():
+        # Served from the root (not /static/sw.js) so its default scope is
+        # "/" and it can control real app pages, not just /static/* assets.
+        # See static/sw.js for what it actually caches.
+        from flask import send_from_directory
+        response = send_from_directory(app.static_folder, "sw.js")
+        response.headers["Service-Worker-Allowed"] = "/"
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.before_request
     def load_module_flags():

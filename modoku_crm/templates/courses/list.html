@@ -34,16 +34,16 @@
   {% if courses %}
   <div class="table-responsive">
     <table class="table table-hover align-middle">
-      <thead><tr><th>Code</th><th>Title</th><th>Category</th><th>Duration</th><th>In-house (RM)</th><th>Public (RM/pax/day)</th><th>HRDCorp</th><th>Sessions</th><th>Status</th></tr></thead>
+      <thead><tr><th style="white-space:nowrap">Code</th><th>Title</th><th>Category</th><th>Focus</th><th>Duration</th><th>In-house (RM)</th><th>HRDCorp</th><th>Sessions</th><th>Status</th></tr></thead>
       <tbody>
       {% for c in courses %}
         <tr onclick="window.location='{{ url_for('courses.view', course_id=c.id) }}'" style="cursor:pointer">
-          <td>{{ c.code or '-' }}</td>
+          <td style="white-space:nowrap">{{ c.code or '-' }}</td>
           <td class="fw-semibold">{{ c.title }}</td>
           <td>{{ c.category or '-' }}</td>
-          <td>{{ c.duration_days }} day(s)</td>
+          <td>{{ c.focus or '-' }}</td>
+          <td>{{ c.duration_days|fmtdays }}</td>
           <td>{{ c.price_inhouse|fmtmoney }}</td>
-          <td>{{ c.price_public|fmtmoney }}</td>
           <td>{% if c.hrdf_claimable %}<span class="badge bg-success">Yes</span>{% else %}-{% endif %}</td>
           <td>{{ c.session_count }}</td>
           <td>{% if c.active %}<span class="badge bg-success-subtle text-success-emphasis">Active</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis">Inactive</span>{% endif %}</td>
