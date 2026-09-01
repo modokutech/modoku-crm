@@ -238,8 +238,7 @@ def _build_quotation_html(q, items, subtotal, title):
     item_rows = "".join(
         f"<tr><td>{i + 1}</td><td>{item['programme']}</td><td>{item['no_of_pax'] or ''}</td>"
         f"<td>{item['training_type'] or ''}</td><td>{item['duration'] or ''}</td>"
-        f"<td>{_fmtdate(item['item_date'])}"
-        f"{' &ndash; ' + _fmtdate(item['item_date_end']) if item['item_date_end'] else ''}</td>"
+        f"<td>{_fmtdaterange(item['item_date'], item['item_date_end'])}</td>"
         f"<td>{(item['item_time'] if 'item_time' in item.keys() else '') or ''}</td>"
         f"<td style='text-align:right'>RM {item['investment_fee']:,.2f}</td></tr>"
         for i, item in enumerate(items)
@@ -402,10 +401,7 @@ def _build_invoice_html(invoice, items):
         if is_training_row:
             date_line = ""
             if item["item_date"]:
-                date_line = f"<div>Date: {_fmtdate(item['item_date'])}"
-                if item["item_date_end"]:
-                    date_line += f" &ndash; {_fmtdate(item['item_date_end'])}"
-                date_line += "</div>"
+                date_line = f"<div>Date: {_fmtdaterange(item['item_date'], item['item_date_end'])}</div>"
             venue_line = f"<div>Venue: {item['venue']}</div>" if item["venue"] else ""
             sub_detail = (
                 "<div style='padding-top:6px;font-size:12px;color:#444'>"
