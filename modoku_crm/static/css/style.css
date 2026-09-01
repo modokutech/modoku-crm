@@ -766,3 +766,24 @@ body {
     max-width: calc(100% - 1.5rem);
   }
 }
+
+/* Quotations list: Client set ~20% narrower and Course / Programme
+   ~15% narrower than their natural auto-layout widths (measured at
+   ~253px and ~369px respectively), giving the other columns a bit
+   more room. Requires table-layout: fixed (see .table-fixed-layout
+   on the table itself) — plain width on a cell isn't reliably
+   honored by the browser's auto table-layout algorithm once there's
+   leftover table width to redistribute; a fixed layout is. Long text
+   wraps onto additional lines within the column rather than being
+   truncated, so the full value is always visible. */
+.col-quote-client {
+  width: 202px;
+}
+.col-quote-course {
+  width: 314px;
+}
+.col-quote-client,
+.col-quote-course {
+  white-space: normal;
+  word-break: break-word;
+}

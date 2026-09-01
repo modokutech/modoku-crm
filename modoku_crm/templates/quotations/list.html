@@ -13,12 +13,12 @@
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table mb-0 align-middle">
+    <table class="table mb-0 align-middle table-fixed-layout">
       <thead>
         <tr>
           <th>Quote No</th>
-          <th>Client</th>
-          <th>Course / Programme</th>
+          <th class="col-quote-client">Client</th>
+          <th class="col-quote-course">Course / Programme</th>
           <th>Training Date</th>
           <th class="text-end">Amount</th>
           <th>Status</th>
@@ -30,8 +30,8 @@
         {% for q in quotes %}
         <tr>
           <td><a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="link-plain fw-semibold">{{ q.quote_no }}</a></td>
-          <td>{{ q.company_name_override or q.client_company_name or '-' }}</td>
-          <td>{{ q.course_title or '-' }}</td>
+          <td class="col-quote-client">{{ q.company_name_override or q.client_company_name or '-' }}</td>
+          <td class="col-quote-course">{{ q.course_title or '-' }}</td>
           <td>{% if q.training_start_date %}{{ q.training_start_date|fmtdaterange(q.training_end_date) }}{% else %}<span class="text-muted">Not linked to a Class</span>{% endif %}</td>
           {# q.subtotal here is SUM(investment_fee) as typed on the items — the
              pre-SST amount normally, but already the final SST-inclusive
