@@ -1,10 +1,21 @@
 import re
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from flask import Flask, g, redirect, render_template, url_for
 from markupsafe import Markup, escape
 
 from . import db as db_module
+
+# SQLite's datetime('now') (used everywhere for created_at/sent_at/etc.)
+# always returns UTC, regardless of the server's own clock/timezone — and a
+# VPS defaults to UTC unless someone deliberately changes it. Modoku Tech
+# operates out of Kuala Lumpur, so every *timestamp* (a value that carries a
+# real time-of-day, not a plain user-picked calendar date like a class's
+# start_date) is converted to this timezone before being shown on screen.
+# Fixing it here — once, at display time — means it's correct regardless of
+# what timezone the VPS itself happens to be set to.
+APP_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
 
 def linelist(text, ordered=False):
@@ -32,13 +43,26 @@ def linelist(text, ordered=False):
 
 def fmtdate(value, with_time=False):
     """Render an ISO date/datetime string (or date object) as '23 Aug 2026'
-    (or '23 Aug 2026, 3:45 PM' if with_time)."""
+    (or '23 Aug 2026, 3:45 PM' if with_time).
+
+    A value carrying a real time-of-day (e.g. created_at/sent_at, stored via
+    SQL's datetime('now'), which is always UTC) is converted to Malaysia
+    time (APP_TZ) before display — otherwise it can not only show the wrong
+    clock time but even the wrong calendar day for anything recorded in the
+    early-morning KL hours. A plain user-picked calendar date (a class's
+    start_date, a quotation's quote_date, etc.) carries no time-of-day and
+    is left exactly as entered — there's no timezone to convert."""
     if not value:
         return "-"
-    if isinstance(value, (date, datetime)):
+    is_timestamp = False
+    if isinstance(value, datetime):
+        dt = value
+        is_timestamp = True
+    elif isinstance(value, date):
         dt = value
     else:
         text = str(value).strip()
+        is_timestamp = len(text) > 10
         try:
             # Handles 'YYYY-MM-DD' and 'YYYY-MM-DD HH:MM:SS' / 'YYYY-MM-DDTHH:MM:SS'
             dt = datetime.fromisoformat(text.replace(" ", "T", 1) if "T" not in text and len(text) > 10 else text)
@@ -47,6 +71,8 @@ def fmtdate(value, with_time=False):
                 dt = datetime.strptime(text[:10], "%Y-%m-%d")
             except ValueError:
                 return text
+    if is_timestamp and isinstance(dt, datetime) and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC")).astimezone(APP_TZ)
     if with_time and isinstance(dt, datetime) and (dt.hour or dt.minute):
         return dt.strftime("%-d %b %Y, %-I:%M %p")
     return dt.strftime("%-d %b %Y")

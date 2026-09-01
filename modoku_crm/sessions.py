@@ -13,7 +13,7 @@ from . import activity, ai_match, banner, db, mailer, notifications, pdfgen, pos
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
-from . import fmtdaterange
+from . import APP_TZ, fmtdaterange
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -604,8 +604,15 @@ def _auto_advance_statuses():
     calendar date has changed. Never touches 'Cancelled', and never moves a
     class backwards. Runs once per request (cheap once a day's classes have
     already been advanced) so status is always correct wherever it's read —
-    the class list, the dashboard, the public Return Attendance flow, etc."""
-    now = datetime.now()
+    the class list, the dashboard, the public Return Attendance flow, etc.
+
+    start_date/training_time are wall-clock times as staff enter them —
+    always Malaysia time, since that's where every class happens — so
+    "now" here has to be actual current time in Malaysia too, not whatever
+    timezone the server's own clock happens to be set to (a VPS defaults
+    to UTC unless someone changes it, which would otherwise flip classes
+    to Ongoing/Completed 8 hours too early)."""
+    now = datetime.now(APP_TZ).replace(tzinfo=None)
     today = now.date().isoformat()
 
     scheduled_rows = db.query(
@@ -1202,7 +1209,12 @@ def edit(session_id):
                     request.form.get("capacity") or 20,
                     new_status,
                     request.form.get("notes") or None,
-                    request.form.get("evaluation_form_link") or None,
+                    # No longer edited on this form — it now lives on the
+                    # Training Evaluation QR Poster card (Class details
+                    # page) instead, set together with generating the
+                    # poster. Preserve whatever's already there so saving
+                    # this form (for an unrelated field) can't wipe it.
+                    session_row["evaluation_form_link"],
                     requires_laptop_rental,
                     laptop_rental_qty,
                     request.form.get("room_setup") or None,
@@ -1768,19 +1780,26 @@ def generate_evaluation_poster(session_id):
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
-    if not session_row["evaluation_form_link"]:
-        flash("Add an Evaluation Form link first, then generate the poster.", "danger")
-        return redirect(url_for("sessions.view", session_id=session_id))
 
-    dates = session_row["start_date"]
-    if session_row["end_date"] and session_row["end_date"] != session_row["start_date"]:
-        dates = f"{dates} to {session_row['end_date']}"
-    date_text = ""
-    try:
-        from datetime import datetime
-        date_text = datetime.strptime(session_row["start_date"], "%Y-%m-%d").strftime("%-d %b %Y")
-    except (ValueError, TypeError):
-        date_text = dates
+    # The Evaluation Form link is entered right here, alongside the
+    # Generate button, rather than on the Schedule/Edit Class form — pasting
+    # the link and generating the poster is one single step. A submitted
+    # value updates what's on file; leaving it blank falls back to
+    # whatever's already saved (e.g. a plain "Regenerate" click).
+    submitted_link = (request.form.get("evaluation_form_link") or "").strip()
+    link = submitted_link or session_row["evaluation_form_link"]
+    if not link:
+        flash("Paste an Evaluation Form link first, then generate the poster.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+    if submitted_link and submitted_link != session_row["evaluation_form_link"]:
+        db.execute("UPDATE course_sessions SET evaluation_form_link = ? WHERE id = ?", (submitted_link, session_id))
+    session_row = dict(session_row)
+    session_row["evaluation_form_link"] = link
+
+    # Full date range (e.g. "1 - 2 September 2026"), not just the start date —
+    # reuses the same formatter the training banner uses so both stay
+    # consistent for multi-day classes.
+    date_text = banner._fmt_date_range(session_row["start_date"], session_row["end_date"])
 
     logo_path = os.path.join(current_app.root_path, "static", "img", "logo.png")
     jpeg_bytes = poster.generate_evaluation_poster(

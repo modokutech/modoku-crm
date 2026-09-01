@@ -149,11 +149,6 @@
         </div>
       </div>
       <div class="col-md-6">
-        <label class="form-label">Evaluation Form link</label>
-        <input type="url" name="evaluation_form_link" class="form-control" value="{{ (session.evaluation_form_link or '') if session else '' }}" placeholder="e.g. https://forms.gle/...">
-        <small class="text-muted">Used to generate the "Training Evaluation" QR poster.</small>
-      </div>
-      <div class="col-md-6">
         <label class="form-label">Training Banner</label>
         <input type="file" name="training_banner_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
         {% if session and session.training_banner_file %}

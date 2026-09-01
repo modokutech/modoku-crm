@@ -497,8 +497,13 @@ def _auto_advance_quotation_statuses():
     rather than silently sitting as 'Sent' forever — and its creator gets a
     Notification. Never touches Draft/Accepted/Rejected, and never moves a
     quotation backwards. Runs once per request, same pattern as classes'
-    _auto_advance_statuses in sessions.py."""
-    cutoff = (datetime.now() - timedelta(days=FOLLOW_UP_AFTER_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    _auto_advance_statuses in sessions.py.
+
+    sent_at is stored via SQL's datetime('now'), which is always UTC — so
+    the cutoff here is computed in UTC too (not the server's own local
+    clock, which may or may not actually be UTC) to compare correctly
+    against it."""
+    cutoff = (datetime.utcnow() - timedelta(days=FOLLOW_UP_AFTER_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
     due_rows = db.query(
         "SELECT id, quote_no, created_by FROM quotations WHERE status = 'Sent' AND sent_at IS NOT NULL AND sent_at <= ?",
         (cutoff,),

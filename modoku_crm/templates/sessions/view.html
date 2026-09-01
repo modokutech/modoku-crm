@@ -210,19 +210,20 @@
         <a href="{{ url_for('sessions.download_evaluation_poster', session_id=s.id) }}" target="_blank">View generated poster</a>
       </p>
       <p class="small text-muted mb-2">Attached automatically to this trainer's Purchase Order email.</p>
-      {% elif s.evaluation_form_link %}
-      <p class="small text-muted mb-2">Generate a QR poster linking to the evaluation form.</p>
       {% else %}
-      <p class="small text-muted mb-2">Add an Evaluation Form link (Edit class) to generate a poster.</p>
+      <p class="small text-muted mb-2">Paste the evaluation form link and generate a QR poster linking to it.</p>
       {% endif %}
-      {% if s.evaluation_form_link %}
       <form method="post" action="{{ url_for('sessions.generate_evaluation_poster', session_id=s.id) }}">
         {{ csrf_field()|safe }}
+        <div class="mb-2">
+          <label class="form-label small mb-1">Evaluation Form link</label>
+          <input type="url" name="evaluation_form_link" class="form-control form-control-sm"
+                 value="{{ s.evaluation_form_link or '' }}" placeholder="e.g. https://forms.gle/...">
+        </div>
         <button class="btn btn-sm btn-outline-success w-100" type="submit">
           <i class="bi bi-qr-code me-1"></i>{{ 'Regenerate' if s.evaluation_qr_poster_file else 'Generate' }} Poster
         </button>
       </form>
-      {% endif %}
     </div>
         <div class="card p-3 mt-3">
         <h6>JD14 Form</h6>

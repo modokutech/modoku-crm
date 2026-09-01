@@ -766,3 +766,21 @@ body {
     max-width: calc(100% - 1.5rem);
   }
 }
+
+/* Quotations list: Client / Course & Programme columns are capped 15%
+   narrower than a natural auto-layout width would give them, so the
+   Training Date / Amount / Status columns get a bit more breathing
+   room in the row. Long text truncates with an ellipsis; the full
+   value is still available via the title attribute tooltip. */
+.col-quote-client {
+  max-width: 187px;
+}
+.col-quote-course {
+  max-width: 272px;
+}
+.col-quote-client,
+.col-quote-course {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

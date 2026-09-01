@@ -82,7 +82,8 @@ def db_backup():
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
     buffer.seek(0)
-    stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    from . import APP_TZ
+    stamp = datetime.now(APP_TZ).strftime("%Y-%m-%d_%H%M")
     filename = f"modoku_crm_backup_{stamp}.db"
     return Response(
         buffer.read(), mimetype="application/octet-stream",
