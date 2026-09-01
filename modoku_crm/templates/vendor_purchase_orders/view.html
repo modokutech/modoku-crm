@@ -73,7 +73,7 @@
       {% if po.course_title %}
       <div class="mb-3">
         <div class="small text-muted text-uppercase">For Class</div>
-        <div>{{ po.course_title }} — {{ po.start_date|fmtdate }}{% if po.end_date and po.end_date != po.start_date %} – {{ po.end_date|fmtdate }}{% endif %}{% if po.venue %} · {{ po.venue }}{% endif %}</div>
+        <div>{{ po.course_title }} — {{ po.start_date|fmtdaterange(po.end_date) }}{% if po.venue %} · {{ po.venue }}{% endif %}</div>
       </div>
       {% endif %}
 

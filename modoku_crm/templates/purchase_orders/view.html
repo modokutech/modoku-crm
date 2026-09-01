@@ -73,7 +73,7 @@
         <tbody>
           <tr>
             <td>{{ po.course_title }}</td>
-            <td>{{ po.start_date|fmtdate }}{% if po.end_date and po.end_date != po.start_date %} – {{ po.end_date|fmtdate }}{% endif %}</td>
+            <td>{{ po.start_date|fmtdaterange(po.end_date) }}</td>
             <td>{{ po.venue or '-' }}</td>
             <td class="text-end">{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
           </tr>

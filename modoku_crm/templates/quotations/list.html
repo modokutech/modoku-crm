@@ -33,7 +33,11 @@
           <td class="col-quote-client" title="{{ q.company_name_override or q.client_company_name or '' }}">{{ q.company_name_override or q.client_company_name or '-' }}</td>
           <td class="col-quote-course" title="{{ q.course_title or '' }}">{{ q.course_title or '-' }}</td>
           <td>{% if q.training_start_date %}{{ q.training_start_date|fmtdaterange(q.training_end_date) }}{% else %}<span class="text-muted">Not linked to a Class</span>{% endif %}</td>
-          <td class="text-end">RM {{ (q.subtotal * (1 + (q.sst_rate or 0) / 100))|fmtmoney }}</td>
+          {# q.subtotal here is SUM(investment_fee) as typed on the items — the
+             pre-SST amount normally, but already the final SST-inclusive
+             total when "This amount is SST included" was ticked, so it
+             must not be grossed up again in that case. #}
+          <td class="text-end">RM {{ (q.subtotal if q.sst_inclusive else q.subtotal * (1 + (q.sst_rate or 0) / 100))|fmtmoney }}</td>
           <td>
             <span class="badge badge-status
               {% if q.status == 'Accepted' %}bg-success

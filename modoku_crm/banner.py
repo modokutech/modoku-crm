@@ -148,10 +148,10 @@ def generate_banner(title, training_time, start_date, end_date, venue,
 
     # --- Logo lockup: client logo | divider | Modoku logo, centered as a
     # group. If there's no client logo yet, just center the Modoku logo. ---
-    # Box height -20% from the original 170px, per request — shrinks both
-    # the Modoku wordmark and any uploaded client logo together, since both
-    # are scaled to fit this same box.
-    logo_box_h = 136
+    # Box height -20% from the original 170px, then a further -15% per
+    # request — shrinks both the Modoku wordmark and any uploaded client
+    # logo together, since both are scaled to fit this same box.
+    logo_box_h = 116
     gap = 40
 
     def _load_logo(path, max_h):
@@ -183,7 +183,7 @@ def generate_banner(title, training_time, start_date, end_date, venue,
         total_w -= gap
 
         x = (W - total_w) // 2
-        lockup_y = 300
+        lockup_y = 255  # moved up 15% from the original 300, per request
         for kind, obj in pieces:
             if kind == "logo":
                 y = lockup_y + (logo_box_h - obj.height) // 2
@@ -194,10 +194,11 @@ def generate_banner(title, training_time, start_date, end_date, venue,
                 x += divider_w + gap
 
     # --- Title ---
-    # Default size -10% from the original 84pt, per request; a long class
-    # title then shrinks further (down to min_size) so it always fits
-    # within the banner instead of running off either edge.
-    lines, title_font = _fit_title(draw, title, W - 400, start_size=76)
+    # Default size -10% from the original 84pt, then a further -15% per
+    # request (84 -> 76 -> 65); a long class title then shrinks further
+    # (down to min_size, also -15%) so it always fits within the banner
+    # instead of running off either edge.
+    lines, title_font = _fit_title(draw, title, W - 400, start_size=65, min_size=36)
     line_height = round(title_font.size * 1.15)
     y = 560
     for line in lines:
@@ -210,14 +211,14 @@ def generate_banner(title, training_time, start_date, end_date, venue,
     date_text = _fmt_date_range(start_date, end_date)
     line1 = ", ".join(p for p in [training_time, date_text] if p)
     if line1:
-        sub_font = _font(FONT_MEDIUM, 46)
+        sub_font = _font(FONT_MEDIUM, 39)  # -15% from 46, per request
         lw = draw.textlength(line1, font=sub_font)
         draw.text(((W - lw) / 2, y), line1, font=sub_font, fill=SUBTITLE_COLOR)
         y += 62
 
     # --- Venue ---
     if venue:
-        venue_font = _font(FONT_MEDIUM, 34)
+        venue_font = _font(FONT_MEDIUM, 29)  # -15% from 34, per request
         line2 = f"@ {venue}"
         lw = draw.textlength(line2, font=venue_font)
         draw.text(((W - lw) / 2, y), line2, font=venue_font, fill=VENUE_COLOR)

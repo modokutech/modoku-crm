@@ -74,11 +74,45 @@ def _fmtdate(value):
         return value
 
 
+def _fmtdaterange(start_value, end_value):
+    """Renders a PO's class date(s) the same way the rest of the app does
+    (see fmtdaterange in __init__.py, used on the Quotations list etc.) —
+    a back-to-back 2-day class reads '1 & 2 Oct 2026' rather than the more
+    cluttered '1 Oct 2026 – 2 Oct 2026', and a longer span drops the
+    repeated month/year on the start date ('1 – 15 Oct 2026')."""
+    from datetime import datetime
+    if not start_value:
+        return ""
+    try:
+        start = datetime.strptime(start_value, "%Y-%m-%d")
+    except ValueError:
+        return start_value
+    if not end_value or end_value == start_value:
+        return _fmtdate(start_value)
+    try:
+        end = datetime.strptime(end_value, "%Y-%m-%d")
+    except ValueError:
+        return _fmtdate(start_value)
+
+    same_year = start.year == end.year
+    same_month = same_year and start.month == end.month
+    num_days = (end - start).days + 1
+
+    if same_month:
+        start_part = f"{start.day}"
+    elif same_year:
+        start_part = start.strftime("%-d %b")
+    else:
+        start_part = start.strftime("%-d %b %Y")
+    end_part = _fmtdate(end_value)
+
+    joiner = " &amp; " if num_days == 2 else " &ndash; "
+    return f"{start_part}{joiner}{end_part}"
+
+
 def _build_html(po, items, grand_total):
     logo_uri = _logo_data_uri()
-    dates = _fmtdate(po["start_date"])
-    if po["end_date"] and po["end_date"] != po["start_date"]:
-        dates += f" &ndash; {_fmtdate(po['end_date'])}"
+    dates = _fmtdaterange(po["start_date"], po["end_date"])
 
     item_row_parts = []
     for item in items:
@@ -1095,9 +1129,7 @@ def _build_vendor_po_html(po, items, grand_total):
 
     class_block = ""
     if po["course_title"]:
-        dates = _fmtdate(po["start_date"]) if po["start_date"] else "-"
-        if po["start_date"] and po["end_date"] and po["end_date"] != po["start_date"]:
-            dates += f" &ndash; {_fmtdate(po['end_date'])}"
+        dates = _fmtdaterange(po["start_date"], po["end_date"]) if po["start_date"] else "-"
         class_block = f"""
         <table>
           <thead><tr><th>For Class</th><th>Date(s)</th><th>Venue</th></tr></thead>

@@ -767,16 +767,17 @@ body {
   }
 }
 
-/* Quotations list: Client / Course & Programme columns are capped 15%
-   narrower than a natural auto-layout width would give them, so the
-   Training Date / Amount / Status columns get a bit more breathing
-   room in the row. Long text truncates with an ellipsis; the full
-   value is still available via the title attribute tooltip. */
+/* Quotations list: Client / Course & Programme columns are capped
+   narrower than a natural auto-layout width would give them (first
+   -15%, then a further -15% per follow-up request), so the Training
+   Date / Amount / Status columns get more breathing room in the row.
+   Long text truncates with an ellipsis; the full value is still
+   available via the title attribute tooltip. */
 .col-quote-client {
-  max-width: 187px;
+  max-width: 159px;
 }
 .col-quote-course {
-  max-width: 272px;
+  max-width: 231px;
 }
 .col-quote-client,
 .col-quote-course {
