@@ -766,22 +766,3 @@ body {
     max-width: calc(100% - 1.5rem);
   }
 }
-
-/* Quotations list: Client / Course & Programme columns are set as a
-   percentage of the table width (widened back up per follow-up
-   request, after two earlier px-based narrowing passes went too far)
-   rather than a fixed pixel cap. Long text truncates with an
-   ellipsis; the full value is still available via the title
-   attribute tooltip. */
-.col-quote-client {
-  width: 12%;
-}
-.col-quote-course {
-  width: 20%;
-}
-.col-quote-client,
-.col-quote-course {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
