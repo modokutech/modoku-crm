@@ -11,7 +11,11 @@
 // cached, which is what makes repeat loads feel instant and lets the app
 // icon/theme still resolve while offline.
 
-const CACHE_NAME = "modoku-hub-shell-v1";
+// Bump this on every release that touches CSS/JS/static assets — it forces
+// every visitor's browser onto a brand-new cache (the old one is deleted in
+// the "activate" handler below) instead of quietly keeping whatever it
+// cached the first time it ever loaded the app.
+const CACHE_NAME = "modoku-hub-shell-v2";
 
 const SHELL_ASSETS = [
   "/static/css/style.css",
@@ -60,23 +64,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets under /static/: cache-first for speed, refreshing the
-  // cache in the background on every hit so an updated CSS/logo file
-  // doesn't stay stale forever.
+  // Static assets under /static/: network-first, falling back to the cache
+  // only when the network is unreachable (offline).
+  //
+  // This used to be cache-first-with-background-refresh, which sounds
+  // reasonable but has a real bug for an app that ships CSS/JS changes as
+  // often as this one does: it always serves whatever was cached the very
+  // first time a visitor loaded the app, and only refreshes the cache in
+  // the background for the *next* visit — so a visitor who doesn't happen
+  // to reopen the app again soon after a deploy can be stuck looking at an
+  // old style.css indefinitely, with the page's HTML (always fresh, since
+  // navigations are never cached) built for a newer version of that CSS.
+  // That mismatch is exactly what breaks the layout after a style update.
+  // Network-first means everyone gets the current CSS/JS whenever they're
+  // online, and the cache is purely an offline fallback.
   if (url.pathname.startsWith("/static/")) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req)
-          .then((res) => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => cached);
-        return cached || network;
-      })
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
     );
   }
 });
