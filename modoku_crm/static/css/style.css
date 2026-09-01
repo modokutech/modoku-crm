@@ -767,17 +767,17 @@ body {
   }
 }
 
-/* Quotations list: Client / Course & Programme columns are capped
-   narrower than a natural auto-layout width would give them (first
-   -15%, then a further -15% per follow-up request), so the Training
-   Date / Amount / Status columns get more breathing room in the row.
-   Long text truncates with an ellipsis; the full value is still
-   available via the title attribute tooltip. */
+/* Quotations list: Client / Course & Programme columns are set as a
+   percentage of the table width (widened back up per follow-up
+   request, after two earlier px-based narrowing passes went too far)
+   rather than a fixed pixel cap. Long text truncates with an
+   ellipsis; the full value is still available via the title
+   attribute tooltip. */
 .col-quote-client {
-  max-width: 159px;
+  width: 12%;
 }
 .col-quote-course {
-  max-width: 231px;
+  width: 20%;
 }
 .col-quote-client,
 .col-quote-course {
