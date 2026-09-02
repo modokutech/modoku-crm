@@ -139,7 +139,7 @@
       {% set all_grant_docs_present = s.course_outline_file and s.trainer_profile_file and s.trainer_accredited_cert_file and s.grant_quotation_file %}
       <hr>
       {% if s.grant_docs_sent_at %}
-      <p class="small text-warning-emphasis mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.grant_docs_sent_to }} on {{ s.grant_docs_sent_at|fmtdatetime }}.</p>
+      <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.grant_docs_sent_to }} on {{ s.grant_docs_sent_at|fmtdatetime }}.</p>
       {% endif %}
       <p class="small text-muted mb-2">Sending is always manual — this never fires on its own.</p>
       {% if not all_grant_docs_present %}
