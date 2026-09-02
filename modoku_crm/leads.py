@@ -39,7 +39,11 @@ def _handle_proposal_upload(lead_id):
     file_storage = request.files.get("proposal_file")
     if not file_storage or not file_storage.filename:
         return False
-    error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.DEFAULT_EXTENSIONS)
+    error = uploadutil.validate_upload(
+        file_storage,
+        allowed_extensions=uploadutil.DEFAULT_EXTENSIONS,
+        max_bytes=uploadutil.PROPOSAL_DECK_MAX_BYTES,
+    )
     if error:
         flash(error, "danger")
         return False

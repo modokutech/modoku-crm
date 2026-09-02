@@ -16,6 +16,11 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB per file — the default cap everywhe
 # elsewhere to stay under mailer.MAX_TOTAL_ATTACHMENT_BYTES.
 TRAINER_DOCUMENT_MAX_BYTES = 1 * 1024 * 1024  # 1 MB per file
 
+# Lead Proposal Decks are often multi-slide PPT/PPTX exports with embedded
+# images, which routinely blow past the default 2 MB cap — bumped just for
+# this one field rather than raising the cap everywhere.
+PROPOSAL_DECK_MAX_BYTES = 5 * 1024 * 1024  # 5 MB per file
+
 DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "txt"}
 IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 CSV_EXTENSIONS = {"csv"}

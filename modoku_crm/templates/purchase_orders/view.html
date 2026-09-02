@@ -130,8 +130,10 @@
       </form>
       <small class="text-muted">Max 2 MB per file.</small>
     </div>
+  </div>
 
-    <div class="card p-4 mt-3 d-print-none">
+  <div class="col-lg-4 d-print-none">
+    <div class="card p-3">
       <h6>Invoice Submitted by Trainer</h6>
       <p class="small text-muted mb-2">Sent to the trainer automatically once this class is marked Completed — anything they upload (invoices, claims) appears here.</p>
       {% if trainer_invoice_documents %}
@@ -148,10 +150,8 @@
       <p class="small text-muted mb-0">No documents uploaded yet.</p>
       {% endif %}
     </div>
-  </div>
 
-  <div class="col-lg-4 d-print-none">
-    <div class="card p-3">
+    <div class="card p-3 mt-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0">Payment Receipt</h6>
         <span class="badge {{ 'bg-success' if po.payment_status == 'Paid' else 'bg-light text-dark' }}">{{ po.payment_status or 'Unpaid' }}</span>

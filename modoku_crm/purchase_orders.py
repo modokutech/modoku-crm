@@ -276,7 +276,7 @@ def _conflicts_for(trainer_id, session_id):
 
 def _filtered_pos():
     pos = db.query(
-        """SELECT po.*, t.name AS trainer_name, c.title AS course_title, cs.start_date,
+        """SELECT po.*, t.name AS trainer_name, c.title AS course_title, cs.start_date, cs.end_date,
                   u.name AS created_by_name
            FROM purchase_orders po
            LEFT JOIN trainers t ON t.id = po.trainer_id
