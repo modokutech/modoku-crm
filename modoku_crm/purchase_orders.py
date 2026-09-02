@@ -159,7 +159,7 @@ def _default_po_email_body(po, confirm_url=None):
     if po["training_banner_file"]:
         attachment_notes.append("the training banner")
     if po["evaluation_qr_poster_file"]:
-        attachment_notes.append("the Training Evaluation QR poster")
+        attachment_notes.append("the training evaluation QR poster")
     attachments_line = ""
     if attachment_notes:
         attachments_line = f"Also attached: {' and '.join(attachment_notes)}.\n\n"
