@@ -613,7 +613,18 @@ body {
 @media print {
   .sidebar,
   .flash-wrap,
-  .d-print-none {
+  .d-print-none,
+  /* The mobile app-shell top bar (hamburger + logo) and its off-canvas
+     drawer backdrop are only ever meant to show on-screen on a narrow
+     viewport (see the d-lg-none rules below) — but "on-screen" isn't the
+     same as "not printing": printing (or saving as PDF) from a phone-width
+     browser still matches that same @media (max-width) rule, so without
+     this print override the hamburger bar and an oversized logo were
+     showing up at the top of every printed/PDF'd document (invoices,
+     quotations, POs, ...) instead of just the document itself. */
+  .mobile-topbar,
+  .sidebar-backdrop,
+  .mobile-bottom-safe-area {
     display: none !important;
   }
   main.content-area {

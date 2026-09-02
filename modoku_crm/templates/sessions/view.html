@@ -421,6 +421,7 @@
       <div class="border rounded p-2 mb-3">
         <p class="small fw-semibold mb-1">Send Online Attendance Form Link</p>
         <p class="small text-muted mb-2">A public, always-editable link (add/edit/remove participants anytime up until training day) — defaults to the class's PIC email, but you can send it to anyone.</p>
+        <p class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Note: this email is sent automatically once the client returns the signed quotation. Use the form below only if you need to resend it or send it to someone else.</p>
         {% if not s.pic_email %}
         <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>No PIC selected for this class — <a href="{{ url_for('sessions.edit', session_id=s.id) }}">select one on Edit</a> so this defaults correctly next time.</p>
         {% endif %}
