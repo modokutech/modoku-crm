@@ -254,10 +254,12 @@ def _default_jd14_return_email_subject(session_row):
 
 def _default_jd14_return_email_body(session_row, return_url):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    greeting_name = session_row["pic_name"] if "pic_name" in session_row.keys() and session_row["pic_name"] else None
     return (
-        "Hi,\n\n"
-        "Once the HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14) has been signed, you can "
-        f"upload the signed copy directly here, no need to email it separately:\n{return_url}\n\n"
+        f"Hi {greeting_name or 'there'},\n\n"
+        "Once you have signed the HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14), simply "
+        "upload the signed copy directly here for our reference. There is no need to email it "
+        f"separately:\n{return_url}\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n\n"
         "Should you have any questions, please feel free to contact us.\n\n"
@@ -1609,8 +1611,13 @@ def send_jd14_return_link(session_id):
     file only) — the self-service counterpart to the manual Upload button
     above, mirroring the T3 Attendance Form link email."""
     session_row = db.query(
-        """SELECT cs.*, c.title AS course_title FROM course_sessions cs
-           JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
+        """SELECT cs.*, c.title AS course_title, cl.email AS client_email, pic.name AS pic_name,
+                  pic.email AS pic_email
+           FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id
+           LEFT JOIN companies cl ON cl.id = cs.client_company_id
+           LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
+           WHERE cs.id = ?""",
         (session_id,), one=True,
     )
     if session_row is None:

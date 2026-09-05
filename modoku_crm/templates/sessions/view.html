@@ -237,9 +237,18 @@
         <p class="small text-muted mb-2">Upload the signed JD14 form once the training is complete.</p>
         {% endif %}
 
+        <form method="post" action="{{ url_for('sessions.upload_jd14', session_id=s.id) }}" enctype="multipart/form-data" class="d-flex gap-2">
+          {{ csrf_field()|safe }}
+          <input type="file" name="jd14_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
+          <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
+        </form>
+        <small class="text-muted">Max 2 MB.</small>
+
+        {% if s.jd14_file %}
+        <hr>
         <div class="border rounded p-2 mb-3">
           <p class="small fw-semibold mb-1">Send Return Link to Client</p>
-          <p class="small text-muted mb-2">A link where the client/trainer can upload their signed JD14 copy directly — single file only, no login needed. This is also sent automatically the moment you upload the JD14 form above (if a client email is on file) — use this to resend or CC someone else.</p>
+          <p class="small text-muted mb-2">A link where the client can upload their signed JD14 copy directly — single file only, no login needed. This is also sent automatically the moment you upload the JD14 form above (if a client email is on file) — use this to resend or CC someone else.</p>
           {% if s.jd14_received_at %}
           <p class="small text-muted mb-2"><i class="bi bi-check-circle me-1"></i>A signed copy was received via this link on {{ s.jd14_received_at|fmtdatetime }}.</p>
           {% endif %}
@@ -268,15 +277,6 @@
           </form>
         </div>
 
-        <form method="post" action="{{ url_for('sessions.upload_jd14', session_id=s.id) }}" enctype="multipart/form-data" class="d-flex gap-2">
-          {{ csrf_field()|safe }}
-          <input type="file" name="jd14_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
-          <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
-        </form>
-        <small class="text-muted">Max 2 MB.</small>
-
-        {% if s.jd14_file %}
-        <hr>
         {% if s.jd14_sent_at %}
         <p class="small text-warning-emphasis mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.jd14_sent_to }} on {{ s.jd14_sent_at|fmtdatetime }}.</p>
         {% endif %}
