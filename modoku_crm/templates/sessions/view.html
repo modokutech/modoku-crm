@@ -217,7 +217,7 @@
         <a href="{{ url_for('sessions.download_evaluation_poster', session_id=s.id) }}" target="_blank">View generated poster</a>
       </p>
       <p class="small text-muted mb-2">Attached automatically to this trainer's Purchase Order email.</p>
-      {% else %}
+      {% elif not eval_forms_ready %}
       <p class="small text-muted mb-2">Paste the evaluation form link and generate a QR poster linking to it.</p>
       {% endif %}
       {% if eval_forms_ready %}
@@ -227,10 +227,15 @@
           <i class="bi bi-google me-1"></i>{{ 'Regenerate' if s.evaluation_form_id else 'Generate' }} Evaluation Form
         </button>
       </form>
-      {% if s.evaluation_form_generated_at %}
-      <p class="small text-muted mb-2">Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }}.</p>
-      {% endif %}
-      {% endif %}
+      <p class="small text-muted mb-2">
+        {% if s.evaluation_form_generated_at %}
+        Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }} — the QR poster above was
+        built automatically at the same time.
+        {% else %}
+        Publishes the Form and builds the QR poster in one click.
+        {% endif %}
+      </p>
+      {% else %}
       <form method="post" action="{{ url_for('sessions.generate_evaluation_poster', session_id=s.id) }}">
         {{ csrf_field()|safe }}
         <div class="mb-2">
@@ -242,6 +247,12 @@
           <i class="bi bi-qr-code me-1"></i>{{ 'Regenerate' if s.evaluation_qr_poster_file else 'Generate' }} Poster
         </button>
       </form>
+      {% endif %}
+      {% if s.evaluation_form_id %}
+      <a href="{{ url_for('training_reports.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary w-100 mt-2">
+        <i class="bi bi-clipboard-data me-1"></i>View Training Report
+      </a>
+      {% endif %}
     </div>
         <div class="card p-3 mt-3">
         <h6>JD14 Form</h6>

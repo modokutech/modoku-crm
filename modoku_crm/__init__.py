@@ -219,6 +219,7 @@ def create_app(config_object="config.Config"):
     from . import jd14_return
     from . import guide
     from . import evaluation_forms
+    from . import training_reports
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
@@ -264,6 +265,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(payment_receipts.bp)
     app.register_blueprint(library.bp)
     app.register_blueprint(evaluation_forms.bp)
+    app.register_blueprint(training_reports.bp)
 
     security.init_app(app)
 

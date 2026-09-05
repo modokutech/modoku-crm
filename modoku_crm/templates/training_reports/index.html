@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Training Report{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Training Report</h4>
+    <small class="text-muted">Evaluation feedback rolled up per class — numeric ratings averaged automatically, open-text answers summarized by AI.</small>
+  </div>
+</div>
+
+<div class="card p-3">
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr>
+        <th>Class</th><th>Trainer</th><th>Date</th><th>Responses</th><th>Report</th><th></th>
+      </tr></thead>
+      <tbody>
+        {% for s in rows %}
+        <tr onclick="window.location='{{ url_for('training_reports.view', session_id=s.id) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ s.course_title }}</td>
+          <td>{{ s.trainer_name or '—' }}</td>
+          <td class="text-nowrap">{{ s.start_date|fmtdaterange(s.end_date) }}</td>
+          <td>{{ s.response_count if s.response_count is not none else '—' }}</td>
+          <td>
+            {% if s.generated_at %}
+            <span class="badge bg-success">Generated {{ s.generated_at|fmtdatetime }}</span>
+            {% else %}
+            <span class="badge bg-secondary">Not generated yet</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('training_reports.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No classes with an auto-generated Evaluation Form yet — use "Generate Evaluation
+    Form" on a class page first (see Settings → Evaluation Forms to connect Google Forms automation).</p>
+  {% endif %}
+</div>
+{% endblock %}

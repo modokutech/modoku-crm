@@ -272,12 +272,12 @@ changes either way.
 ## Setting up Evaluation Forms automation (optional)
 
 Modoku Hub can generate a class's post-training evaluation Google Form automatically —
-duplicating a shared master template, retitling it with the course/trainer/date, and
-saving the live link straight onto the class — instead of someone duplicating, editing,
-and publishing a Form by hand in Google Drive every time. Unlike calendar integration,
-this is **one shared connection**, not per staff member: whoever clicks "Generate
-Evaluation Form" on a class page, the Form is always created under the one Google account
-that owns the master template.
+duplicating a shared master template, retitling it with the course/trainer/date,
+publishing it so it's actually open to responses, and saving the live link straight onto
+the class — instead of someone duplicating, editing, and publishing a Form by hand in
+Google Drive every time. Unlike calendar integration, this is **one shared connection**,
+not per staff member: whoever clicks "Generate Evaluation Form" on a class page, the Form
+is always created under the one Google account that owns the master template.
 
 This reuses the exact same `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` as
 calendar integration above — if that's already set up, you don't need a new Google Cloud
@@ -308,9 +308,28 @@ project, just a few additions to it:
      your master evaluation Form template.
    - Paste that template's Drive file ID under **Master Template** (the long string in
      its edit URL: `docs.google.com/forms/d/THIS_PART/edit`) and save.
-5. A **Generate Evaluation Form** button now appears on every class page, next to the
-   existing Evaluation Form link field — it fills that field in automatically once
-   clicked.
+5. A **Generate Evaluation Form** button now appears on every class page. One click
+   duplicates the template, publishes the copy, fills in the Evaluation Form link, and
+   builds that class's QR poster — all in one step, with no separate "Generate Poster"
+   click needed (that manual field/button only shows up on classes where this automation
+   isn't connected/configured yet, as a fallback).
+
+### Training Report — the evaluation feedback rollup
+
+Once a class's auto-generated Form has collected some responses, its **Training
+Report** (its own sidebar tab, or the "View Training Report" shortcut on the class
+page) pulls every response back from Google, averages the rating/multiple-choice
+questions with plain arithmetic, and — if `ANTHROPIC_API_KEY` is set (see below) —
+summarizes the open-text questions ("What went well?", "What could be improved?",
+whatever your template actually asks) into recurring themes with Claude. Without
+`ANTHROPIC_API_KEY`, the numeric half still works and the raw open-text answers are
+shown instead of an AI summary.
+
+This is a cache, not something live-updating on its own — click **Generate Report**
+(or **Refresh Report** to pull in new responses) whenever you want current numbers;
+it only re-reads Google and re-runs the AI summary on that click, not on every page
+view. Only available for classes with an auto-generated Form — there's no reliable
+way to read responses back from a hand-pasted Evaluation Form link.
 
 ## Setting up AI attendance matching (optional)
 

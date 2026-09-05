@@ -690,6 +690,25 @@ CREATE TABLE IF NOT EXISTS company_files (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- One row per class holding the last-generated Training Report — a cached
+-- rollup of that class's Google Forms evaluation responses (see
+-- training_reports.py). Deliberately a cache the "Refresh Report" button
+-- rebuilds on demand, not something recomputed on every page view, since
+-- building it re-reads every response from Google and re-runs the AI
+-- summary. Only ever populated for classes with an auto-generated Form
+-- (course_sessions.evaluation_form_id) — that's the only case where
+-- Modoku Hub controls a form ID it can call the Forms API against.
+CREATE TABLE IF NOT EXISTS training_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL UNIQUE REFERENCES course_sessions(id) ON DELETE CASCADE,
+    response_count INTEGER NOT NULL DEFAULT 0,
+    numeric_summary_json TEXT,   -- JSON list of {question, kind, ...aggregates} for rating/choice questions
+    text_summary_json TEXT,      -- JSON list of {question, answers: [...]} for open-text questions (AI fallback/evidence)
+    ai_summary_json TEXT,        -- JSON {overall, by_question: [{question, summary}]} — null if AI unavailable/failed
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_hotel_capacities_hotel ON hotel_capacities(hotel_id);
 CREATE INDEX IF NOT EXISTS idx_po_payment_receipts_po ON po_payment_receipts(po_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_po_payment_receipts_po ON vendor_po_payment_receipts(po_id);
@@ -725,6 +744,7 @@ CREATE INDEX IF NOT EXISTS idx_attendance_returns_session ON attendance_returns(
 CREATE INDEX IF NOT EXISTS idx_certificates_session ON certificates(session_id);
 CREATE INDEX IF NOT EXISTS idx_t3_day_attendance_participant ON t3_day_attendance(participant_id);
 CREATE INDEX IF NOT EXISTS idx_company_files_pinned ON company_files(pinned);
+CREATE INDEX IF NOT EXISTS idx_training_reports_session ON training_reports(session_id);
 """
 
 

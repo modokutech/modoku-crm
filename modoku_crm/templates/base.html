@@ -14,6 +14,49 @@
   <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+  <style>
+    /* Command palette (press "/" anywhere, or click Search pages… in the
+       sidebar) — jumps straight to any page in the sidebar nav without
+       hunting through the (now fairly long) list of tabs by eye. */
+    .cmd-palette-trigger {
+      display: flex; align-items: center; width: 100%; border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06); color: rgba(255,255,255,.75); border-radius: .5rem;
+      padding: .4rem .6rem; font-size: .8125rem; cursor: pointer; text-align: left;
+    }
+    .cmd-palette-trigger:hover { background: rgba(255,255,255,.12); color: #fff; }
+    .cmd-palette-trigger span { flex: 1 1 auto; }
+    .cmd-palette-trigger kbd {
+      background: rgba(255,255,255,.15); border-radius: .25rem; padding: .05rem .4rem;
+      font-size: .75rem; color: rgba(255,255,255,.85);
+    }
+    .cmd-palette-overlay {
+      position: fixed; inset: 0; background: rgba(15,17,26,.55); z-index: 1080;
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh;
+    }
+    .cmd-palette-overlay[hidden] { display: none; }
+    .cmd-palette {
+      width: 100%; max-width: 480px; background: #fff; border-radius: .75rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow: hidden; margin: 0 1rem;
+    }
+    .cmd-palette-input-wrap {
+      display: flex; align-items: center; gap: .5rem; padding: .75rem 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    .cmd-palette-input-wrap .bi-search { color: #999; }
+    .cmd-palette-input {
+      flex: 1 1 auto; border: none; outline: none; font-size: 1rem; padding: .25rem 0;
+    }
+    .cmd-palette-esc {
+      background: #f1f1f4; border-radius: .25rem; padding: .1rem .4rem; font-size: .75rem; color: #888;
+    }
+    .cmd-palette-results { list-style: none; margin: 0; padding: .4rem; max-height: 340px; overflow-y: auto; }
+    .cmd-palette-results li a {
+      display: flex; align-items: center; gap: .6rem; padding: .5rem .6rem; border-radius: .5rem;
+      color: #222; text-decoration: none; font-size: .9rem;
+    }
+    .cmd-palette-results li a.active, .cmd-palette-results li a:hover { background: #eef1ff; color: #2e3192; }
+    .cmd-palette-empty { padding: 1rem; text-align: center; color: #999; font-size: .875rem; }
+  </style>
 </head>
 <body>
 {% if g.user %}
@@ -23,6 +66,9 @@
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="brand-logo">
       <small class="text-white-50 d-block mt-1">Modoku Hub</small>
     </a>
+    <button type="button" id="cmdPaletteTrigger" class="cmd-palette-trigger flex-shrink-0 mb-2">
+      <i class="bi bi-search me-2"></i><span>Search pages…</span><kbd>/</kbd>
+    </button>
     <ul class="nav nav-pills flex-column flex-nowrap gap-1 sidebar-nav" id="sidebarNav">
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='dashboard' }}" href="{{ url_for('dashboard.index') }}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
       <li class="nav-item">
@@ -48,6 +94,7 @@
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='enrollments' }}" href="{{ url_for('enrollments.index') }}"><i class="bi bi-person-check me-2"></i>Enrollments</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainers' }}" href="{{ url_for('trainers.index') }}"><i class="bi bi-person-badge me-2"></i>Trainers</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='cert_admin' }}" href="{{ url_for('cert_admin.index') }}"><i class="bi bi-patch-check me-2"></i>Certificates</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='training_reports' }}" href="{{ url_for('training_reports.index') }}"><i class="bi bi-clipboard-data me-2"></i>Training Report</a></li>
       {% if modules.purchase_orders %}
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='purchase_orders' }}" href="{{ url_for('purchase_orders.index') }}"><i class="bi bi-file-earmark-text me-2"></i>Purchase Orders</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='vendor_purchase_orders' }}" href="{{ url_for('vendor_purchase_orders.index') }}"><i class="bi bi-file-earmark-text me-2"></i>Vendor POs</a></li>
@@ -94,6 +141,17 @@
     {% include "_flash.html" %}
     {% block content %}{% endblock %}
   </main>
+</div>
+<div class="cmd-palette-overlay" id="cmdPaletteOverlay" hidden>
+  <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="Search pages">
+    <div class="cmd-palette-input-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="cmdPaletteInput" class="cmd-palette-input" placeholder="Search pages… (e.g. quotations)" autocomplete="off">
+      <span class="cmd-palette-esc">Esc</span>
+    </div>
+    <ul class="cmd-palette-results" id="cmdPaletteResults"></ul>
+    <div class="cmd-palette-empty" id="cmdPaletteEmpty" hidden>No matching page.</div>
+  </div>
 </div>
 {% else %}
   {% include "_flash.html" %}
@@ -148,6 +206,110 @@
 // from a previous release (see static/sw.js) — it self-unregisters and
 // clears its caches on next activation, but until that happens we don't
 // register a new one here.
+
+// Command palette — press "/" (or click "Search pages…" in the sidebar) to
+// jump straight to any page in the sidebar nav. The searchable list is read
+// straight off the rendered sidebar itself, not a separately maintained
+// list, so it automatically matches whatever this user can actually see
+// (module toggles, admin-only links, etc.) with nothing to keep in sync.
+(function () {
+  var overlay = document.getElementById('cmdPaletteOverlay');
+  var input = document.getElementById('cmdPaletteInput');
+  var resultsEl = document.getElementById('cmdPaletteResults');
+  var emptyEl = document.getElementById('cmdPaletteEmpty');
+  var trigger = document.getElementById('cmdPaletteTrigger');
+  var navEl = document.getElementById('sidebarNav');
+  if (!overlay || !input || !resultsEl || !navEl) return;
+
+  var items = Array.prototype.slice.call(navEl.querySelectorAll('a.nav-link')).map(function (a) {
+    return { label: a.textContent.replace(/\s+/g, ' ').trim(), href: a.getAttribute('href') };
+  }).filter(function (item) { return item.label && item.href; });
+
+  var selectedIndex = 0;
+  var currentResults = [];
+
+  function render(query) {
+    var q = query.trim().toLowerCase();
+    var starts = [], contains = [];
+    items.forEach(function (item) {
+      var label = item.label.toLowerCase();
+      if (!q) { contains.push(item); return; }
+      var idx = label.indexOf(q);
+      if (idx === 0) starts.push(item);
+      else if (idx > 0) contains.push(item);
+    });
+    currentResults = starts.concat(contains).slice(0, 8);
+    selectedIndex = 0;
+    resultsEl.innerHTML = '';
+    if (!currentResults.length) {
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    currentResults.forEach(function (item, i) {
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = item.href;
+      a.className = i === 0 ? 'active' : '';
+      a.innerHTML = '<i class="bi bi-arrow-right-short"></i>' + item.label;
+      a.addEventListener('mouseenter', function () { setSelected(i); });
+      a.addEventListener('click', function () { close(); });
+      li.appendChild(a);
+      resultsEl.appendChild(li);
+    });
+  }
+
+  function setSelected(i) {
+    var links = resultsEl.querySelectorAll('a');
+    if (!links.length) return;
+    selectedIndex = (i + links.length) % links.length;
+    links.forEach(function (a, idx) { a.className = idx === selectedIndex ? 'active' : ''; });
+    links[selectedIndex].scrollIntoView({ block: 'nearest' });
+  }
+
+  function open() {
+    overlay.hidden = false;
+    input.value = '';
+    render('');
+    setTimeout(function () { input.focus(); }, 0);
+  }
+
+  function close() {
+    overlay.hidden = true;
+  }
+
+  input.addEventListener('input', function () { render(input.value); });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSelected(selectedIndex + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSelected(selectedIndex - 1); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      var chosen = currentResults[selectedIndex];
+      if (chosen) window.location.href = chosen.href;
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
+
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) close();
+  });
+
+  if (trigger) trigger.addEventListener('click', open);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (!overlay.hidden) return;
+    var active = document.activeElement;
+    var tag = active && active.tagName;
+    var editable = active && active.isContentEditable;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || editable) return;
+    e.preventDefault();
+    open();
+  });
+})();
 </script>
 </body>
 </html>

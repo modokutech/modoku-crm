@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}Training Report{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ s.course_title }} — Training Report</h4>
+    <small class="text-muted">
+      {{ s.trainer_name or 'No trainer assigned' }} · {{ s.start_date|fmtdaterange(s.end_date) }}
+    </small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Class
+    </a>
+    {% if s.evaluation_form_link %}
+    <a href="{{ s.evaluation_form_link }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-google me-1"></i>Open Form
+    </a>
+    {% endif %}
+    <form method="post" action="{{ url_for('training_reports.generate', session_id=s.id) }}">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-sm btn-primary" type="submit">
+        <i class="bi bi-arrow-repeat me-1"></i>{{ 'Refresh' if report else 'Generate' }} Report
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if not report %}
+<div class="card p-4 text-center">
+  <p class="text-muted mb-0">No report generated yet — click <strong>Generate Report</strong> above to pull in
+    this class's evaluation responses.</p>
+</div>
+{% else %}
+
+<p class="small text-muted mb-3">
+  Based on {{ report.response_count }} response{{ '' if report.response_count == 1 else 's' }},
+  as of {{ report.generated_at|fmtdatetime }}. Numbers below are recalculated fresh each time you click
+  Refresh — they're never stale between refreshes, but also never live-updating on their own.
+</p>
+
+{% if report.response_count == 0 %}
+<div class="card p-4 text-center">
+  <p class="text-muted mb-0">No responses received yet — check back once participants have submitted the
+    evaluation form, then click Refresh Report.</p>
+</div>
+{% else %}
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6 class="mb-3">Ratings</h6>
+      {% if report.numeric_summary %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <tbody>
+            {% for q in report.numeric_summary %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ q.question }}</div>
+                {% if q.kind in ('scale', 'choice_numeric') %}
+                <div class="small text-muted">{{ q.count }} response{{ '' if q.count == 1 else 's' }} · range {{ q.min }}–{{ q.max }}</div>
+                {% else %}
+                <div class="small text-muted">
+                  {% for opt in q.distribution %}{{ opt.option }}: {{ opt.count }}{{ ', ' if not loop.last }}{% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if q.kind in ('scale', 'choice_numeric') %}
+                <span class="badge bg-primary fs-6">{{ q.average }}</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ q.count }} total</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="small text-muted mb-0">No rating/multiple-choice questions with answers yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3 h-100">
+      <h6 class="mb-3">Open-Text Feedback Summary</h6>
+      {% if report.ai_summary %}
+      <p class="mb-3">{{ report.ai_summary.overall }}</p>
+      {% for q in report.ai_summary.by_question %}
+      <div class="mb-2">
+        <div class="fw-semibold small">{{ q.question }}</div>
+        <div class="small text-muted">{{ q.summary }}</div>
+      </div>
+      {% endfor %}
+      <p class="small text-muted mt-3 mb-0"><i class="bi bi-stars me-1"></i>AI-generated — read alongside the
+        actual answers below before treating it as the final word.</p>
+      {% elif report.text_summary %}
+      <p class="small text-muted">
+        {% if ai_configured %}
+        The AI summary couldn't be generated this time — showing raw answers instead. Try Refresh again.
+        {% else %}
+        AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured) — showing raw answers instead.
+        {% endif %}
+      </p>
+      {% else %}
+      <p class="small text-muted mb-0">No open-text questions with answers yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if report.text_summary %}
+<div class="card p-3 mt-3">
+  <h6 class="mb-3">Raw Open-Text Answers</h6>
+  <div class="accordion" id="rawAnswersAccordion">
+    {% for q in report.text_summary %}
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#rawQ{{ loop.index }}">
+          {{ q.question }} <span class="badge bg-secondary ms-2">{{ q.answers|length }}</span>
+        </button>
+      </h2>
+      <div id="rawQ{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#rawAnswersAccordion">
+        <div class="accordion-body">
+          <ul class="mb-0 small">
+            {% for ans in q.answers %}
+            <li>{{ ans }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -1801,6 +1801,26 @@ def generate_banner(session_id):
     return redirect(url_for("sessions.view", session_id=session_id))
 
 
+def _build_evaluation_qr_poster(session_id, course_title, start_date, end_date, link):
+    """Builds the QR poster JPEG for a class's evaluation Form link and saves
+    it, returning the stored filename. Shared by the manual "Generate
+    Poster" button below and by evaluation_forms.generate(), which calls
+    this straight after creating a class's Form so the poster comes out of
+    a single click — no separate manual step needed once Google Forms
+    automation is connected."""
+    # Full date range (e.g. "1 - 2 September 2026"), not just the start date —
+    # reuses the same formatter the training banner uses so both stay
+    # consistent for multi-day classes.
+    date_text = banner._fmt_date_range(start_date, end_date)
+    logo_path = os.path.join(current_app.root_path, "static", "img", "logo.png")
+    jpeg_bytes = poster.generate_evaluation_poster(course_title, date_text, link, logo_path=logo_path)
+    stored_name = f"evalposter_{uuid.uuid4().hex[:8]}.jpg"
+    with open(os.path.join(_attendance_dir(session_id), stored_name), "wb") as f:
+        f.write(jpeg_bytes)
+    db.execute("UPDATE course_sessions SET evaluation_qr_poster_file = ? WHERE id = ?", (stored_name, session_id))
+    return stored_name
+
+
 @bp.route("/<int:session_id>/evaluation-poster/generate", methods=("POST",))
 @login_required
 def generate_evaluation_poster(session_id):
@@ -1817,7 +1837,10 @@ def generate_evaluation_poster(session_id):
     # Generate button, rather than on the Schedule/Edit Class form — pasting
     # the link and generating the poster is one single step. A submitted
     # value updates what's on file; leaving it blank falls back to
-    # whatever's already saved (e.g. a plain "Regenerate" click).
+    # whatever's already saved (e.g. a plain "Regenerate" click). This
+    # manual path only shows up on the class page when Evaluation Forms
+    # automation isn't connected — once it is, "Generate Evaluation Form"
+    # builds the poster automatically (see evaluation_forms.generate()).
     submitted_link = (request.form.get("evaluation_form_link") or "").strip()
     link = submitted_link or session_row["evaluation_form_link"]
     if not link:
@@ -1825,22 +1848,9 @@ def generate_evaluation_poster(session_id):
         return redirect(url_for("sessions.view", session_id=session_id))
     if submitted_link and submitted_link != session_row["evaluation_form_link"]:
         db.execute("UPDATE course_sessions SET evaluation_form_link = ? WHERE id = ?", (submitted_link, session_id))
-    session_row = dict(session_row)
-    session_row["evaluation_form_link"] = link
 
-    # Full date range (e.g. "1 - 2 September 2026"), not just the start date —
-    # reuses the same formatter the training banner uses so both stay
-    # consistent for multi-day classes.
-    date_text = banner._fmt_date_range(session_row["start_date"], session_row["end_date"])
-
-    logo_path = os.path.join(current_app.root_path, "static", "img", "logo.png")
-    jpeg_bytes = poster.generate_evaluation_poster(
-        session_row["course_title"], date_text, session_row["evaluation_form_link"], logo_path=logo_path
-    )
-    stored_name = f"evalposter_{uuid.uuid4().hex[:8]}.jpg"
-    with open(os.path.join(_attendance_dir(session_id), stored_name), "wb") as f:
-        f.write(jpeg_bytes)
-    db.execute("UPDATE course_sessions SET evaluation_qr_poster_file = ? WHERE id = ?", (stored_name, session_id))
+    _build_evaluation_qr_poster(session_id, session_row["course_title"], session_row["start_date"],
+                                 session_row["end_date"], link)
     flash("Training Evaluation QR poster generated.", "success")
     return redirect(url_for("sessions.view", session_id=session_id))
 

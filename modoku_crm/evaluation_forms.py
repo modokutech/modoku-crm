@@ -3,11 +3,19 @@
 Modoku Hub keeps ONE master evaluation Form template (a Google Form Erik
 maintains by hand, containing all the real questions) and, per class,
 makes a fresh independent copy of it — swapping in that class's course
-title, trainer name, and date — then reads back its live link, instead of
-someone duplicating/editing/publishing the Form by hand in Google Drive
-every time a class finishes. A freshly-copied Google Form is published
-(collecting responses) the moment it exists, so there's no separate
-"publish" step to automate.
+title, trainer name, and date, explicitly publishing it so it's actually
+open to responses, then reads back its live link — instead of someone
+duplicating/editing/publishing the Form by hand in Google Drive every
+time a class finishes. A freshly-copied Google Form inherits Google's
+newer "unpublished" draft state and will silently refuse responses until
+something calls forms.setPublishSettings, so that call is part of the
+sequence below, not optional.
+
+The moment a Form is generated, this module also builds that class's QR
+poster automatically (see sessions._build_evaluation_qr_poster) — there's
+no separate "Generate Poster" click needed once Google Forms automation
+is connected; the class page only falls back to the manual poster button
+when it isn't.
 
 This is deliberately a SINGLE, admin-configured Google connection (see
 connect()/google_callback() below), not a per-staff-member one like
@@ -205,6 +213,24 @@ def generate_form_for_session(session_row):
             "by hand in Google Forms (it's already in your Drive), or try generating again."
         ) from exc
 
+    # A copy of a Form starts in Google's "unpublished" draft state and
+    # rejects responses until this is called — without it, the Form looks
+    # fine but nobody can actually submit feedback until someone opens it
+    # in Google Forms and clicks Publish by hand.
+    try:
+        publish_resp = requests.post(
+            f"{FORMS_API_URL}/forms/{new_form_id}:setPublishSettings",
+            json={"publishSettings": {"publishState": {"isPublished": True, "isAcceptingResponses": True}}},
+            headers=headers, timeout=20,
+        )
+        publish_resp.raise_for_status()
+    except requests.RequestException as exc:
+        current_app.logger.exception("Forms setPublishSettings failed for new evaluation form %s", new_form_id)
+        raise EvaluationFormError(
+            "The Form was created and updated, but publishing it so it can accept responses failed — open "
+            "it in Google Forms and click Publish by hand, or try generating again."
+        ) from exc
+
     try:
         get_resp = requests.get(f"{FORMS_API_URL}/forms/{new_form_id}", headers=headers, timeout=20)
         get_resp.raise_for_status()
@@ -217,6 +243,88 @@ def generate_form_for_session(session_row):
         ) from exc
 
     return new_form_id, responder_uri
+
+
+def _is_number(text):
+    try:
+        float(text)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def get_form_structure(form_id, access_token):
+    """Reads back a generated Form's questions, classifying each one for
+    training_reports.py: 'scale' (a 1-5 style rating), 'choice_numeric' (a
+    multiple-choice question whose options are themselves numbers — treated
+    like a scale), 'choice_text' (multiple-choice with non-numeric options,
+    e.g. Excellent/Good/Fair/Poor — tallied as a distribution), 'text' (an
+    open-ended question — fed to the AI summary), or 'other' (date/time/file
+    upload/grid — not aggregated at all). Returns {questionId: {...}}.
+    Raises EvaluationFormError on any API failure."""
+    try:
+        resp = requests.get(f"{FORMS_API_URL}/forms/{form_id}",
+                             headers={"Authorization": f"Bearer {access_token}"}, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as exc:
+        current_app.logger.exception("Forms get (structure) failed for form %s", form_id)
+        raise EvaluationFormError(
+            "Couldn't read the Form's questions from Google — try again in a moment."
+        ) from exc
+
+    questions = {}
+    for item in data.get("items", []):
+        question_item = item.get("questionItem") or {}
+        question = question_item.get("question")
+        question_id = question.get("questionId") if question else None
+        if not question_id:
+            continue  # section headers, images, page breaks — nothing to aggregate
+        title = item.get("title") or "(untitled question)"
+        if "scaleQuestion" in question:
+            sq = question["scaleQuestion"]
+            questions[question_id] = {"title": title, "kind": "scale", "low": sq.get("low"), "high": sq.get("high")}
+        elif "choiceQuestion" in question:
+            options = [opt.get("value", "") for opt in question["choiceQuestion"].get("options", [])
+                       if opt.get("value")]
+            numeric = bool(options) and all(_is_number(opt) for opt in options)
+            questions[question_id] = {
+                "title": title, "kind": "choice_numeric" if numeric else "choice_text", "options": options,
+            }
+        elif "textQuestion" in question:
+            questions[question_id] = {"title": title, "kind": "text"}
+        else:
+            questions[question_id] = {"title": title, "kind": "other"}
+    return questions
+
+
+def list_form_responses(form_id, access_token):
+    """Every response submitted to a generated Form so far, paginating
+    through Google's pageToken until exhausted. Raises EvaluationFormError
+    on any API failure. Each item is a raw Forms API FormResponse dict —
+    training_reports.py pulls out the answers it needs by questionId."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    responses = []
+    page_token = None
+    try:
+        while True:
+            params = {"pageSize": 200}
+            if page_token:
+                params["pageToken"] = page_token
+            resp = requests.get(f"{FORMS_API_URL}/forms/{form_id}/responses",
+                                 headers=headers, params=params, timeout=20)
+            resp.raise_for_status()
+            data = resp.json()
+            responses.extend(data.get("responses", []))
+            page_token = data.get("nextPageToken")
+            if not page_token:
+                break
+    except requests.RequestException as exc:
+        current_app.logger.exception("Forms responses.list failed for form %s", form_id)
+        raise EvaluationFormError(
+            "Couldn't read responses from Google Forms — try again in a moment."
+        ) from exc
+    return responses
 
 
 # ---------------------------------------------------------------------------
@@ -327,5 +435,25 @@ def generate(session_id):
         (form_id, responder_uri, session_id),
     )
     activity.log("update", "session", session_id, "Generated Evaluation Form from template")
-    flash("Evaluation Form generated and linked below — you can now generate the QR poster.", "success")
+
+    # One click does both jobs: the Form now exists (published) and linked,
+    # so immediately build its QR poster too — no separate manual "Generate
+    # Poster" step. A local-import here (rather than at module load) avoids
+    # a circular import, since sessions.py already imports this module.
+    poster_failed = False
+    try:
+        from . import sessions as sessions_module
+        sessions_module._build_evaluation_qr_poster(
+            session_id, session_row["course_title"], session_row["start_date"], session_row["end_date"],
+            responder_uri,
+        )
+    except Exception:
+        current_app.logger.exception("Auto QR poster generation failed for session %s", session_id)
+        poster_failed = True
+
+    if poster_failed:
+        flash("Evaluation Form generated, published, and linked — but the QR poster couldn't be "
+              "auto-generated. Try again, or check the poster settings.", "warning")
+    else:
+        flash("Evaluation Form generated, published, linked, and its QR poster is ready below.", "success")
     return redirect(url_for("sessions.view", session_id=session_id))
