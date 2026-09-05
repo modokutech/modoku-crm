@@ -53,6 +53,54 @@ _PROMPTS = {
         "unrelated photo, a completely different form, or a blank page). "
         + _GENERIC_INSTRUCTIONS
     ),
+    "signed_quotation": (
+        "This file was uploaded as a client's SIGNED copy of a training "
+        "quotation — expect to see quotation content (a course/programme "
+        "name, itemized fees, a total amount) together with some sign of "
+        "acceptance such as a signature, initials, or a company stamp. Look "
+        "at the file and decide whether it plausibly IS a signed quotation "
+        "(e.g. it would be wrong if this were instead an unrelated photo, a "
+        "completely different document, or a blank page). "
+        + _GENERIC_INSTRUCTIONS
+    ),
+    "t3_attendance": (
+        "This file was uploaded as a photo or scan of a signed HRDCorp "
+        "training attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01) — "
+        "expect to see a course title, training date(s), and a list of "
+        "participant names with signatures or initials next to them. Look "
+        "at the file and decide whether it plausibly IS such an attendance "
+        "sheet (e.g. it would be wrong if this were instead a completely "
+        "unrelated photo, a different form entirely, or a blank/unsigned "
+        "sheet with no one signed in). " + _GENERIC_INSTRUCTIONS
+    ),
+    "evaluation_report": (
+        "This file was uploaded as a training evaluation report — expect to "
+        "see a summary or compilation of participant feedback/ratings for a "
+        "completed training. Look at the file and decide whether it "
+        "plausibly IS such a report (e.g. it would be wrong if this were "
+        "instead an unrelated photo, a completely different kind of "
+        "document, or a blank page). " + _GENERIC_INSTRUCTIONS
+    ),
+    "trainer_credential": (
+        "This file was uploaded as a trainer's profile document or "
+        "accreditation/certification certificate — expect to see either a "
+        "trainer's professional profile/résumé content, or a certificate "
+        "bearing a name, an issuing body, and typically a certificate "
+        "number or date. Look at the file and decide whether it plausibly "
+        "IS one of those (e.g. it would be wrong if this were instead an "
+        "unrelated photo, a completely different kind of document, or a "
+        "blank page). " + _GENERIC_INSTRUCTIONS
+    ),
+    "financial_document": (
+        "This file was uploaded as a financial document — an invoice, "
+        "purchase order, payment receipt, or similar claim/expense "
+        "supporting document — expect to see a company/vendor name, an "
+        "amount, and typically a date and/or reference number. Look at the "
+        "file and decide whether it plausibly IS such a financial document "
+        "(e.g. it would be wrong if this were instead an unrelated photo, a "
+        "completely different kind of document, or a blank page). "
+        + _GENERIC_INSTRUCTIONS
+    ),
 }
 
 

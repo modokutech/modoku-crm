@@ -16,7 +16,7 @@ import uuid
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from . import db, mailer, notifications, uploadutil
+from . import db, doc_sanity, mailer, notifications, uploadutil
 from . import settings as settings_module
 
 bp = Blueprint("vendor_invoice", __name__, url_prefix="/vendor-invoice")
@@ -70,6 +70,7 @@ def submit(token):
 
     files = request.files.getlist("invoice_files")
     saved = 0
+    sanity_warnings = []
     for file_storage in files:
         if not file_storage or not file_storage.filename:
             continue
@@ -79,12 +80,16 @@ def submit(token):
             return redirect(url_for("vendor_invoice.form", token=token))
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_upload_dir(po["id"]), stored_name))
+        saved_path = os.path.join(_upload_dir(po["id"]), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO vendor_invoice_documents (po_id, filename, original_name) VALUES (?,?,?)",
             (po["id"], stored_name, file_storage.filename),
         )
         saved += 1
+        warning = doc_sanity.check_document(saved_path, "financial_document")
+        if warning:
+            sanity_warnings.append((file_storage.filename, warning))
 
     if saved:
         flash(f"Uploaded {saved} document(s) — thank you!", "success")
@@ -92,6 +97,11 @@ def submit(token):
         # tells the office — by email and in the notifications inbox — so
         # nobody has to keep checking the PO page to notice new documents.
         po_url = url_for("vendor_purchase_orders.view", po_id=po["id"], _external=True)
+        sanity_line = ""
+        if sanity_warnings:
+            sanity_line = "\n\nNote (AI sanity-check):\n" + "\n".join(
+                f"- {name}: {warning}" for name, warning in sanity_warnings
+            )
         try:
             notify_to = ", ".join(settings_module.get_notification_emails())
             if notify_to:
@@ -99,7 +109,7 @@ def submit(token):
                     notify_to,
                     f"Vendor invoice documents submitted — {po['po_no']}",
                     f"{po['vendor_name']} has submitted {saved} invoice/claim document(s) for "
-                    f"{po['po_no']}.\n\nReview them here:\n{po_url}",
+                    f"{po['po_no']}.\n\nReview them here:\n{po_url}" + sanity_line,
                     related_type="vendor_purchase_order", related_id=po["id"],
                 )
         except Exception:  # noqa: BLE001 - notification must never break the vendor's upload
@@ -108,7 +118,7 @@ def submit(token):
         notifications.notify_admins(
             "vendor_invoice_submitted",
             f"{po['vendor_name']} submitted invoice documents — {po['po_no']}",
-            body=f"{saved} document(s) uploaded for {po['po_no']}.",
+            body=f"{saved} document(s) uploaded for {po['po_no']}." + (" AI sanity-check flagged a possible issue — see email." if sanity_warnings else ""),
             link=url_for("vendor_purchase_orders.view", po_id=po["id"]),
         )
     elif not files or not files[0].filename:

@@ -16,7 +16,7 @@ import uuid
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from . import db, uploadutil
+from . import db, doc_sanity, uploadutil
 
 bp = Blueprint("quotation_return", __name__, url_prefix="/quotation-return")
 
@@ -68,7 +68,8 @@ def submit(token):
 
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"signed_{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_upload_dir(q["id"]), stored_name))
+    saved_path = os.path.join(_upload_dir(q["id"]), stored_name)
+    file_storage.save(saved_path)
 
     client_email = (request.form.get("client_email") or "").strip() or None
     db.execute(
@@ -77,7 +78,8 @@ def submit(token):
         (stored_name, q["id"]),
     )
 
+    ai_warning = doc_sanity.check_document(saved_path, "signed_quotation")
     from .quotations import _handle_quotation_signed
-    _handle_quotation_signed(q["id"], client_email)
+    _handle_quotation_signed(q["id"], client_email, ai_warning=ai_warning)
 
     return render_template("quotation_return/success.html", q=q)

@@ -8,7 +8,7 @@ from flask import (Blueprint, Response, current_app, flash, g, jsonify, redirect
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, mailer, notifications, uploadutil
+from . import activity, db, doc_sanity, mailer, notifications, uploadutil
 from . import fmtdaterange
 from . import sessions as _sessions
 from . import settings as settings_module
@@ -147,13 +147,19 @@ def _ensure_return_token(quotation_id):
     return token
 
 
-def _handle_quotation_signed(quotation_id, client_email=None):
+def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
     """Runs once a signed quotation has been received, however it arrived —
     a client's self-service upload via the public return link, or a staff
     manual upload. Advances the linked class out of 'Proposed' if needed,
     emails the client their T3 Attendance Form link plus a calendar invite,
     and lets the office know. Best-effort throughout: a notification failure
-    must never break the upload/return flow that triggered it."""
+    must never break the upload/return flow that triggered it.
+
+    ai_warning: an optional AI sanity-check warning (see doc_sanity.py) to
+    fold into the office notifications below — the main way a warning ever
+    reaches staff when the upload came in through the public, unauthenticated
+    return link (quotation_return.py), where there's no staff session to
+    flash it to directly."""
     q = db.query(
         """SELECT q.*, co.email AS client_company_email, cu.email AS created_by_email
            FROM quotations q
@@ -173,19 +179,21 @@ def _handle_quotation_signed(quotation_id, client_email=None):
         notify_list.append(q["created_by_email"])
     notify_to = ", ".join(notify_list)
 
+    warning_suffix = f"\n\nNote (AI sanity-check): {ai_warning}" if ai_warning else ""
+
     quotation_link = url_for("quotations.view", quotation_id=quotation_id)
     if q["created_by"]:
         notifications.notify(
             q["created_by"], "quotation_signed",
             f"Signed quotation received — {q['quote_no']}",
-            body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + ".",
+            body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + "." + warning_suffix,
             link=quotation_link,
             dedupe_key=f"quotation:{quotation_id}:signed",
         )
     notifications.notify_admins(
         "quotation_signed",
         f"Signed quotation received — {q['quote_no']}",
-        body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + ".",
+        body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + "." + warning_suffix,
         link=quotation_link,
         dedupe_key=f"quotation:{quotation_id}:signed",
     )
@@ -204,7 +212,7 @@ def _handle_quotation_signed(quotation_id, client_email=None):
                 + (f" from {to_email}" if to_email else "") + ", but it isn't linked to a Class yet, so the "
                 "T3 Attendance Form link and calendar invite couldn't be sent automatically.\n\n"
                 "Link it to a Class on the quotation's Edit page (add a 'Proposed' class first if one "
-                "doesn't exist yet), then use 'Resend confirmation' on the quotation page.",
+                "doesn't exist yet), then use 'Resend confirmation' on the quotation page." + warning_suffix,
                 related_type="quotation", related_id=quotation_id,
             )
         except Exception:  # noqa: BLE001 - notification must never break the caller
@@ -942,7 +950,8 @@ def upload_signed(quotation_id):
 
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"signed_{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_quotation_upload_dir(quotation_id), stored_name))
+    saved_path = os.path.join(_quotation_upload_dir(quotation_id), stored_name)
+    file_storage.save(saved_path)
 
     client_email = (request.form.get("client_email") or "").strip() or None
     db.execute(
@@ -951,9 +960,12 @@ def upload_signed(quotation_id):
         (stored_name, quotation_id),
     )
     activity.log("update", "quotation", quotation_id, f"Uploaded signed copy of quotation {q['quote_no']}")
-    _handle_quotation_signed(quotation_id, client_email)
+    ai_warning = doc_sanity.check_document(saved_path, "signed_quotation")
+    _handle_quotation_signed(quotation_id, client_email, ai_warning=ai_warning)
     flash("Signed quotation recorded — the client has been sent their T3 Attendance Form link and a "
           "calendar invite (if a class was linked and an email was on file).", "success")
+    if ai_warning:
+        flash(ai_warning, "warning")
     return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
 

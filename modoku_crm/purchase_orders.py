@@ -8,7 +8,7 @@ from flask import (Blueprint, Response, current_app, flash, g, redirect, render_
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, mailer, uploadutil
+from . import activity, db, doc_sanity, mailer, uploadutil
 from . import fmtdaterange
 from . import sessions as _sessions
 from . import settings as settings_module
@@ -82,11 +82,15 @@ def _handle_document_uploads(po_id):
             continue
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_po_upload_dir(po_id), stored_name))
+        saved_path = os.path.join(_po_upload_dir(po_id), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO po_documents (po_id, filename, original_name) VALUES (?,?,?)",
             (po_id, stored_name, file_storage.filename),
         )
+        warning = doc_sanity.check_document(saved_path, "financial_document")
+        if warning:
+            flash(f"{file_storage.filename}: {warning}", "warning")
 
 
 def _build_ics_invite(po, uid_suffix=""):
@@ -504,12 +508,16 @@ def upload_payment_receipts(po_id):
             continue
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_payment_receipt_upload_dir(po_id), stored_name))
+        saved_path = os.path.join(_payment_receipt_upload_dir(po_id), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO po_payment_receipts (po_id, filename, original_name) VALUES (?,?,?)",
             (po_id, stored_name, file_storage.filename),
         )
         saved += 1
+        warning = doc_sanity.check_document(saved_path, "financial_document")
+        if warning:
+            flash(f"{file_storage.filename}: {warning}", "warning")
     if saved:
         flash(f"Uploaded {saved} payment receipt file(s).", "success")
     else:

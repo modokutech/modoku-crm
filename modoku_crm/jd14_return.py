@@ -9,10 +9,12 @@ in Modoku Hub against that class exactly as if staff had used the manual
 Upload button on the class page (sessions._handle_jd14_upload), and staff get
 the usual "document ready" notification email.
 """
+import os
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from . import db
-from .sessions import _handle_jd14_upload, _notify_document_uploaded
+from . import db, doc_sanity
+from .sessions import _attendance_dir, _handle_jd14_upload, _notify_document_uploaded
 
 bp = Blueprint("jd14_return", __name__, url_prefix="/jd14-return")
 
@@ -46,7 +48,8 @@ def submit(token):
         flash("Choose the signed JD14 file first.", "danger")
         return redirect(url_for("jd14_return.details", token=token))
 
-    if not _handle_jd14_upload(session_row["id"]):
+    stored_name = _handle_jd14_upload(session_row["id"])
+    if not stored_name:
         # _handle_jd14_upload already flashed the specific reason (bad file type, etc).
         return redirect(url_for("jd14_return.details", token=token))
 
@@ -55,6 +58,7 @@ def submit(token):
         "jd14_received_via = 'client_upload' WHERE id = ?",
         (session_row["id"],),
     )
-    _notify_document_uploaded(session_row["id"], "JD14 Form")
+    ai_warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_row["id"]), stored_name), "jd14")
+    _notify_document_uploaded(session_row["id"], "JD14 Form", ai_warning=ai_warning)
 
     return render_template("jd14_return/success.html", s=session_row)

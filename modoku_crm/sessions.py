@@ -370,11 +370,16 @@ def _t3_form_pdf_filename(session_row):
     return f"T3_Attendance_Form_{title_slug}_{date_slug}.pdf"
 
 
-def _notify_document_uploaded(session_id, doc_label):
+def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
     """Emails the admin-configured notification addresses (Settings) that a
     document is ready on a class. Best-effort — a notification failure (or
     email not being configured at all) must never block the upload that
-    triggered it."""
+    triggered it.
+
+    ai_warning: an optional AI sanity-check warning (see doc_sanity.py) to
+    fold into this same email — used for uploads that come in through a
+    public, unauthenticated link (e.g. jd14_return.py), where there's no
+    logged-in staff session to flash a warning to directly."""
     try:
         session_row = db.query(
             """SELECT cs.start_date, cs.end_date, c.title AS course_title FROM course_sessions cs
@@ -391,6 +396,8 @@ def _notify_document_uploaded(session_id, doc_label):
             f"Date: {date_range}\n\n"
             f"View it in Modoku Hub under Classes."
         )
+        if ai_warning:
+            body += f"\n\nNote (AI sanity-check): {ai_warning}"
         notify_to = ", ".join(settings_module.get_notification_emails())
         if not notify_to:
             return
@@ -1277,10 +1284,14 @@ def upload_attendance(session_id):
 
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_attendance_dir(session_id), stored_name))
+    saved_path = os.path.join(_attendance_dir(session_id), stored_name)
+    file_storage.save(saved_path)
     db.execute("UPDATE course_sessions SET attendance_file = ? WHERE id = ?", (stored_name, session_id))
     _notify_document_uploaded(session_id, "Signed T3 Attendance Form")
     flash("Attendance sheet uploaded.", "success")
+    warning = doc_sanity.check_document(saved_path, "t3_attendance")
+    if warning:
+        flash(warning, "warning")
     return redirect(url_for("sessions.view", session_id=session_id))
 
 
@@ -1464,10 +1475,14 @@ def upload_evaluation(session_id):
 
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"eval_{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_attendance_dir(session_id), stored_name))
+    saved_path = os.path.join(_attendance_dir(session_id), stored_name)
+    file_storage.save(saved_path)
     db.execute("UPDATE course_sessions SET evaluation_report_file = ? WHERE id = ?", (stored_name, session_id))
     _notify_document_uploaded(session_id, "Evaluation Report")
     flash("Evaluation report uploaded.", "success")
+    warning = doc_sanity.check_document(saved_path, "evaluation_report")
+    if warning:
+        flash(warning, "warning")
     return redirect(url_for("sessions.view", session_id=session_id))
 
 

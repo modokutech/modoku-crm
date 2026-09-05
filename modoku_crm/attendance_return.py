@@ -22,7 +22,7 @@ from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
-from . import ai_match, db, mailer, notifications, uploadutil
+from . import ai_match, db, doc_sanity, mailer, notifications, uploadutil
 from . import fmtdaterange
 from . import settings as settings_module
 
@@ -89,6 +89,7 @@ def submit(code):
 
     note = request.form.get("note", "").strip() or None
     saved_count = 0
+    sanity_warnings = []
     for file_storage in files:
         error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.IMAGE_EXTENSIONS)
         if error:
@@ -96,12 +97,16 @@ def submit(code):
             return redirect(url_for("attendance_return.details", code=code))
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"return_{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_session_dir(session_row["id"]), stored_name))
+        saved_path = os.path.join(_session_dir(session_row["id"]), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note) VALUES (?,?,?,?)",
             (session_row["id"], stored_name, file_storage.filename, note),
         )
         saved_count += 1
+        warning = doc_sanity.check_document(saved_path, "t3_attendance")
+        if warning:
+            sanity_warnings.append((file_storage.filename, warning))
 
     if not saved_count:
         flash("Those files couldn't be saved — use a photo (PNG/JPG) or a PDF.", "danger")
@@ -132,6 +137,11 @@ def submit(code):
             ai_line += (f" {len(ai_summary['mismatches'])} photo(s) looked like the wrong sheet "
                         f"(wrong class or date) and were NOT auto-marked — check the AI Match "
                         f"Attendance page.")
+    sanity_line = ""
+    if sanity_warnings:
+        sanity_line = "\n\nNote (AI sanity-check):\n" + "\n".join(
+            f"- {name}: {warning}" for name, warning in sanity_warnings
+        )
     try:
         subject = f"Attendance form returned — {session_row['course_title']} ({date_range})"
         body = (
@@ -141,6 +151,7 @@ def submit(code):
             f"Trainer: {session_row['trainer_name'] or '-'}\n"
             + (f"Note from trainer: {note}\n" if note else "") +
             ai_line +
+            sanity_line +
             f"\n\nView it in Modoku Hub under this class's page."
         )
         notify_to = ", ".join(settings_module.get_notification_emails())

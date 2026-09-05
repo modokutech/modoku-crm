@@ -28,7 +28,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, mailer, uploadutil
+from . import activity, db, doc_sanity, mailer, uploadutil
 
 bp = Blueprint("claims", __name__)
 
@@ -169,12 +169,16 @@ def new():
                         continue
                     safe_name = secure_filename(file_storage.filename)
                     stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-                    file_storage.save(os.path.join(_upload_dir(claim_id), stored_name))
+                    saved_path = os.path.join(_upload_dir(claim_id), stored_name)
+                    file_storage.save(saved_path)
                     db.execute(
                         "INSERT INTO staff_claim_files (claim_id, filename, original_name) VALUES (?,?,?)",
                         (claim_id, stored_name, file_storage.filename),
                     )
                     saved += 1
+                    warning = doc_sanity.check_document(saved_path, "financial_document")
+                    if warning:
+                        flash(f"{file_storage.filename}: {warning}", "warning")
                 activity.log("create", "staff_claim", claim_id, f"Submitted claim for {claimant_name}")
                 flash("Claim submitted." + ("" if saved else " (No files were attached.)"), "success")
                 return redirect(url_for("claims.index"))
@@ -260,12 +264,16 @@ def process(claim_id):
             continue
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_receipt_dir(claim_id), stored_name))
+        saved_path = os.path.join(_receipt_dir(claim_id), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO staff_claim_receipts (claim_id, filename, original_name) VALUES (?,?,?)",
             (claim_id, stored_name, file_storage.filename),
         )
         saved += 1
+        warning = doc_sanity.check_document(saved_path, "financial_document")
+        if warning:
+            flash(f"{file_storage.filename}: {warning}", "warning")
 
     activity.log("update", "staff_claim", claim_id, "Recorded approved amount / remark for claim")
     flash("Claim processed — the email box is ready below." if saved else

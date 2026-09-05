@@ -20,7 +20,7 @@ import uuid
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from . import db, mailer, notifications, uploadutil
+from . import db, doc_sanity, mailer, notifications, uploadutil
 from . import settings as settings_module
 
 bp = Blueprint("trainer_invoice", __name__, url_prefix="/trainer-invoice")
@@ -74,6 +74,7 @@ def submit(token):
 
     files = request.files.getlist("invoice_files")
     saved = 0
+    sanity_warnings = []
     for file_storage in files:
         if not file_storage or not file_storage.filename:
             continue
@@ -83,12 +84,16 @@ def submit(token):
             return redirect(url_for("trainer_invoice.form", token=token))
         safe_name = secure_filename(file_storage.filename)
         stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-        file_storage.save(os.path.join(_upload_dir(session_row["id"]), stored_name))
+        saved_path = os.path.join(_upload_dir(session_row["id"]), stored_name)
+        file_storage.save(saved_path)
         db.execute(
             "INSERT INTO trainer_invoice_documents (session_id, filename, original_name) VALUES (?,?,?)",
             (session_row["id"], stored_name, file_storage.filename),
         )
         saved += 1
+        warning = doc_sanity.check_document(saved_path, "financial_document")
+        if warning:
+            sanity_warnings.append((file_storage.filename, warning))
 
     if saved:
         flash(f"Uploaded {saved} document(s) — thank you!", "success")
@@ -99,6 +104,11 @@ def submit(token):
         # isn't trainer-specific), so the notification names the class
         # rather than a particular trainer.
         session_url = url_for("sessions.view", session_id=session_row["id"], _external=True)
+        sanity_line = ""
+        if sanity_warnings:
+            sanity_line = "\n\nNote (AI sanity-check):\n" + "\n".join(
+                f"- {name}: {warning}" for name, warning in sanity_warnings
+            )
         try:
             notify_to = ", ".join(settings_module.get_notification_emails())
             if notify_to:
@@ -106,7 +116,7 @@ def submit(token):
                     notify_to,
                     f"Trainer invoice documents submitted — {session_row['course_title']}",
                     f"A trainer has submitted {saved} invoice/claim document(s) for "
-                    f"{session_row['course_title']}.\n\nReview them here:\n{session_url}",
+                    f"{session_row['course_title']}.\n\nReview them here:\n{session_url}" + sanity_line,
                     related_type="course_session", related_id=session_row["id"],
                 )
         except Exception:  # noqa: BLE001 - notification must never break the trainer's upload
@@ -115,7 +125,7 @@ def submit(token):
         notifications.notify_admins(
             "trainer_invoice_submitted",
             f"Invoice documents submitted — {session_row['course_title']}",
-            body=f"{saved} document(s) uploaded.",
+            body=f"{saved} document(s) uploaded." + (" AI sanity-check flagged a possible issue — see email." if sanity_warnings else ""),
             link=url_for("sessions.view", session_id=session_row["id"]),
         )
     elif not files or not files[0].filename:

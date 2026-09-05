@@ -5,7 +5,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, uploadutil
+from . import activity, db, doc_sanity, uploadutil
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -25,7 +25,7 @@ def _trainer_upload_dir(trainer_id):
     return path
 
 
-def _save_document(trainer_id, file_storage):
+def _save_document(trainer_id, file_storage, label=None):
     if not file_storage or not file_storage.filename:
         return None
     error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.DEFAULT_EXTENSIONS,
@@ -35,14 +35,18 @@ def _save_document(trainer_id, file_storage):
         return None
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_trainer_upload_dir(trainer_id), stored_name))
+    saved_path = os.path.join(_trainer_upload_dir(trainer_id), stored_name)
+    file_storage.save(saved_path)
+    warning = doc_sanity.check_document(saved_path, "trainer_credential")
+    if warning:
+        flash(f"{label + ': ' if label else ''}{warning}", "warning")
     return stored_name
 
 
 def _handle_document_uploads(trainer_id):
     updates = {}
-    for form_field, column, _label in DOCUMENT_FIELDS:
-        stored = _save_document(trainer_id, request.files.get(form_field))
+    for form_field, column, label in DOCUMENT_FIELDS:
+        stored = _save_document(trainer_id, request.files.get(form_field), label=label)
         if stored:
             updates[column] = stored
     if updates:
