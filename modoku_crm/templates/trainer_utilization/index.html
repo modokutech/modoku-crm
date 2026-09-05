@@ -48,7 +48,7 @@
   {% endmacro %}
   <div class="table-responsive">
     <table class="table table-hover align-middle">
-      <thead><tr><th>Trainer</th><th class="text-end">Confirmed Classes</th><th class="text-end">{{ tsort_link('days', 'Total Day') }}</th><th class="text-end">{{ tsort_link('amount', 'Total Paid (RM)') }}</th></tr></thead>
+      <thead><tr><th>Trainer</th><th class="text-end">Confirmed Classes</th><th class="text-end">{{ tsort_link('days', 'Total Day') }}</th><th class="text-end">{{ tsort_link('amount', 'Total PO Amount (RM)') }}</th></tr></thead>
       <tbody>
       {% for t in trainers %}
         <tr onclick="window.location='{{ url_for('trainer_utilization.detail', trainer_id=t.trainer_id) }}'" style="cursor:pointer">

@@ -142,30 +142,37 @@
       <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.grant_docs_sent_to }} on {{ s.grant_docs_sent_at|fmtdatetime }}.</p>
       {% endif %}
       <p class="small text-muted mb-2">Sending is always manual — this never fires on its own.</p>
-      {% if not all_grant_docs_present %}
-      <p class="small text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>All 4 documents above are required before this can be sent — see which are missing in the checklist above.</p>
+      {% if s.grant_docs_sent_at %}
+      <button class="btn btn-sm btn-outline-secondary w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#grantDocsEmailForm">
+        <i class="bi bi-envelope me-1"></i>Resend / Edit Email
+      </button>
       {% endif %}
-      <form method="post" action="{{ url_for('sessions.send_grant_documents_email', session_id=s.id) }}">
-        {{ csrf_field()|safe }}
-        <div class="mb-2">
-          <label class="form-label small">Send to</label>
-          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ s.pic_email or s.client_email or '' }}" placeholder="client@email.com" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
-          <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small">Subject</label>
-          <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_grant_email_subject }}">
-        </div>
-        <div class="mb-2">
-          <label class="form-label small">Message</label>
-          <textarea name="body" class="form-control form-control-sm" rows="8">{{ default_grant_email_body }}</textarea>
-          <small class="text-muted">Includes the client's link to submit their HRDCorp Grant ID once approved. Our standard footer (address &amp; website) is added automatically.</small>
-        </div>
-        <button class="btn btn-sm btn-outline-success w-100" type="submit" {{ 'disabled' if not all_grant_docs_present }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.grant_docs_sent_at else 'Send' }} Grant Documents to Client</button>
-      </form>
+      <div class="{{ 'collapse' if s.grant_docs_sent_at }}" id="grantDocsEmailForm">
+        {% if not all_grant_docs_present %}
+        <p class="small text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>All 4 documents above are required before this can be sent — see which are missing in the checklist above.</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('sessions.send_grant_documents_email', session_id=s.id) }}">
+          {{ csrf_field()|safe }}
+          <div class="mb-2">
+            <label class="form-label small">Send to</label>
+            <input type="email" name="to_email" class="form-control form-control-sm" value="{{ s.pic_email or s.client_email or '' }}" placeholder="client@email.com" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
+            <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Subject</label>
+            <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_grant_email_subject }}">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Message</label>
+            <textarea name="body" class="form-control form-control-sm" rows="8">{{ default_grant_email_body }}</textarea>
+            <small class="text-muted">Includes the client's link to submit their HRDCorp Grant ID once approved. Our standard footer (address &amp; website) is added automatically.</small>
+          </div>
+          <button class="btn btn-sm btn-outline-success w-100" type="submit" {{ 'disabled' if not all_grant_docs_present }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.grant_docs_sent_at else 'Send' }} Grant Documents to Client</button>
+        </form>
+      </div>
     </div>
 
 <div class="card p-3 mt-3">
