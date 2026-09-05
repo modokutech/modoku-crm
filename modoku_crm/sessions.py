@@ -9,7 +9,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, ai_match, banner, db, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
+from . import activity, ai_match, banner, db, doc_sanity, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -549,21 +549,22 @@ def _handle_client_logo_upload(session_id):
 
 
 def _handle_jd14_upload(session_id):
-    """Returns True if a new signed JD14 file was actually saved (vs. no
-    file chosen, or a rejected file type) — so the caller only sends the
-    "form ready" notification when something really was uploaded."""
+    """Returns the stored filename if a new signed JD14 file was actually
+    saved (vs. no file chosen, or a rejected file type), or None — so the
+    caller only sends the "form ready" notification when something really
+    was uploaded, and can point the AI sanity-check at the saved file."""
     file_storage = request.files.get("jd14_file")
     if not file_storage or not file_storage.filename:
-        return False
+        return None
     error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.DEFAULT_EXTENSIONS)
     if error:
         flash(error, "danger")
-        return False
+        return None
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"jd14_{uuid.uuid4().hex[:8]}_{safe_name}"
     file_storage.save(os.path.join(_attendance_dir(session_id), stored_name))
     db.execute("UPDATE course_sessions SET jd14_file = ? WHERE id = ?", (stored_name, session_id))
-    return True
+    return stored_name
 
 
 def _session_start_datetime(row):
@@ -1332,9 +1333,13 @@ def upload_grant_quotation(session_id):
 
     safe_name = secure_filename(file_storage.filename)
     stored_name = f"grantquote_{uuid.uuid4().hex[:8]}_{safe_name}"
-    file_storage.save(os.path.join(_attendance_dir(session_id), stored_name))
+    saved_path = os.path.join(_attendance_dir(session_id), stored_name)
+    file_storage.save(saved_path)
     db.execute("UPDATE course_sessions SET grant_quotation_file = ? WHERE id = ?", (stored_name, session_id))
     flash("Quotation uploaded for the HRDCorp Grant Documents pack.", "success")
+    warning = doc_sanity.check_document(saved_path, "grant_quotation")
+    if warning:
+        flash(warning, "warning")
     return redirect(url_for("sessions.view", session_id=session_id))
 
 
@@ -1598,9 +1603,13 @@ def upload_jd14(session_id):
     if not request.files.get("jd14_file") or not request.files["jd14_file"].filename:
         flash("Choose a file to upload first.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
-    if _handle_jd14_upload(session_id):
+    stored_name = _handle_jd14_upload(session_id)
+    if stored_name:
         _notify_document_uploaded(session_id, "JD14 Form")
         _auto_send_jd14_return_link(session_row)
+        warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_id), stored_name), "jd14")
+        if warning:
+            flash(warning, "warning")
     return redirect(url_for("sessions.view", session_id=session_id))
 
 

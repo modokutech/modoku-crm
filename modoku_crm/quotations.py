@@ -1,9 +1,10 @@
+import difflib
 import os
 import secrets
 import uuid
 from datetime import date, datetime, timedelta
 
-from flask import (Blueprint, Response, current_app, flash, g, redirect, render_template,
+from flask import (Blueprint, Response, current_app, flash, g, jsonify, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
@@ -476,6 +477,77 @@ def _leads_for_dropdown():
     return [{"id": r["id"], "name": r["name"], "company_id": r["company_id"]} for r in rows]
 
 
+PRICING_MIN_SIMILARITY = 0.5
+PRICING_SUGGESTION_LIMIT = 5
+
+
+def _similar_priced_items(programme, pax=None, exclude_quotation_id=None, limit=PRICING_SUGGESTION_LIMIT):
+    """Historical quotation_items with a Programme name similar to the one
+    being typed, most-similar first — the "pricing assistant" on the
+    quotation form.
+
+    quotation_items.programme is free text (not a foreign key to courses),
+    so there's no clean join to lean on here. This does a plain fuzzy
+    string match (difflib, the same approach ai_match.py already uses for
+    matching handwritten attendance names) against every past item with a
+    real fee on file, rather than anything AI-based — deliberately the
+    lighter first version of this feature. A pax count that's close to the
+    one being quoted now nudges otherwise-tied matches ahead, since a
+    programme quoted for a very different group size is a weaker price
+    reference even when the name matches well.
+    """
+    programme = (programme or "").strip()
+    if len(programme) < 3:
+        return []
+    rows = db.query(
+        """SELECT qi.programme, qi.no_of_pax, qi.training_type, qi.investment_fee,
+                  q.id AS quotation_id, q.quote_no, q.quote_date, q.status,
+                  co.name AS client_company_name
+           FROM quotation_items qi
+           JOIN quotations q ON q.id = qi.quotation_id
+           LEFT JOIN companies co ON co.id = q.client_company_id
+           WHERE qi.investment_fee > 0 AND qi.programme IS NOT NULL AND qi.programme != ''"""
+    )
+    query_lower = programme.lower()
+    scored = []
+    for r in rows:
+        if exclude_quotation_id and r["quotation_id"] == exclude_quotation_id:
+            continue
+        score = difflib.SequenceMatcher(None, query_lower, r["programme"].strip().lower()).ratio()
+        if score < PRICING_MIN_SIMILARITY:
+            continue
+        if pax and r["no_of_pax"]:
+            try:
+                pax_diff = abs(int(pax) - int(r["no_of_pax"]))
+                score += max(0, 0.1 - pax_diff * 0.02)  # small nudge, never enough to beat a real name match
+            except (TypeError, ValueError):
+                pass
+        scored.append((score, r))
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    results = []
+    seen_quote_programme = set()
+    for score, r in scored:
+        dedupe_key = (r["quotation_id"], r["programme"])
+        if dedupe_key in seen_quote_programme:
+            continue
+        seen_quote_programme.add(dedupe_key)
+        results.append({
+            "quotation_id": r["quotation_id"],
+            "quote_no": r["quote_no"],
+            "quote_date": r["quote_date"],
+            "status": r["status"],
+            "client_company_name": r["client_company_name"],
+            "programme": r["programme"],
+            "no_of_pax": r["no_of_pax"],
+            "training_type": r["training_type"],
+            "investment_fee": r["investment_fee"],
+            "similarity": round(min(score, 1.0), 2),
+        })
+        if len(results) >= limit:
+            break
+    return results
+
+
 def _filtered_quotations():
     quotes = db.query(
         """SELECT q.*, co.name AS client_company_name, u.name AS created_by_name,
@@ -552,6 +624,23 @@ def export():
         ["Quote No", "Quote Date", "Client", "Course", "Training Mode", "Status", "SST Rate", "Created By"],
         rows,
     )
+
+
+@bp.route("/pricing-suggestions")
+@login_required
+def pricing_suggestions():
+    """AJAX endpoint backing the "pricing assistant" on the quotation form
+    (see form.html) — given a Programme name being typed (and optionally a
+    pax count), returns the most similar past quotation line items with a
+    real fee on file, most-similar first. GET-only and read-only, so no
+    CSRF token is needed here (see security.py's before_request hook,
+    which only checks state-changing methods)."""
+    results = _similar_priced_items(
+        request.args.get("programme", ""),
+        pax=request.args.get("pax", type=int),
+        exclude_quotation_id=request.args.get("exclude_quotation_id", type=int),
+    )
+    return jsonify({"results": results})
 
 
 @bp.route("/new", methods=("GET", "POST"))

@@ -3,6 +3,24 @@
 {% block content %}
 <div class="page-header"><h4 class="mb-0">{{ ('Edit Quotation ' + quotation.quote_no) if is_edit else 'New Quotation' }}</h4></div>
 
+<style>
+  .pricing-suggestions-box {
+    position: absolute; z-index: 20; left: 0; right: 0; top: 100%;
+    background: #fff; border: 1px solid #cfd8e3; border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.12); margin-top: 2px; font-size: .8rem;
+    max-height: 220px; overflow-y: auto;
+  }
+  .pricing-suggestions-title {
+    padding: 6px 10px; color: #6c757d; border-bottom: 1px solid #eef1f5; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  .pricing-suggestion-row {
+    padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #f4f6f8;
+  }
+  .pricing-suggestion-row:last-child { border-bottom: none; }
+  .pricing-suggestion-row:hover { background: #f0f7ff; }
+</style>
+
 <div class="card p-4" style="max-width:1140px;">
   <form method="post">
     {{ csrf_field()|safe }}
@@ -489,6 +507,101 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     field.addEventListener('input', function () {
       if (!touched) termsField.value = buildDefaultTerms();
     });
+  });
+})();
+
+// Pricing assistant — as a Programme name is typed, look up similarly-named
+// past quotation items and show what they were priced at, so the person
+// filling this in has a real reference point instead of guessing. Purely
+// informational: clicking a suggestion just fills in that item's fee (still
+// fully editable afterwards); nothing here is saved or sent until "Save
+// Quotation" is clicked, same as every other field on this form.
+(function () {
+  const itemsTable = document.getElementById('items-table');
+  const PRICING_URL = {{ url_for('quotations.pricing_suggestions')|tojson }};
+  const EXCLUDE_QUOTATION_ID = {{ (quotation.id if quotation and is_edit else '')|tojson }};
+  let debounceTimer = null;
+  let activeBox = null;
+
+  function closeBox() {
+    if (activeBox) { activeBox.remove(); activeBox = null; }
+  }
+
+  function fmtMoney(n) {
+    return 'RM ' + Number(n).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function textNode(text) {
+    return document.createTextNode(text == null ? '' : String(text));
+  }
+
+  function showSuggestions(input, results) {
+    closeBox();
+    if (!results.length) return;
+    const box = document.createElement('div');
+    box.className = 'pricing-suggestions-box';
+    const title = document.createElement('div');
+    title.className = 'pricing-suggestions-title';
+    title.textContent = 'Past pricing for similar programmes';
+    box.appendChild(title);
+    results.forEach(function (r) {
+      const row = document.createElement('div');
+      row.className = 'pricing-suggestion-row';
+      const feeSpan = document.createElement('span');
+      feeSpan.className = 'fw-semibold';
+      feeSpan.appendChild(textNode(fmtMoney(r.investment_fee)));
+      row.appendChild(feeSpan);
+      let detail = ' — ' + r.programme;
+      if (r.client_company_name) detail += ' · ' + r.client_company_name;
+      if (r.no_of_pax) detail += ' · ' + r.no_of_pax + ' pax';
+      detail += ' · ' + r.quote_no;
+      const detailSpan = document.createElement('span');
+      detailSpan.className = 'text-muted';
+      detailSpan.appendChild(textNode(detail));
+      row.appendChild(detailSpan);
+      row.addEventListener('mousedown', function (e) {
+        e.preventDefault(); // keep focus on the input so the focusout handler doesn't close this first
+        const tr = input.closest('tr');
+        const feeInput = tr ? tr.querySelector('input[name="item_fee"]') : null;
+        if (feeInput) {
+          feeInput.value = r.investment_fee;
+          feeInput.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
+        }
+        closeBox();
+      });
+      box.appendChild(row);
+    });
+    const container = input.parentElement;
+    container.style.position = 'relative';
+    container.appendChild(box);
+    activeBox = box;
+  }
+
+  function fetchSuggestions(input) {
+    const programme = input.value.trim();
+    if (programme.length < 3) { closeBox(); return; }
+    const tr = input.closest('tr');
+    const pax = tr ? (tr.querySelector('input[name="item_pax"]')?.value || '') : '';
+    const params = new URLSearchParams({ programme: programme });
+    if (pax) params.set('pax', pax);
+    if (EXCLUDE_QUOTATION_ID) params.set('exclude_quotation_id', EXCLUDE_QUOTATION_ID);
+    fetch(PRICING_URL + '?' + params.toString())
+      .then(function (resp) { return resp.ok ? resp.json() : { results: [] }; })
+      .then(function (data) { showSuggestions(input, data.results || []); })
+      .catch(function () { closeBox(); });
+  }
+
+  itemsTable.addEventListener('input', function (e) {
+    if (e.target.name !== 'item_programme') return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () { fetchSuggestions(e.target); }, 400);
+  });
+  itemsTable.addEventListener('focusout', function (e) {
+    if (e.target.name !== 'item_programme') return;
+    setTimeout(closeBox, 150); // let a click on a suggestion register first
+  });
+  document.addEventListener('click', function (e) {
+    if (activeBox && !activeBox.contains(e.target) && e.target.name !== 'item_programme') closeBox();
   });
 })();
 </script>
