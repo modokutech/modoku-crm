@@ -85,15 +85,16 @@
       {% if upcoming_sessions %}
       <div class="table-responsive">
         <table class="table table-sm align-middle">
-          <thead><tr><th>Course</th><th>Date</th><th>Venue</th><th>Trainer</th><th>Enrolled</th></tr></thead>
+          <thead><tr><th>Course</th><th>Date</th><th>Venue</th><th>Trainer</th><th>Days Left</th></tr></thead>
           <tbody>
-          {% for s in upcoming_sessions %}
+          {% for row in upcoming_sessions %}
+          {% set s = row.s %}
             <tr>
               <td><a href="{{ url_for('sessions.view', session_id=s.id) }}" class="link-plain fw-semibold">{{ s.course_title }}</a></td>
               <td>{{ s.start_date|fmtdate }}</td>
               <td>{{ s.venue or '-' }}</td>
               <td>{{ s.trainer_name or '-' }}</td>
-              <td>{{ s.enrolled_count }}/{{ s.capacity }}</td>
+              <td>{{ row.days_left_text }}</td>
             </tr>
           {% endfor %}
           </tbody>

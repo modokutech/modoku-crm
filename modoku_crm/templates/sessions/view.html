@@ -418,6 +418,13 @@
         <i class="bi bi-printer me-1"></i>Print T3 Attendance Form
       </a>
 
+      <p class="small fw-semibold mb-1">Online Attendance Form Link</p>
+      <p class="small text-muted mb-2">The one link for this class — the client uses it to add/edit participants, and (once e-Signature is turned on) participants also sign their own row here on training day.</p>
+      <div class="input-group input-group-sm mb-3">
+        <input type="text" class="form-control" value="{{ t3_url }}" readonly id="t3LinkInput">
+        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('t3LinkInput').value)">Copy Link</button>
+      </div>
+
       <div class="border rounded p-2 mb-3">
         <p class="small fw-semibold mb-1">Send Online Attendance Form Link</p>
         <p class="small text-muted mb-2">A public, always-editable link (add/edit/remove participants anytime up until training day) — defaults to the class's PIC email, but you can send it to anyone.</p>

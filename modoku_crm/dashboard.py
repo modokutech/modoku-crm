@@ -8,6 +8,11 @@ from .auth import login_required
 
 bp = Blueprint("dashboard", __name__)
 
+# How many days out a class can be before its still-empty T3 Attendance Form
+# earns a spot on the attention panel — 7 days is enough runway to chase the
+# client for participant names before training day arrives.
+T3_FORM_REMINDER_LEAD_DAYS = 7
+
 
 def _days_between(earlier, later):
     """later - earlier, in whole calendar days, from ISO date/datetime
@@ -28,10 +33,12 @@ def _attention_items():
     automatic Notification nudges — quotations._auto_advance_quotation_statuses,
     invoices._auto_mark_overdue_invoices, sessions._notify_pending_grant_docs,
     sessions._notify_overdue_evaluation_reports — so this list and your
-    notifications inbox never disagree with each other. No AI involved:
-    pure SQL + date arithmetic against data you already store. Each
-    section is capped to a handful of items (most urgent first); returns
-    [] entirely once nothing needs attention."""
+    notifications inbox never disagree with each other. Two sections
+    ("Classes starting tomorrow" and "T3 Attendance Form not filled") are
+    dashboard-only reminders with no matching Notification nudge elsewhere
+    in the app. No AI involved: pure SQL + date arithmetic against data you
+    already store. Each section is capped to a handful of items (most
+    urgent first); returns [] entirely once nothing needs attention."""
     today_iso = date.today().isoformat()
     sections = []
 
@@ -62,6 +69,25 @@ def _attention_items():
             } for inv in overdue_invoices],
         })
 
+    starting_soon_rows = [
+        row for row in db.query(
+            """SELECT cs.id, c.title AS course_title, cs.venue, cs.start_date
+               FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
+               WHERE cs.status != 'Cancelled' AND cs.start_date IS NOT NULL AND cs.start_date != ''
+                 AND date(cs.start_date) >= date('now')
+               ORDER BY cs.start_date ASC"""
+        )
+        if _days_between(today_iso, row["start_date"]) == 1
+    ][:5]
+    if starting_soon_rows:
+        sections.append({
+            "label": "Classes starting tomorrow", "icon": "bi-alarm", "tone": "danger",
+            "entries": [{
+                "text": f"{row['course_title']}" + (f" — {row['venue']}" if row["venue"] else "") + " starts tomorrow",
+                "link": url_for("sessions.view", session_id=row["id"]),
+            } for row in starting_soon_rows],
+        })
+
     grant_docs_cutoff = date.today().toordinal() + _sessions.GRANT_DOCS_LEAD_DAYS
     grant_docs_rows = [
         row for row in db.query(
@@ -83,6 +109,28 @@ def _attention_items():
                 ))(_days_between(today_iso, row["start_date"])),
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in grant_docs_rows],
+        })
+
+    t3_form_cutoff = date.today().toordinal() + T3_FORM_REMINDER_LEAD_DAYS
+    t3_empty_rows = [
+        row for row in db.query(
+            """SELECT cs.id, c.title AS course_title, cs.start_date,
+                      (SELECT COUNT(*) FROM t3_participants tp WHERE tp.session_id = cs.id) AS t3_count
+               FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
+               WHERE cs.status != 'Cancelled' AND cs.start_date IS NOT NULL AND cs.start_date != ''
+                 AND date(cs.start_date) >= date('now')
+               ORDER BY cs.start_date ASC"""
+        )
+        if row["t3_count"] == 0 and date.fromisoformat(row["start_date"][:10]).toordinal() <= t3_form_cutoff
+    ][:5]
+    if t3_empty_rows:
+        sections.append({
+            "label": "T3 Attendance Form not filled", "icon": "bi-clipboard-x", "tone": "warning",
+            "entries": [{
+                "text": (f"{row['course_title']} — training in {_days_between(today_iso, row['start_date'])} "
+                         f"day(s), no participants added yet"),
+                "link": url_for("t3.manage", session_id=row["id"]),
+            } for row in t3_empty_rows],
         })
 
     eval_cutoff_days = _sessions.EVALUATION_REPORT_REMINDER_AFTER_DAYS
@@ -119,7 +167,8 @@ def index():
         "SELECT COUNT(*) c FROM leads WHERE status NOT IN ('Deal Closed','Lost')", one=True
     )["c"]
 
-    upcoming_sessions = db.query(
+    today_iso = date.today().isoformat()
+    upcoming_sessions_rows = db.query(
         """SELECT cs.*, c.title AS course_title, c.code AS course_code,
                   t.name AS trainer_name,
                   (SELECT COUNT(*) FROM enrollments e WHERE e.session_id = cs.id) AS enrolled_count
@@ -129,6 +178,21 @@ def index():
            WHERE date(cs.start_date) >= date('now') AND cs.status != 'Cancelled'
            ORDER BY cs.start_date ASC LIMIT 6"""
     )
+    # "Enrolled" duplicated the Enrolled Participants count shown on the
+    # class page itself and wasn't the first thing worth knowing about an
+    # *upcoming* class at a glance — how soon it starts is. Days Left
+    # replaces it here; rows are always today-or-later (see the WHERE
+    # clause above), so this is never negative.
+    upcoming_sessions = []
+    for row in upcoming_sessions_rows:
+        days_left = _days_between(today_iso, row["start_date"])
+        if days_left == 0:
+            days_left_text = "Today"
+        elif days_left == 1:
+            days_left_text = "Tomorrow"
+        else:
+            days_left_text = f"{days_left} days"
+        upcoming_sessions.append({"s": row, "days_left_text": days_left_text})
 
     outstanding = db.query(
         """SELECT COALESCE(SUM(total),0) AS amt, COUNT(*) AS cnt FROM invoices
