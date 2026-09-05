@@ -334,6 +334,14 @@ average and a "X% rated Good or Excellent" readout across every criterion at onc
 shown above the individual per-question breakdown. This combining is plain
 arithmetic too — no AI involved, so it's exact.
 
+With `ANTHROPIC_API_KEY` set, the Ratings card also gets a short AI-written
+narrative above the exact numbers — a few plain-English sentences naming the
+strongest- and weakest-scoring criteria, useful once a template has a dozen-plus
+rated questions and the raw combined line alone gets hard to scan. It's purely a
+readout: Claude is given the already-computed numbers and told not to recompute
+or invent any of them. Without the API key, or if that call fails, the exact
+numbers are shown on their own — this narrative is additive, never load-bearing.
+
 This is a cache, not something live-updating on its own — click **Generate Report**
 (or **Refresh Report** to pull in new responses) whenever you want current numbers;
 it only re-reads Google and re-runs the AI summary on that click, not on every page

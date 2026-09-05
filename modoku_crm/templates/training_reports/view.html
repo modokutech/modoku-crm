@@ -51,6 +51,15 @@
     <div class="card p-3 h-100">
       <h6 class="mb-3">Ratings</h6>
 
+      {% if report.ai_summary and report.ai_summary.ratings_summary %}
+      <p class="mb-3">{{ report.ai_summary.ratings_summary }}</p>
+      <p class="small text-muted mb-3"><i class="bi bi-stars me-1"></i>AI-generated from the exact numbers
+        below — it doesn't change or invent any of them.</p>
+      {% elif report.numeric_summary and not ai_configured %}
+      <p class="small text-muted mb-3">AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured) —
+        showing the exact numbers only.</p>
+      {% endif %}
+
       {% if report.combined_ratings %}
       {% for combo in report.combined_ratings %}
       <div class="alert alert-primary py-2 px-3 small mb-3">

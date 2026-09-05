@@ -10,13 +10,17 @@ Once a class's Google Form has collected some responses, this module:
      options are themselves numbers), a categorical choice (e.g.
      Excellent/Good/Fair/Poor), or open text.
   2. Aggregates the rating/choice questions with plain arithmetic — no AI
-     involved, so those numbers are exact.
-  3. Summarizes the open-text questions with Claude — grouping recurring
-     themes, praise and criticism, per question — since there's no
-     reliable non-AI way to roll up free text. This part is best-effort:
-     if ANTHROPIC_API_KEY isn't set, or the call/parse fails, the report
-     still saves the numeric half and shows the raw open-text answers
-     instead of a summary, rather than failing outright.
+     involved, so those numbers are exact. A worded scale (e.g.
+     Poor/Uncertain/Fair/Good/Excellent) is scored 1..N like a numeric
+     rating, and every question sharing one exact scale is also pooled
+     into a combined rating (see _describe_combined_ratings).
+  3. Turns those exact numbers into two AI narratives, both best-effort
+     (if ANTHROPIC_API_KEY isn't set, or a call/parse fails, the exact
+     numbers/answers are still shown — nothing here is ever load-bearing):
+     a plain-English readout of the ratings (_summarize_ratings — reads
+     the numbers, never recomputes or invents one) and a summary of the
+     open-text questions (_summarize_open_text — genuinely synthesizes,
+     since there's no non-AI way to roll up free text).
 
 Deliberately a cache, not something rebuilt on every page view — building
 it re-reads every response from Google and re-runs the AI summary, which
@@ -146,8 +150,14 @@ def _describe_combined_ratings(scale, titles, values):
         parts.append(f"{pct_neutral}% {_label_group(neutral_labels)}")
     if negative_labels:
         parts.append(f"{pct_negative}% {_label_group(negative_labels)}")
+    # Deliberately doesn't spell out every criterion by name here — with a
+    # long template (a dozen-plus rated criteria isn't unusual) that turned
+    # into an unreadable wall of question titles; they're still each shown
+    # in their own row below, and in full in `criteria` for anything that
+    # wants them. See _summarize_ratings for the AI narrative that DOES
+    # call out specific strongest/weakest criteria by name, in prose.
     summary_text = (
-        f"Combined across {len(titles)} rating criteria ({', '.join(titles)}): average {average}/{n} "
+        f"Combined across {len(titles)} rating criteria: average {average}/{n} "
         f"from {len(scores)} ratings — " + ", ".join(parts) + "."
     )
     return {
@@ -165,6 +175,37 @@ def _describe_combined_ratings(scale, titles, values):
 
 def is_ai_configured():
     return bool(current_app.config.get("ANTHROPIC_API_KEY"))
+
+
+def _call_claude_json(prompt, max_tokens=1500):
+    """POSTs a single-turn prompt to Claude and returns the parsed JSON
+    object from its reply (the prompt always asks for a bare JSON object,
+    optionally fenced in ```). Raises on any failure — network, non-2xx,
+    or an unparseable reply — callers wrap this in their own try/except
+    and treat any exception as "AI unavailable right now", per this
+    module's best-effort AI policy."""
+    api_key = current_app.config.get("ANTHROPIC_API_KEY")
+    response = requests.post(
+        ANTHROPIC_API_URL,
+        timeout=45,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": ANTHROPIC_API_VERSION,
+            "content-type": "application/json",
+        },
+        json={
+            "model": current_app.config.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}],
+        },
+    )
+    response.raise_for_status()
+    text = response.json()["content"][0]["text"].strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if "\n" in text:
+            text = text.split("\n", 1)[1]
+    return json.loads(text)
 
 
 def _summarize_open_text(session_row, text_summary, combined_ratings=None):
@@ -203,32 +244,58 @@ def _summarize_open_text(session_row, text_summary, combined_ratings=None):
             "\"by_question\": [{\"question\": \"<question text>\", \"summary\": \"2-4 sentence summary "
             "of themes for this question specifically\"}, ...]}\n\n" + transcript
         )
-        response = requests.post(
-            ANTHROPIC_API_URL,
-            timeout=45,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": ANTHROPIC_API_VERSION,
-                "content-type": "application/json",
-            },
-            json={
-                "model": current_app.config.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-                "max_tokens": 1500,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-        response.raise_for_status()
-        text = response.json()["content"][0]["text"].strip()
-        if text.startswith("```"):
-            text = text.strip("`")
-            if "\n" in text:
-                text = text.split("\n", 1)[1]
-        parsed = json.loads(text)
+        parsed = _call_claude_json(prompt)
         if not isinstance(parsed, dict) or "overall" not in parsed:
             return None
         return parsed
     except Exception:  # noqa: BLE001 - a bad response must never break the report
         current_app.logger.exception("AI evaluation-feedback summary failed for session %s", session_row["id"])
+        return None
+
+
+def _summarize_ratings(session_row, numeric_summary, combined_ratings):
+    """Best-effort AI narrative of the rating/multiple-choice questions —
+    a plain-English readout of numbers that are already exact (see
+    _describe_combined_ratings and the plain-arithmetic aggregation in
+    build_report()); this only turns them into sentences, it never
+    recomputes or alters any of them. Requested directly: the deterministic
+    combined-ratings line alone gets unreadable once a template has a
+    dozen-plus rated criteria (a long parenthetical list of question
+    titles), so this calls out the strongest/weakest by name in prose
+    instead. Never raises — returns None if unconfigured, there's nothing
+    rated, or the call/parse fails; the exact numbers are shown either way,
+    this is purely additive."""
+    api_key = current_app.config.get("ANTHROPIC_API_KEY")
+    rated = [q for q in numeric_summary if "average" in q]
+    if not api_key or not rated:
+        return None
+    try:
+        lines = [f"Class: {session_row['course_title']} (Trainer: {session_row['trainer_name'] or 'TBC'})", ""]
+        if combined_ratings:
+            lines.append("Combined rating groups (already computed exactly — every criterion sharing one "
+                         "rating scale, pooled together):")
+            for combined in combined_ratings:
+                lines.append(f"  - {', '.join(combined['criteria'])}: {combined['summary_text']}")
+            lines.append("")
+        lines.append("Individual rating questions (already computed exactly):")
+        for q in rated:
+            scale_max = q.get("scale_max", 5)
+            lines.append(f"  - {q['question']}: average {q['average']}/{scale_max} ({q['count']} responses)")
+        transcript = "\n".join(lines)
+        prompt = (
+            "Below is exact, already-computed rating data from a post-training evaluation — averages and "
+            "response counts. Do not recompute or alter any of these numbers, and never invent a number "
+            "not given below. Write a clear, honest 3-5 sentence narrative summary a training manager "
+            "could read at a glance: name the specific criteria that scored strongest and weakest, and "
+            "say plainly how positive the overall picture is. Reply with ONLY a JSON object, nothing "
+            "else — no markdown, no explanation. Shape: {\"summary\": \"...\"}\n\n" + transcript
+        )
+        parsed = _call_claude_json(prompt, max_tokens=500)
+        if not isinstance(parsed, dict) or not parsed.get("summary"):
+            return None
+        return parsed["summary"]
+    except Exception:  # noqa: BLE001 - a bad response must never break the report
+        current_app.logger.exception("AI ratings summary failed for session %s", session_row["id"])
         return None
 
 
@@ -336,7 +403,16 @@ def build_report(session_id, user_id=None):
         if combined:
             combined_ratings.append(combined)
 
-    ai_summary = _summarize_open_text(session_row, text_summary, combined_ratings)
+    ratings_summary = _summarize_ratings(session_row, numeric_summary, combined_ratings)
+    text_ai_summary = _summarize_open_text(session_row, text_summary, combined_ratings)
+    ai_summary = None
+    if ratings_summary or text_ai_summary:
+        ai_summary = {}
+        if ratings_summary:
+            ai_summary["ratings_summary"] = ratings_summary
+        if text_ai_summary:
+            ai_summary["overall"] = text_ai_summary["overall"]
+            ai_summary["by_question"] = text_ai_summary["by_question"]
 
     db.execute(
         """INSERT INTO training_reports
