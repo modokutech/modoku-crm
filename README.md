@@ -269,6 +269,49 @@ changes either way.
 7. Restart the app. Each staff member can now click **Connect** under Outlook Calendar on
    their own Profile page.
 
+## Setting up Evaluation Forms automation (optional)
+
+Modoku Hub can generate a class's post-training evaluation Google Form automatically —
+duplicating a shared master template, retitling it with the course/trainer/date, and
+saving the live link straight onto the class — instead of someone duplicating, editing,
+and publishing a Form by hand in Google Drive every time. Unlike calendar integration,
+this is **one shared connection**, not per staff member: whoever clicks "Generate
+Evaluation Form" on a class page, the Form is always created under the one Google account
+that owns the master template.
+
+This reuses the exact same `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` as
+calendar integration above — if that's already set up, you don't need a new Google Cloud
+project, just a few additions to it:
+
+1. **APIs & Services → Library** — also enable the **Google Forms API** and **Google
+   Drive API** on the same project.
+2. **APIs & Services → OAuth consent screen → Data Access** — add these scopes on top of
+   whatever calendar integration already requests:
+   ```
+   https://www.googleapis.com/auth/forms.body
+   https://www.googleapis.com/auth/forms.responses.readonly
+   https://www.googleapis.com/auth/drive
+   ```
+   If your Google Workspace lets you set the consent screen's **User Type** to
+   **Internal**, do that — it skips Google's verification process entirely, which
+   otherwise applies to the sensitive `drive` scope above. If you're stuck with
+   **External**, add the connecting account as a **Test user** instead; you'll see an
+   "unverified app" warning the first time you connect (click "Advanced → Go to [app
+   name] (unsafe)") — harmless for an internal tool like this one.
+3. **APIs & Services → Credentials** — open your existing OAuth client (the same one
+   `GOOGLE_OAUTH_CLIENT_ID` points at) and add this to **Authorized redirect URIs**:
+   ```
+   https://your-domain.example.com/evaluation-forms/oauth/google/callback
+   ```
+4. Restart the app, then as an admin go to **Settings → Evaluation Forms** and:
+   - Click **Connect Google Account** and sign in as the account that owns (or will own)
+     your master evaluation Form template.
+   - Paste that template's Drive file ID under **Master Template** (the long string in
+     its edit URL: `docs.google.com/forms/d/THIS_PART/edit`) and save.
+5. A **Generate Evaluation Form** button now appears on every class page, next to the
+   existing Evaluation Form link field — it fills that field in automatically once
+   clicked.
+
 ## Setting up AI attendance matching (optional)
 
 When a trainer returns photo(s) of the signed T3 attendance sheet (via their "Return

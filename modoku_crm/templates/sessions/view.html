@@ -220,6 +220,17 @@
       {% else %}
       <p class="small text-muted mb-2">Paste the evaluation form link and generate a QR poster linking to it.</p>
       {% endif %}
+      {% if eval_forms_ready %}
+      <form method="post" action="{{ url_for('evaluation_forms.generate', session_id=s.id) }}" class="mb-2">
+        {{ csrf_field()|safe }}
+        <button class="btn btn-sm btn-outline-primary w-100" type="submit">
+          <i class="bi bi-google me-1"></i>{{ 'Regenerate' if s.evaluation_form_id else 'Generate' }} Evaluation Form
+        </button>
+      </form>
+      {% if s.evaluation_form_generated_at %}
+      <p class="small text-muted mb-2">Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }}.</p>
+      {% endif %}
+      {% endif %}
       <form method="post" action="{{ url_for('sessions.generate_evaluation_poster', session_id=s.id) }}">
         {{ csrf_field()|safe }}
         <div class="mb-2">

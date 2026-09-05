@@ -94,5 +94,36 @@
       </form>
     </div>
   </div>
+
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <h6 class="mb-1">Evaluation Forms</h6>
+      <p class="small text-muted">Auto-generates a class's post-training evaluation Form from a shared Google Forms template — duplicated, retitled with the course/trainer/date, and linked here automatically from the "Generate Evaluation Form" button on each class page.</p>
+      {% if not eval_forms_google_configured %}
+        <p class="small text-muted mb-3">Not set up yet — <code>GOOGLE_OAUTH_CLIENT_ID</code> / <code>GOOGLE_OAUTH_CLIENT_SECRET</code> need to be configured first (same ones used for Calendar Integration).</p>
+      {% else %}
+        {% if eval_forms_connected %}
+        <p class="small text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i>Connected{{ ' as ' + eval_forms_connected_email if eval_forms_connected_email }}.</p>
+        <form method="post" action="{{ url_for('evaluation_forms.disconnect_route') }}" class="mb-3">
+          {{ csrf_field()|safe }}
+          <button class="btn btn-outline-danger btn-sm" type="submit">Disconnect</button>
+        </form>
+        {% else %}
+        <p class="small text-muted mb-2">Connect the Google account that owns your master evaluation Form template — every generated Form is created under this one account.</p>
+        <a href="{{ url_for('evaluation_forms.connect') }}" class="btn btn-outline-secondary btn-sm mb-3">
+          <i class="bi bi-google me-1"></i>Connect Google Account
+        </a>
+        {% endif %}
+      {% endif %}
+      <hr>
+      <h6 class="mb-1">Master Template</h6>
+      <p class="small text-muted">The Google Form to duplicate each time — paste its file ID (the long string in its edit URL: <code>docs.google.com/forms/d/<strong>THIS_PART</strong>/edit</code>).</p>
+      <form method="post" action="{{ url_for('evaluation_forms.set_template') }}" class="d-flex gap-2">
+        {{ csrf_field()|safe }}
+        <input type="text" name="template_file_id" class="form-control form-control-sm" value="{{ eval_forms_template_id or '' }}" placeholder="e.g. 1AbCdEfGhIjKlMnOpQrStUvWxYz">
+        <button class="btn btn-outline-secondary btn-sm text-nowrap" type="submit">Save Template</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

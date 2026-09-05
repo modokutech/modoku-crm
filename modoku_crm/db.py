@@ -867,6 +867,14 @@ _COLUMN_MIGRATIONS = [
     ("t3_participants", "sign_locked_until", "TEXT"),
     ("t3_day_attendance", "signature_file", "TEXT"),
     ("t3_day_attendance", "signed_ip", "TEXT"),
+    # Auto-generated evaluation Forms (see evaluation_forms.py) — the Drive
+    # file ID of the Form Modoku Hub created for this class (a copy of the
+    # shared master template), kept separately from evaluation_form_link
+    # (the public responderUri already on this table) since the file ID is
+    # what later API calls — reading responses back for the rollup — need,
+    # while the responderUri is only useful to a human clicking the link.
+    ("course_sessions", "evaluation_form_id", "TEXT"),
+    ("course_sessions", "evaluation_form_generated_at", "TEXT"),
 ]
 
 

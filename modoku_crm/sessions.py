@@ -9,7 +9,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, ai_match, banner, db, doc_sanity, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
+from . import activity, ai_match, banner, db, doc_sanity, evaluation_forms, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -985,6 +985,7 @@ def view(session_id):
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
                             ai_configured=ai_match.is_configured(),
+                            eval_forms_ready=evaluation_forms.is_connected() and bool(evaluation_forms.get_template_id()),
                             grant_docs_url=grant_docs_url,
                             default_grant_email_subject=_default_grant_email_subject(session_row),
                             default_grant_email_body=_default_grant_email_body(session_row, grant_docs_url),

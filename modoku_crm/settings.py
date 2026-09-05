@@ -9,7 +9,7 @@ from functools import wraps
 
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
-from . import db, mailer
+from . import db, evaluation_forms, mailer
 from .auth import admin_required, login_required
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -144,7 +144,11 @@ def index():
                             notification_emails=get_notification_emails_raw(),
                             po_number_prefix=get_po_number_prefix(), po_number_suffix=get_po_number_suffix(),
                             invoice_number_prefix=get_invoice_number_prefix(),
-                            invoice_number_suffix=get_invoice_number_suffix())
+                            invoice_number_suffix=get_invoice_number_suffix(),
+                            eval_forms_google_configured=evaluation_forms.is_configured(),
+                            eval_forms_connected=evaluation_forms.is_connected(),
+                            eval_forms_connected_email=evaluation_forms.connected_email(),
+                            eval_forms_template_id=evaluation_forms.get_template_id())
 
 
 @bp.route("/reset-numbering", methods=("POST",))
