@@ -50,6 +50,15 @@
   <div class="col-lg-6">
     <div class="card p-3 h-100">
       <h6 class="mb-3">Ratings</h6>
+
+      {% if report.combined_ratings %}
+      {% for combo in report.combined_ratings %}
+      <div class="alert alert-primary py-2 px-3 small mb-3">
+        <i class="bi bi-bar-chart-steps me-1"></i>{{ combo.summary_text }}
+      </div>
+      {% endfor %}
+      {% endif %}
+
       {% if report.numeric_summary %}
       <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
@@ -60,15 +69,15 @@
                 <div class="fw-semibold">{{ q.question }}</div>
                 {% if q.kind in ('scale', 'choice_numeric') %}
                 <div class="small text-muted">{{ q.count }} response{{ '' if q.count == 1 else 's' }} · range {{ q.min }}–{{ q.max }}</div>
-                {% else %}
+                {% elif q.kind in ('choice_ordinal', 'choice_text') %}
                 <div class="small text-muted">
                   {% for opt in q.distribution %}{{ opt.option }}: {{ opt.count }}{{ ', ' if not loop.last }}{% endfor %}
                 </div>
                 {% endif %}
               </td>
               <td class="text-end">
-                {% if q.kind in ('scale', 'choice_numeric') %}
-                <span class="badge bg-primary fs-6">{{ q.average }}</span>
+                {% if q.average is defined %}
+                <span class="badge bg-primary fs-6">{{ q.average }}{% if q.kind == 'choice_ordinal' %}/{{ q.scale_max }}{% endif %}</span>
                 {% else %}
                 <span class="badge bg-secondary">{{ q.count }} total</span>
                 {% endif %}

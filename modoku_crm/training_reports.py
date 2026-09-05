@@ -94,21 +94,99 @@ def _aggregate_categorical(values):
     }
 
 
+def _ordinal_score_map(scale):
+    return {label: i + 1 for i, label in enumerate(scale)}
+
+
+def _score_ordinal_values(values, scale):
+    """Maps each raw answer (e.g. "Good") to its 1..N position in `scale`
+    (e.g. ("poor","uncertain","fair","good","excellent") -> 4). Answers
+    that don't match any label in the scale (shouldn't normally happen —
+    they're the actual options on the question) are silently dropped
+    rather than guessed at."""
+    score_map = _ordinal_score_map(scale)
+    scores = []
+    for v in values:
+        s = score_map.get(v.strip().lower())
+        if s is not None:
+            scores.append(s)
+    return scores
+
+
+def _describe_combined_ratings(scale, titles, values):
+    """A short, deterministic description (no AI — exact arithmetic, same
+    as the rest of this module's numeric aggregation) of every individual
+    rating pooled across every question that shares one worded scale —
+    e.g. every Poor/Uncertain/Fair/Good/Excellent-rated criterion in a
+    grid, combined into one overall picture instead of read one row at a
+    time. Returns None if none of the values actually matched the scale."""
+    scores = _score_ordinal_values(values, scale)
+    if not scores:
+        return None
+    n = len(scale)
+    mid = (n + 1) / 2  # e.g. 3 on a 5-point scale (the middle label), 2.5 on a 4-point scale (no middle)
+    positive_labels = [scale[i] for i in range(n) if (i + 1) > mid]
+    neutral_labels = [scale[i] for i in range(n) if (i + 1) == mid]
+    negative_labels = [scale[i] for i in range(n) if (i + 1) < mid]
+    positive = sum(1 for s in scores if s > mid)
+    negative = sum(1 for s in scores if s < mid)
+    neutral = len(scores) - positive - negative
+    average = round(sum(scores) / len(scores), 2)
+    pct_positive = round(positive / len(scores) * 100)
+    pct_negative = round(negative / len(scores) * 100)
+    pct_neutral = round(neutral / len(scores) * 100)
+
+    def _label_group(labels):
+        return " or ".join(label.title() for label in labels)
+
+    parts = []
+    if positive_labels:
+        parts.append(f"{pct_positive}% {_label_group(positive_labels)}")
+    if neutral_labels:
+        parts.append(f"{pct_neutral}% {_label_group(neutral_labels)}")
+    if negative_labels:
+        parts.append(f"{pct_negative}% {_label_group(negative_labels)}")
+    summary_text = (
+        f"Combined across {len(titles)} rating criteria ({', '.join(titles)}): average {average}/{n} "
+        f"from {len(scores)} ratings — " + ", ".join(parts) + "."
+    )
+    return {
+        "scale": list(scale),
+        "criteria": titles,
+        "count": len(scores),
+        "average": average,
+        "scale_max": n,
+        "pct_positive": pct_positive,
+        "pct_negative": pct_negative,
+        "pct_neutral": pct_neutral,
+        "summary_text": summary_text,
+    }
+
+
 def is_ai_configured():
     return bool(current_app.config.get("ANTHROPIC_API_KEY"))
 
 
-def _summarize_open_text(session_row, text_summary):
+def _summarize_open_text(session_row, text_summary, combined_ratings=None):
     """Best-effort AI qualitative summary of the open-text evaluation
     answers, grouped by question. Never raises — returns None if the
     feature isn't configured or the call/parse fails, so build_report()
     still saves the numeric half and the raw open-text answers (shown as
-    a fallback in the UI) either way."""
+    a fallback in the UI) either way. Only called when there's open text
+    to summarize; combined_ratings (already exact, computed with no AI)
+    is passed through purely as context so the AI's "overall" line can
+    tie the numbers and the comments together instead of ignoring one."""
     api_key = current_app.config.get("ANTHROPIC_API_KEY")
     if not api_key or not text_summary:
         return None
     try:
         lines = [f"Class: {session_row['course_title']} (Trainer: {session_row['trainer_name'] or 'TBC'})", ""]
+        if combined_ratings:
+            lines.append("Already-computed rating summaries (exact, not your job to recompute — just use "
+                         "them as context if relevant to the overall takeaway):")
+            for combined in combined_ratings:
+                lines.append(f"  - {combined['summary_text']}")
+            lines.append("")
         for q in text_summary:
             lines.append(f"Question: {q['question']}")
             for i, ans in enumerate(q["answers"][:MAX_ANSWERS_PER_QUESTION], 1):
@@ -160,9 +238,19 @@ def get_report(session_id):
     row = db.query("SELECT * FROM training_reports WHERE session_id = ?", (session_id,), one=True)
     if row is None:
         return None
+    raw_numeric = json.loads(row["numeric_summary_json"] or "[]")
+    # numeric_summary_json holds {"questions": [...], "combined": [...]} —
+    # a plain list is only possible from a report saved before combined
+    # ratings existed, read as "no combined summary yet" rather than an error.
+    if isinstance(raw_numeric, list):
+        numeric_summary, combined_ratings = raw_numeric, []
+    else:
+        numeric_summary = raw_numeric.get("questions", [])
+        combined_ratings = raw_numeric.get("combined", [])
     return {
         "response_count": row["response_count"],
-        "numeric_summary": json.loads(row["numeric_summary_json"] or "[]"),
+        "numeric_summary": numeric_summary,
+        "combined_ratings": combined_ratings,
         "text_summary": json.loads(row["text_summary_json"] or "[]"),
         "ai_summary": json.loads(row["ai_summary_json"]) if row["ai_summary_json"] else None,
         "generated_at": row["generated_at"],
@@ -205,9 +293,14 @@ def build_report(session_id, user_id=None):
 
     numeric_summary = []
     text_summary = []
+    # Every choice_ordinal question sharing one worded scale (the common
+    # case: every row of one "rate the following" grid) gets pooled here so
+    # they can be combined into one overall picture below, not just read
+    # off one row at a time — see _describe_combined_ratings.
+    ordinal_groups = {}
     for question_id, meta in structure.items():
         kind = meta["kind"]
-        if kind not in ("scale", "choice_numeric", "choice_text", "text"):
+        if kind not in ("scale", "choice_numeric", "choice_ordinal", "choice_text", "text"):
             continue
         values = []
         for response in responses:
@@ -218,12 +311,32 @@ def build_report(session_id, user_id=None):
             agg = _aggregate_numeric(values)
             if agg:
                 numeric_summary.append({"question": meta["title"], "kind": kind, **agg})
+        elif kind == "choice_ordinal":
+            scale = meta.get("scale") or []
+            agg = _aggregate_categorical(values)
+            scores = _score_ordinal_values(values, scale)
+            if scores:
+                agg["average"] = round(sum(scores) / len(scores), 2)
+                agg["scale_max"] = len(scale)
+            numeric_summary.append({"question": meta["title"], "kind": kind, "scale": scale, **agg})
+            if scale:
+                group = ordinal_groups.setdefault(tuple(scale), {"titles": [], "values": []})
+                group["titles"].append(meta["title"])
+                group["values"].extend(values)
         elif kind == "choice_text":
             numeric_summary.append({"question": meta["title"], "kind": kind, **_aggregate_categorical(values)})
         elif kind == "text":
             text_summary.append({"question": meta["title"], "answers": values})
 
-    ai_summary = _summarize_open_text(session_row, text_summary)
+    combined_ratings = []
+    for scale, group in ordinal_groups.items():
+        if len(group["titles"]) < 2:
+            continue  # only one question on this scale — its own row above already shows this
+        combined = _describe_combined_ratings(scale, group["titles"], group["values"])
+        if combined:
+            combined_ratings.append(combined)
+
+    ai_summary = _summarize_open_text(session_row, text_summary, combined_ratings)
 
     db.execute(
         """INSERT INTO training_reports
@@ -237,7 +350,9 @@ def build_report(session_id, user_id=None):
                ai_summary_json = excluded.ai_summary_json,
                generated_at = excluded.generated_at,
                generated_by = excluded.generated_by""",
-        (session_id, len(responses), json.dumps(numeric_summary), json.dumps(text_summary),
+        (session_id, len(responses),
+         json.dumps({"questions": numeric_summary, "combined": combined_ratings}),
+         json.dumps(text_summary),
          json.dumps(ai_summary) if ai_summary else None, user_id),
     )
     return get_report(session_id)

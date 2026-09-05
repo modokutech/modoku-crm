@@ -253,12 +253,63 @@ def _is_number(text):
         return False
 
 
+# Common worded rating scales, low-to-high — matched case-insensitively and
+# order-independently against a question's actual option set (see
+# _classify_choice_options) so a "Poor/Uncertain/Fair/Good/Excellent"-style
+# question (the classic training-evaluation scale) can be scored 1..N and
+# averaged/combined like a numeric rating, not just tallied as a plain
+# distribution. Deliberately a fixed list of KNOWN vocabularies, matched by
+# exact option-set equality — an arbitrary multiple-choice question (e.g. a
+# checklist of topics) must never be mistaken for a rating scale and
+# averaged; anything that doesn't match one of these stays a plain
+# 'choice_text' distribution with no averaging.
+KNOWN_ORDINAL_SCALES = [
+    ("poor", "uncertain", "fair", "good", "excellent"),
+    ("poor", "fair", "good", "excellent"),
+    ("very poor", "poor", "average", "good", "very good"),
+    ("unsatisfactory", "fair", "satisfactory", "good", "excellent"),
+    ("very dissatisfied", "dissatisfied", "neutral", "satisfied", "very satisfied"),
+    ("dissatisfied", "neutral", "satisfied"),
+    ("strongly disagree", "disagree", "neutral", "agree", "strongly agree"),
+    ("strongly disagree", "disagree", "neither agree nor disagree", "agree", "strongly agree"),
+]
+
+
+def _match_ordinal_scale(options):
+    """If `options` (in whatever order Google returns them) exactly matches
+    one of KNOWN_ORDINAL_SCALES as a set, returns that scale's canonical
+    low-to-high label tuple; otherwise None."""
+    normalized = {opt.strip().lower() for opt in options if opt.strip()}
+    for scale in KNOWN_ORDINAL_SCALES:
+        if normalized == set(scale):
+            return scale
+    return None
+
+
+def _classify_choice_options(options):
+    """Classifies a multiple-choice question's option set for
+    training_reports.py aggregation: ('choice_numeric', None) when every
+    option is itself a number, ('choice_ordinal', scale) when the options
+    match a known worded rating scale (scored 1..N via that scale's
+    low-to-high order), or ('choice_text', None) for anything else —
+    tallied as a plain distribution with no averaging."""
+    if options and all(_is_number(opt) for opt in options):
+        return "choice_numeric", None
+    scale = _match_ordinal_scale(options)
+    if scale:
+        return "choice_ordinal", scale
+    return "choice_text", None
+
+
 def get_form_structure(form_id, access_token):
     """Reads back a generated Form's questions, classifying each one for
     training_reports.py: 'scale' (a 1-5 style rating), 'choice_numeric' (a
     multiple-choice question whose options are themselves numbers — treated
-    like a scale), 'choice_text' (multiple-choice with non-numeric options,
-    e.g. Excellent/Good/Fair/Poor — tallied as a distribution), 'text' (an
+    like a scale), 'choice_ordinal' (multiple-choice with a recognized
+    worded rating scale, e.g. Poor/Uncertain/Fair/Good/Excellent — scored
+    1..N so it can be averaged AND combined with other questions on the
+    same scale, not just tallied), 'choice_text' (any other multiple-choice
+    question — tallied as a plain distribution, no averaging), 'text' (an
     open-ended question — fed to the AI summary), or 'other' (date/time/file
     upload — not aggregated at all). Returns {questionId: {...}}.
 
@@ -288,8 +339,7 @@ def get_form_structure(form_id, access_token):
         if group:
             grid_options = [opt.get("value", "") for opt in (group.get("grid") or {}).get("columns", {}).get("options", [])
                              if opt.get("value")]
-            numeric = bool(grid_options) and all(_is_number(opt) for opt in grid_options)
-            kind = "choice_numeric" if numeric else "choice_text"
+            kind, scale = _classify_choice_options(grid_options)
             group_title = item.get("title") or ""
             for row in group.get("questions", []):
                 row_question_id = row.get("questionId")
@@ -297,7 +347,10 @@ def get_form_structure(form_id, access_token):
                     continue
                 row_title = (row.get("rowQuestion") or {}).get("title") or "(untitled row)"
                 title = f"{group_title} — {row_title}" if group_title else row_title
-                questions[row_question_id] = {"title": title, "kind": kind, "options": grid_options}
+                entry = {"title": title, "kind": kind, "options": grid_options}
+                if scale:
+                    entry["scale"] = list(scale)
+                questions[row_question_id] = entry
             continue
 
         question_item = item.get("questionItem") or {}
@@ -312,10 +365,11 @@ def get_form_structure(form_id, access_token):
         elif "choiceQuestion" in question:
             options = [opt.get("value", "") for opt in question["choiceQuestion"].get("options", [])
                        if opt.get("value")]
-            numeric = bool(options) and all(_is_number(opt) for opt in options)
-            questions[question_id] = {
-                "title": title, "kind": "choice_numeric" if numeric else "choice_text", "options": options,
-            }
+            kind, scale = _classify_choice_options(options)
+            entry = {"title": title, "kind": kind, "options": options}
+            if scale:
+                entry["scale"] = list(scale)
+            questions[question_id] = entry
         elif "textQuestion" in question:
             questions[question_id] = {"title": title, "kind": "text"}
         else:

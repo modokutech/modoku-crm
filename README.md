@@ -325,6 +325,15 @@ whatever your template actually asks) into recurring themes with Claude. Without
 `ANTHROPIC_API_KEY`, the numeric half still works and the raw open-text answers are
 shown instead of an AI summary.
 
+A worded rating scale (Poor/Uncertain/Fair/Good/Excellent, or a few other common
+scale wordings) is recognized and scored 1..N like a numeric rating, not just
+tallied — and if more than one question in the template shares that exact scale
+(the usual "rate the following" grid — Trainer knowledge, Course content, Venue,
+etc.), their answers are also pooled into one **combined rating**: an overall
+average and a "X% rated Good or Excellent" readout across every criterion at once,
+shown above the individual per-question breakdown. This combining is plain
+arithmetic too — no AI involved, so it's exact.
+
 This is a cache, not something live-updating on its own — click **Generate Report**
 (or **Refresh Report** to pull in new responses) whenever you want current numbers;
 it only re-reads Google and re-runs the AI summary on that click, not on every page
