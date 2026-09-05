@@ -9,13 +9,29 @@ photo" flow) this page is real-time: participants can be added, edited, or
 removed at any time right up until the day of class (sessions.t3_form_is_editable),
 matching the client's own copy of the list kept in Modoku Hub — it *is* the
 same t3_participants list staff manage internally from t3.py.
-"""
-from flask import Blueprint, flash, redirect, render_template, request, url_for
 
-from . import db, uploadutil
+When a class has e-Signature attendance turned on (t3.toggle_e_signature),
+this SAME page also becomes where participants sign their own row on a
+scheduled training day — see `sign()` below. It's deliberately still the
+one shared list link, not a separate form: everyone sees the same
+participant list they already know, and just taps their own name to sign
+it, the same way they'd sign a printed sheet passed around the room.
+"""
+import os
+import uuid
+from datetime import date
+
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+
+from . import attendance_days, db, uploadutil
+from . import certificates as _certificates
 from .csvutil import csv_response
 from .sessions import t3_form_is_editable
-from .t3 import GENDERS, CITIZENSHIPS, _ic_taken, _normalize_gender, _parse_csv
+from .t3 import (
+    GENDERS, CITIZENSHIPS, _ic_taken, _normalize_gender, _parse_csv,
+    _insert_participants, _bulk_result_flash, t3_remaining_capacity,
+    check_and_record_sign_attempt, decode_signature_png, _t3_signature_dir,
+)
 
 bp = Blueprint("t3_public", __name__, url_prefix="/t3-form")
 
@@ -50,9 +66,82 @@ def form(token):
     participants = db.query(
         "SELECT * FROM t3_participants WHERE session_id = ? ORDER BY id", (session_row["id"],)
     )
+    # e-Signature is only ever offered on an actual scheduled training day —
+    # never early (nothing to sign for yet) and never after the fact (that's
+    # what the AI-match / manual "Mark Attended" paths on the staff side are
+    # for). Outside that window the page looks exactly like it always has.
+    today_iso = date.today().isoformat()
+    e_sign_open = bool(session_row["e_signature_enabled"]) and \
+        today_iso in attendance_days.training_days_iso_for_session(session_row)
+    signed_today = set()
+    if e_sign_open:
+        rows = db.query(
+            """SELECT tda.participant_id FROM t3_day_attendance tda
+               JOIN t3_participants p ON p.id = tda.participant_id
+               WHERE p.session_id = ? AND tda.training_date = ?""",
+            (session_row["id"], today_iso),
+        )
+        signed_today = {r["participant_id"] for r in rows}
     return render_template("t3_public/form.html", s=session_row, participants=participants, token=token,
                             editable=t3_form_is_editable(session_row), genders=GENDERS,
-                            citizenships=CITIZENSHIPS)
+                            citizenships=CITIZENSHIPS, remaining=t3_remaining_capacity(session_row),
+                            e_sign_open=e_sign_open, signed_today=signed_today, today_iso=today_iso)
+
+
+@bp.route("/<token>/<int:participant_id>/sign", methods=("POST",))
+def sign(token, participant_id):
+    """A participant signs their own row on today's training day, from
+    their own phone. Deliberately narrow: the server — never the client —
+    decides what "today" is and whether signing is even open right now, the
+    signature image is validated server-side regardless of what the canvas
+    claims, and the identity check (re-entering the IC number already on
+    file) is the same check every time, with the same lockout after
+    repeated wrong guesses. A successful sign is just another
+    attendance_days.mark_day_attended() call, source="e-signature" — it
+    plugs into the exact same multi-day certificate-eligibility rollup the
+    AI-match and manual "Mark Attended" flows already use."""
+    session_row = _find_session(token)
+    if session_row is None:
+        return render_template("t3_public/not_found.html")
+
+    if not session_row["e_signature_enabled"]:
+        flash("e-Signature attendance isn't turned on for this class.", "danger")
+        return redirect(url_for("t3_public.form", token=token))
+
+    today_iso = date.today().isoformat()
+    if today_iso not in attendance_days.training_days_iso_for_session(session_row):
+        flash("Signing is only open on a scheduled training day.", "danger")
+        return redirect(url_for("t3_public.form", token=token))
+
+    participant = db.query("SELECT * FROM t3_participants WHERE id = ? AND session_id = ?",
+                            (participant_id, session_row["id"]), one=True)
+    if participant is None:
+        flash("Participant not found on this attendance list.", "danger")
+        return redirect(url_for("t3_public.form", token=token))
+
+    ok, error = check_and_record_sign_attempt(participant, request.form.get("ic_no", ""))
+    if not ok:
+        flash(error, "danger")
+        return redirect(url_for("t3_public.form", token=token))
+
+    raw_png = decode_signature_png(request.form.get("signature_data", ""))
+    if raw_png is None:
+        flash("We couldn't capture that signature — please sign again and submit.", "danger")
+        return redirect(url_for("t3_public.form", token=token))
+
+    stored_name = f"{participant_id}-{today_iso}-{uuid.uuid4().hex[:8]}.png"
+    with open(os.path.join(_t3_signature_dir(session_row["id"]), stored_name), "wb") as fh:
+        fh.write(raw_png)
+
+    newly_fully_attended = attendance_days.mark_day_attended(
+        participant_id, session_row["id"], today_iso, source="e-signature",
+        signature_file=stored_name, signed_ip=request.remote_addr,
+    )
+    if newly_fully_attended:
+        _certificates.generate_and_store_certificate(participant_id)
+
+    flash(f"Thanks, {participant['name']} — your attendance is signed for today.", "success")
+    return redirect(url_for("t3_public.form", token=token))
 
 
 @bp.route("/<token>/add", methods=("POST",))
@@ -69,6 +158,11 @@ def add(token):
     ic_no = request.form.get("ic_no") or None
     if not name:
         flash("Name is required.", "danger")
+        return redirect(url_for("t3_public.form", token=token))
+    remaining = t3_remaining_capacity(session_row)
+    if remaining is not None and remaining <= 0:
+        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity) — "
+              f"contact us if you need to add someone else.", "danger")
         return redirect(url_for("t3_public.form", token=token))
     if _ic_taken(session_row["id"], ic_no):
         flash(f"IC number {ic_no} is already on this attendance list.", "danger")
@@ -113,28 +207,10 @@ def csv_upload(token):
         flash("No participant rows found in that CSV.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
-    seen_ics = set()
-    added = 0
-    skipped = 0
-    for name, ic_no, employer, gender, citizenship in participants:
-        ic_key = (ic_no or "").strip().lower()
-        if ic_key and (ic_key in seen_ics or _ic_taken(session_row["id"], ic_no)):
-            skipped += 1
-            continue
-        if ic_key:
-            seen_ics.add(ic_key)
-        db.execute(
-            """INSERT INTO t3_participants (session_id, name, ic_no, employer_name, gender, citizenship)
-               VALUES (?,?,?,?,?,?)""",
-            (session_row["id"], name, ic_no, employer, gender, citizenship or "Malaysian"),
-        )
-        added += 1
-
-    if skipped:
-        flash(f"Imported {added} participant(s). Skipped {skipped} with a duplicate IC number already "
-              f"on this attendance list.", "warning" if added else "danger")
-    else:
-        flash(f"Imported {added} participant(s) from CSV.", "success")
+    remaining = t3_remaining_capacity(session_row)
+    added, skipped_dup, skipped_capacity = _insert_participants(session_row["id"], participants, remaining)
+    msg, category = _bulk_result_flash(added, skipped_dup, skipped_capacity, session_row["capacity"], verb="Imported")
+    flash(msg, category)
     return redirect(url_for("t3_public.form", token=token))
 
 

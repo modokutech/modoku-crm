@@ -74,18 +74,28 @@ def attendance_status(participant_id, session_row):
     return attended, total
 
 
-def mark_day_attended(participant_id, session_id, training_date_iso, source="manual"):
+def mark_day_attended(participant_id, session_id, training_date_iso, source="manual",
+                       signature_file=None, signed_ip=None):
     """Marks one participant attended for one specific training day.
     Idempotent — safe to call repeatedly (e.g. the same photo re-analyzed,
     or a name appearing on more than one day's photo). Returns True if
     this call is what made the participant newly *fully* attended (every
     scheduled day now covered) — the caller uses that to know a
-    certificate should be generated now, not before."""
+    certificate should be generated now, not before.
+
+    signature_file/signed_ip are set only by the e-signature flow
+    (t3_public.sign) to keep an auditable record of who signed and from
+    where; every other caller (manual, AI-matched) leaves them None, and a
+    re-mark never erases an existing signature — COALESCE keeps whichever
+    value (new or existing) is non-null."""
     db.execute(
-        """INSERT INTO t3_day_attendance (participant_id, training_date, marked_at, source)
-           VALUES (?, ?, datetime('now'), ?)
-           ON CONFLICT(participant_id, training_date) DO UPDATE SET source = excluded.source""",
-        (participant_id, training_date_iso, source),
+        """INSERT INTO t3_day_attendance (participant_id, training_date, marked_at, source, signature_file, signed_ip)
+           VALUES (?, ?, datetime('now'), ?, ?, ?)
+           ON CONFLICT(participant_id, training_date) DO UPDATE SET
+             source = excluded.source,
+             signature_file = COALESCE(excluded.signature_file, t3_day_attendance.signature_file),
+             signed_ip = COALESCE(excluded.signed_ip, t3_day_attendance.signed_ip)""",
+        (participant_id, training_date_iso, source, signature_file, signed_ip),
     )
     return _sync_attended_rollup(participant_id, session_id)
 

@@ -855,6 +855,18 @@ _COLUMN_MIGRATIONS = [
     # total matches exactly what was typed, instead of SST being added on top.
     ("quotations", "sst_inclusive", "INTEGER NOT NULL DEFAULT 0"),
     ("invoices", "sst_inclusive", "INTEGER NOT NULL DEFAULT 0"),
+    # e-Signature attendance: an opt-in per class (see t3.py/t3_public.py) —
+    # on a scheduled training day, participants can sign their own row from
+    # their phone instead of (or alongside) the printed sheet. sign_fail_count
+    # / sign_locked_until are a lockout against guessing someone else's IC
+    # number, mirroring the existing users.locked_until pattern. signature_file
+    # / signed_ip on t3_day_attendance keep an auditable record of who signed
+    # and from where.
+    ("course_sessions", "e_signature_enabled", "INTEGER NOT NULL DEFAULT 0"),
+    ("t3_participants", "sign_fail_count", "INTEGER NOT NULL DEFAULT 0"),
+    ("t3_participants", "sign_locked_until", "TEXT"),
+    ("t3_day_attendance", "signature_file", "TEXT"),
+    ("t3_day_attendance", "signed_ip", "TEXT"),
 ]
 
 

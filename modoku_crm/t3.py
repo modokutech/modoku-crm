@@ -5,11 +5,19 @@ just the physical/printed sign-in sheet for one training day, and its
 names shouldn't affect enrollment counts, capacity, or HRDF claim
 tracking. Supports manual add, paste-based bulk add, and CSV upload for
 large cohorts.
+
+Also home to the e-Signature attendance helpers shared with t3_public.py
+(check_and_record_sign_attempt, decode_signature_png, _t3_signature_dir) —
+see t3_public.sign for the public-facing route that uses them.
 """
+import base64
+import binascii
 import csv
 import io
+import os
+from datetime import datetime, timedelta
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, send_from_directory, url_for
 
 from . import ai_match, attendance_days, db, uploadutil
 from . import certificates as _certificates
@@ -19,6 +27,20 @@ bp = Blueprint("t3", __name__, url_prefix="/t3")
 
 GENDERS = ["Male", "Female"]
 CITIZENSHIPS = ["Malaysian", "Non-Malaysian"]
+
+# e-Signature identity check: how many wrong IC-number guesses a participant
+# row tolerates before signing locks for a while — mirrors the existing
+# users.locked_until pattern used for staff login, so someone can't just
+# try every combination to sign attendance as somebody else on the list.
+SIGN_FAIL_LIMIT = 5
+SIGN_LOCKOUT_MINUTES = 15
+
+# A genuinely blank/empty signature-pad PNG is a few hundred bytes; a real
+# hand-drawn signature is comfortably larger. 300 KB is far more than a
+# simple line drawing ever needs, so anything past that is rejected rather
+# than trusted.
+MIN_SIGNATURE_BYTES = 300
+MAX_SIGNATURE_BYTES = 300 * 1024
 
 
 def _normalize_gender(raw):
@@ -45,6 +67,143 @@ def _ic_taken(session_id, ic_no, exclude_participant_id=None):
         sql += " AND id != ?"
         params.append(exclude_participant_id)
     return db.query(sql, params, one=True) is not None
+
+
+def _normalize_ic(raw):
+    """Loose IC-number comparison: strip everything but letters/digits and
+    lowercase, so '900101-14-5566', '900101 14 5566', and '900101145566'
+    all match the same stored value — a participant shouldn't fail the
+    identity check over formatting, only over an actually wrong number."""
+    return "".join(ch for ch in (raw or "").lower() if ch.isalnum())
+
+
+def check_and_record_sign_attempt(participant, entered_ic):
+    """The e-Signature identity check: does entered_ic match this
+    participant's IC on file? Tracks repeated wrong guesses (sign_fail_count
+    / sign_locked_until on t3_participants) so someone can't just try every
+    combination to sign as somebody else on the list — mirrors the same
+    fail-count/lockout shape already used for staff login. Returns
+    (ok, error_message); error_message is None when ok is True. Resets the
+    fail count on a correct match."""
+    now = datetime.utcnow()
+    locked_until = participant["sign_locked_until"]
+    if locked_until:
+        try:
+            if datetime.fromisoformat(locked_until) > now:
+                return False, ("Too many incorrect attempts for this name — signing is locked for a few "
+                                "minutes. Ask a staff member for help if you need to sign right now.")
+        except ValueError:
+            pass
+
+    if not (participant["ic_no"] or "").strip():
+        return False, "No IC number is on file for this participant yet — ask staff to add one before signing."
+
+    if _normalize_ic(entered_ic) != _normalize_ic(participant["ic_no"]):
+        fail_count = (participant["sign_fail_count"] or 0) + 1
+        if fail_count >= SIGN_FAIL_LIMIT:
+            lock_until = (now + timedelta(minutes=SIGN_LOCKOUT_MINUTES)).isoformat(" ")
+            db.execute("UPDATE t3_participants SET sign_fail_count = ?, sign_locked_until = ? WHERE id = ?",
+                       (fail_count, lock_until, participant["id"]))
+        else:
+            db.execute("UPDATE t3_participants SET sign_fail_count = ? WHERE id = ?",
+                       (fail_count, participant["id"]))
+        return False, "That IC number doesn't match our records for this name — please try again."
+
+    db.execute("UPDATE t3_participants SET sign_fail_count = 0, sign_locked_until = NULL WHERE id = ?",
+               (participant["id"],))
+    return True, None
+
+
+def decode_signature_png(data_url):
+    """Parses a 'data:image/png;base64,....' string from the signature-pad
+    canvas into raw PNG bytes — or None if it's missing, malformed, not
+    actually a PNG, or clearly too small (an empty canvas) or too large to
+    be a real hand-drawn signature. Never trusts the browser's own
+    blank-canvas check alone; this is the server-side backstop."""
+    if not data_url or "," not in data_url:
+        return None
+    header, _, encoded = data_url.partition(",")
+    if "image/png" not in header:
+        return None
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    if len(raw) < MIN_SIGNATURE_BYTES or len(raw) > MAX_SIGNATURE_BYTES:
+        return None
+    if not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    return raw
+
+
+def _t3_signature_dir(session_id):
+    path = os.path.join(current_app.config["UPLOAD_FOLDER"], "sessions", str(session_id), "signatures")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _t3_count(session_id):
+    row = db.query("SELECT COUNT(*) AS n FROM t3_participants WHERE session_id = ?", (session_id,), one=True)
+    return row["n"] if row else 0
+
+
+def t3_remaining_capacity(session_row):
+    """The class's `capacity` (course_sessions.capacity, e.g. 20 pax) caps
+    the T3 attendance list the same way it's meant to cap the class itself —
+    returns how many more participants can still be added, or None if the
+    class has no capacity limit set (falsy/zero, treated as unlimited).
+    Never negative — a list that's already over capacity (e.g. capacity was
+    lowered after names were added) just reports 0 remaining, not overfull."""
+    capacity = session_row["capacity"] if session_row else None
+    if not capacity or capacity <= 0:
+        return None
+    return max(0, capacity - _t3_count(session_row["id"]))
+
+
+def _insert_participants(session_id, participants, remaining_capacity):
+    """Shared bulk-insert loop for paste/CSV adds (both the staff-facing T3
+    manage page and the public T3 Attendance Form use this) — participants
+    is a list of (name, ic_no, employer, gender, citizenship) tuples.
+    Stops accepting new rows once remaining_capacity is used up (None means
+    no cap) rather than silently letting the list run over the class's
+    capacity. Returns (added, skipped_duplicate, skipped_capacity)."""
+    seen_ics = set()
+    added = 0
+    skipped_dup = 0
+    skipped_capacity = 0
+    for name, ic_no, employer, gender, citizenship in participants:
+        if remaining_capacity is not None and added >= remaining_capacity:
+            skipped_capacity += 1
+            continue
+        ic_key = (ic_no or "").strip().lower()
+        if ic_key and (ic_key in seen_ics or _ic_taken(session_id, ic_no)):
+            skipped_dup += 1
+            continue
+        if ic_key:
+            seen_ics.add(ic_key)
+        db.execute(
+            """INSERT INTO t3_participants (session_id, name, ic_no, employer_name, gender, citizenship)
+               VALUES (?,?,?,?,?,?)""",
+            (session_id, name, ic_no, employer, gender, citizenship or "Malaysian"),
+        )
+        added += 1
+    return added, skipped_dup, skipped_capacity
+
+
+def _bulk_result_flash(added, skipped_dup, skipped_capacity, capacity, verb="Added"):
+    """Builds the flash message + category for a bulk paste/CSV add, covering
+    every combination of added/skipped-duplicate/skipped-capacity."""
+    parts = []
+    if added:
+        parts.append(f"{verb} {added} participant(s).")
+    if skipped_dup:
+        parts.append(f"Skipped {skipped_dup} with a duplicate IC number already on this list.")
+    if skipped_capacity:
+        parts.append(f"Skipped {skipped_capacity} — this class's attendance list is capped at {capacity} pax.")
+    if not parts:
+        return "Nothing to add.", "danger"
+    category = "success" if added and not skipped_dup and not skipped_capacity else ("warning" if added else "danger")
+    return " ".join(parts), category
 
 
 def _session_or_none(session_id):
@@ -133,26 +292,50 @@ def manage(session_id):
     participants = db.query(
         "SELECT * FROM t3_participants WHERE session_id = ? ORDER BY id", (session_id,)
     )
-    total_days = len(attendance_days.training_days_for_session(session_row))
+    training_days = attendance_days.training_days_iso_for_session(session_row)
+    total_days = len(training_days)
     # Attach each participant's per-day attendance count so a multi-day
     # class can show "2/3 Days" instead of a plain yes/no — invisible for
     # an ordinary single-day class, where total_days is always 1 and this
     # collapses back to the familiar attended/not-attended badge.
+    #
+    # Also build a participant_id -> {training_date: signature_file} map so
+    # the template can show a small pen icon per scheduled day, filled in
+    # once that day has a captured e-signature — an audit trail for staff,
+    # regardless of whether e-signature is currently on or off.
+    sig_rows = db.query(
+        """SELECT tda.participant_id, tda.training_date, tda.signature_file
+           FROM t3_day_attendance tda
+           JOIN t3_participants p ON p.id = tda.participant_id
+           WHERE p.session_id = ?""",
+        (session_id,),
+    )
+    signatures_by_participant = {}
+    for row in sig_rows:
+        signatures_by_participant.setdefault(row["participant_id"], {})[row["training_date"]] = row["signature_file"]
+
     participants_with_status = []
     for p in participants:
         days_done, _ = attendance_days.attendance_status(p["id"], session_row)
         participants_with_status.append({"p": p, "days_done": days_done})
     return render_template("t3/manage.html", s=session_row, participants=participants_with_status,
-                            total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS)
+                            total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
+                            remaining=t3_remaining_capacity(session_row),
+                            training_days=training_days, signatures_by_participant=signatures_by_participant)
 
 
 @bp.route("/sessions/<int:session_id>/add", methods=("POST",))
 @login_required
 def add(session_id):
+    session_row = _session_or_none(session_id)
     name = request.form.get("name", "").strip()
     ic_no = request.form.get("ic_no") or None
+    remaining = t3_remaining_capacity(session_row) if session_row else None
     if not name:
         flash("Name is required.", "danger")
+    elif remaining is not None and remaining <= 0:
+        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity) — "
+              f"remove a participant to add another.", "danger")
     elif _ic_taken(session_id, ic_no):
         flash(f"IC number {ic_no} is already on this class's attendance list.", "danger")
     else:
@@ -213,40 +396,26 @@ def delete(participant_id):
 @bp.route("/sessions/<int:session_id>/bulk-add", methods=("POST",))
 @login_required
 def bulk_add(session_id):
+    session_row = _session_or_none(session_id)
     raw_text = request.form.get("bulk_text", "")
-    participants = _parse_bulk_lines(raw_text)
-    if not participants:
+    parsed = _parse_bulk_lines(raw_text)
+    if not parsed:
         flash("Nothing to add — enter at least one name.", "danger")
         return redirect(url_for("t3.manage", session_id=session_id))
 
-    seen_ics = set()
-    added = 0
-    skipped = 0
-    for name, ic_no, employer, gender in participants:
-        ic_key = (ic_no or "").strip().lower()
-        if ic_key and (ic_key in seen_ics or _ic_taken(session_id, ic_no)):
-            skipped += 1
-            continue
-        if ic_key:
-            seen_ics.add(ic_key)
-        db.execute(
-            """INSERT INTO t3_participants (session_id, name, ic_no, employer_name, gender, citizenship)
-               VALUES (?,?,?,?,?,?)""",
-            (session_id, name, ic_no, employer, gender, "Malaysian"),
-        )
-        added += 1
-
-    if skipped:
-        flash(f"Added {added} participant(s). Skipped {skipped} with a duplicate IC number already "
-              f"on this class's list.", "warning" if added else "danger")
-    else:
-        flash(f"Added {added} participant(s) to the T3 attendance list.", "success")
+    participants = [(name, ic_no, employer, gender, "Malaysian") for name, ic_no, employer, gender in parsed]
+    remaining = t3_remaining_capacity(session_row) if session_row else None
+    added, skipped_dup, skipped_capacity = _insert_participants(session_id, participants, remaining)
+    capacity = session_row["capacity"] if session_row else None
+    msg, category = _bulk_result_flash(added, skipped_dup, skipped_capacity, capacity)
+    flash(msg, category)
     return redirect(url_for("t3.manage", session_id=session_id))
 
 
 @bp.route("/sessions/<int:session_id>/csv-upload", methods=("POST",))
 @login_required
 def csv_upload(session_id):
+    session_row = _session_or_none(session_id)
     file_storage = request.files.get("csv_file")
     if not file_storage or not file_storage.filename:
         flash("Choose a CSV file first.", "danger")
@@ -266,28 +435,11 @@ def csv_upload(session_id):
         flash("No participant rows found in that CSV.", "danger")
         return redirect(url_for("t3.manage", session_id=session_id))
 
-    seen_ics = set()
-    added = 0
-    skipped = 0
-    for name, ic_no, employer, gender, citizenship in participants:
-        ic_key = (ic_no or "").strip().lower()
-        if ic_key and (ic_key in seen_ics or _ic_taken(session_id, ic_no)):
-            skipped += 1
-            continue
-        if ic_key:
-            seen_ics.add(ic_key)
-        db.execute(
-            """INSERT INTO t3_participants (session_id, name, ic_no, employer_name, gender, citizenship)
-               VALUES (?,?,?,?,?,?)""",
-            (session_id, name, ic_no, employer, gender, citizenship or "Malaysian"),
-        )
-        added += 1
-
-    if skipped:
-        flash(f"Imported {added} participant(s). Skipped {skipped} with a duplicate IC number already "
-              f"on this class's list.", "warning" if added else "danger")
-    else:
-        flash(f"Imported {added} participant(s) from CSV.", "success")
+    remaining = t3_remaining_capacity(session_row) if session_row else None
+    added, skipped_dup, skipped_capacity = _insert_participants(session_id, participants, remaining)
+    capacity = session_row["capacity"] if session_row else None
+    msg, category = _bulk_result_flash(added, skipped_dup, skipped_capacity, capacity, verb="Imported")
+    flash(msg, category)
     return redirect(url_for("t3.manage", session_id=session_id))
 
 
@@ -425,3 +577,37 @@ def ai_match_run(session_id):
     else:
         flash("Nothing new to analyze — every submitted photo has already been read.", "info")
     return redirect(url_for("t3.ai_match_review", session_id=session_id))
+
+
+@bp.route("/sessions/<int:session_id>/toggle-e-signature", methods=("POST",))
+@login_required
+def toggle_e_signature(session_id):
+    """Turns e-Signature attendance on/off for one class. When on, the same
+    public T3 Attendance Form link (t3_public.form) also lets participants
+    sign their own row from their phone on a scheduled training day — see
+    t3_public.sign for the identity-checked signing flow itself."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    new_value = 0 if session_row["e_signature_enabled"] else 1
+    db.execute("UPDATE course_sessions SET e_signature_enabled = ? WHERE id = ?", (new_value, session_id))
+    flash("e-Signature attendance " + ("enabled" if new_value else "disabled") + " for this class.", "success")
+    return redirect(url_for("t3.manage", session_id=session_id))
+
+
+@bp.route("/<int:participant_id>/signature/<training_date>")
+@login_required
+def view_signature(participant_id, training_date):
+    """Staff-only audit view of one participant's captured e-signature for
+    one training day — linked from the small pen icons on the Attendance
+    List (t3/manage.html)."""
+    participant = db.query("SELECT session_id FROM t3_participants WHERE id = ?", (participant_id,), one=True)
+    row = db.query(
+        "SELECT signature_file FROM t3_day_attendance WHERE participant_id = ? AND training_date = ?",
+        (participant_id, training_date), one=True,
+    )
+    if participant is None or row is None or not row["signature_file"]:
+        flash("No signature on file for that day.", "danger")
+        return redirect(url_for("sessions.index"))
+    return send_from_directory(_t3_signature_dir(participant["session_id"]), row["signature_file"])

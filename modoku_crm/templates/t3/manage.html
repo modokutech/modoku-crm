@@ -7,6 +7,13 @@
     <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}</small>
   </div>
   <div class="d-flex gap-2">
+    <form method="post" action="{{ url_for('t3.toggle_e_signature', session_id=s.id) }}" class="d-inline">
+      {{ csrf_field()|safe }}
+      <button type="submit" class="btn btn-sm {{ 'btn-success' if s.e_signature_enabled else 'btn-outline-secondary' }}"
+              title="When on, participants can also sign their own row from their phone via the T3 Attendance Form link on a scheduled training day.">
+        <i class="bi bi-pen me-1"></i>e-Signature: {{ 'On' if s.e_signature_enabled else 'Off' }}
+      </button>
+    </form>
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
       <i class="bi bi-robot me-1"></i>AI Match Attendance
     </a>
@@ -25,8 +32,17 @@
 
 <div class="row g-3">
   <div class="col-lg-5">
+    {% if remaining is not none and remaining <= 0 %}
+    <div class="alert alert-warning small">
+      <i class="bi bi-exclamation-triangle me-1"></i>This class's attendance list is full
+      ({{ participants|length }}/{{ s.capacity }} pax) — remove a participant below to add another.
+    </div>
+    {% else %}
     <div class="card p-3 mb-3">
-      <h6>Add Participant</h6>
+      <div class="d-flex justify-content-between align-items-start">
+        <h6>Add Participant</h6>
+        {% if remaining is not none %}<span class="small text-muted">{{ remaining }} spot{{ 's' if remaining != 1 }} left of {{ s.capacity }}</span>{% endif %}
+      </div>
       <form method="post" action="{{ url_for('t3.add', session_id=s.id) }}">
         {{ csrf_field()|safe }}
         <div class="mb-2">
@@ -83,11 +99,12 @@ Ravi Kumar" required></textarea>
         <button class="btn btn-outline-success btn-sm w-100" type="submit">Upload CSV</button>
       </form>
     </div>
+    {% endif %}
   </div>
 
   <div class="col-lg-7">
     <div class="card p-3">
-      <h6 class="mb-2">Participants ({{ participants|length }})</h6>
+      <h6 class="mb-2">Participants ({{ participants|length }}{% if s.capacity %}/{{ s.capacity }}{% endif %})</h6>
       {% if participants %}
       <form id="bulkForm" method="post">
         {{ csrf_field()|safe }}
@@ -122,7 +139,8 @@ Ravi Kumar" required></textarea>
           <table class="table table-sm align-middle">
             <thead><tr>
               <th style="width:2.2rem"><input type="checkbox" id="selectAll" class="form-check-input"></th>
-              <th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th><th>Citizenship</th><th>Attended</th><th></th>
+              <th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th><th>Citizenship</th><th>Attended</th>
+              <th>Signature{{ 's' if total_days > 1 }}</th><th></th>
             </tr></thead>
             <tbody>
             {% for row in participants %}
@@ -143,6 +161,19 @@ Ravi Kumar" required></textarea>
                   {% if p.attended %}<span class="badge bg-success">Attended</span>
                   {% else %}<span class="badge bg-light text-muted border">—</span>{% endif %}
                 {% endif %}
+              </td>
+              <td class="text-nowrap">
+                {% for day in training_days %}
+                {% set sig = signatures_by_participant.get(p.id, {}).get(day) %}
+                {% if sig %}
+                <a href="{{ url_for('t3.view_signature', participant_id=p.id, training_date=day) }}" target="_blank"
+                   class="text-success me-1" title="Signed for {{ day }} — view">
+                  <i class="bi bi-pen-fill"></i>
+                </a>
+                {% else %}
+                <span class="text-muted me-1" title="Not signed for {{ day }}"><i class="bi bi-pen"></i></span>
+                {% endif %}
+                {% endfor %}
               </td>
               <td class="text-end">
                 <button type="submit" formaction="{{ url_for('t3.delete', participant_id=p.id) }}"

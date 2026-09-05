@@ -16,8 +16,16 @@
     </div>
 
     {% if editable %}
-    <p class="small text-muted">Add, edit, or remove participants below anytime before training day — this
-      list is what our office and trainer will use, so please keep it up to date.</p>
+      {% if remaining is not none and remaining <= 0 %}
+      <div class="alert alert-warning small mb-3">
+        <i class="bi bi-exclamation-triangle me-1"></i>This class's attendance list is full
+        ({{ participants|length }}/{{ s.capacity }} pax). Contact us if you need to add someone else.
+      </div>
+      {% else %}
+      <p class="small text-muted">Add, edit, or remove participants below anytime before training day — this
+        list is what our office and trainer will use, so please keep it up to date.
+        {% if remaining is not none %}Room for {{ remaining }} more (of {{ s.capacity }} pax).{% endif %}</p>
+      {% endif %}
     {% else %}
     <div class="alert alert-warning small mb-3">
       <i class="bi bi-lock-fill me-1"></i>This list is now locked — training has started or this class has
@@ -25,9 +33,18 @@
     </div>
     {% endif %}
 
+    {% if e_sign_open %}
+    <div class="alert alert-info small mb-3">
+      <i class="bi bi-pen me-1"></i>Today is a training day for this class — find your name below and tap
+      <strong>Sign</strong> to confirm your own attendance from your phone. You'll be asked to re-enter your
+      IC number so we know it's really you.
+    </div>
+    {% endif %}
+
+    {% set colspan = 4 + (1 if editable else 0) + (1 if e_sign_open else 0) %}
     <div class="table-responsive mb-3">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th>{% if editable %}<th></th>{% endif %}</tr></thead>
+        <thead><tr><th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if editable %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for p in participants %}
           <tr>
@@ -35,6 +52,15 @@
             <td>{{ p.ic_no or '-' }}</td>
             <td>{{ p.employer_name or '-' }}</td>
             <td>{{ p.gender or '-' }}</td>
+            {% if e_sign_open %}
+            <td class="text-nowrap">
+              {% if p.id in signed_today %}
+              <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Signed</span>
+              {% else %}
+              <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#sign-{{ p.id }}">Sign</button>
+              {% endif %}
+            </td>
+            {% endif %}
             {% if editable %}
             <td class="text-end text-nowrap">
               <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit-{{ p.id }}">Edit</button>
@@ -45,9 +71,33 @@
             </td>
             {% endif %}
           </tr>
+          {% if e_sign_open and p.id not in signed_today %}
+          <tr class="collapse" id="sign-{{ p.id }}">
+            <td colspan="{{ colspan }}" class="bg-light">
+              <form method="post" action="{{ url_for('t3_public.sign', token=token, participant_id=p.id) }}" class="py-2 sign-form">
+                {{ csrf_field()|safe }}
+                <div class="row g-2">
+                  <div class="col-md-5">
+                    <label class="form-label small fw-semibold mb-0">Re-enter your IC number to confirm it's you</label>
+                    <input type="text" name="ic_no" class="form-control form-control-sm" placeholder="IC No." required>
+                  </div>
+                </div>
+                <div class="mt-2">
+                  <label class="form-label small fw-semibold mb-1 d-block">Sign below with your finger or mouse</label>
+                  <canvas class="signature-pad border rounded bg-white d-block" width="400" height="150" style="width:100%;max-width:400px;height:150px;touch-action:none;cursor:crosshair;"></canvas>
+                  <input type="hidden" name="signature_data" class="signature-data-input">
+                  <div class="mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary sign-clear-btn">Clear</button>
+                    <button type="submit" class="btn btn-sm btn-success">Submit Signature</button>
+                  </div>
+                </div>
+              </form>
+            </td>
+          </tr>
+          {% endif %}
           {% if editable %}
           <tr class="collapse" id="edit-{{ p.id }}">
-            <td colspan="5" class="bg-light">
+            <td colspan="{{ colspan }}" class="bg-light">
               <form method="post" action="{{ url_for('t3_public.edit', token=token, participant_id=p.id) }}" class="row g-2 py-2">
                 {{ csrf_field()|safe }}
                 <div class="col-md-3"><input type="text" name="name" class="form-control form-control-sm" value="{{ p.name }}" placeholder="Name" required></div>
@@ -65,13 +115,13 @@
           </tr>
           {% endif %}
           {% else %}
-          <tr><td colspan="5" class="text-muted text-center py-3">No participants added yet.</td></tr>
+          <tr><td colspan="{{ colspan }}" class="text-muted text-center py-3">No participants added yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    {% if editable %}
+    {% if editable and (remaining is none or remaining > 0) %}
     <form method="post" action="{{ url_for('t3_public.add', token=token) }}" class="row g-2">
       {{ csrf_field()|safe }}
       <div class="col-12"><label class="form-label small fw-semibold">Add participant</label></div>
@@ -103,4 +153,100 @@
     {% endif %}
   </div>
 </div>
+{% if e_sign_open %}
+<script>
+// Vanilla-JS signature pad — one per not-yet-signed participant row. No
+// external library: draws on a <canvas>, tracks whether anything was
+// actually drawn (so an unsigned blank canvas can't be submitted), and on
+// submit serializes the drawing into the row's hidden signature_data
+// input as a data:image/png;base64 string for the server to validate.
+(function () {
+  // The sign form lives inside a Bootstrap-collapsed <tr> (display:none
+  // until "Sign" is tapped), so a canvas sized at page-load time would get
+  // a 0x0 box — getBoundingClientRect() only reports real dimensions once
+  // the row is actually visible. Size (and re-size) it lazily, the first
+  // time — and every time — its row is shown.
+  function setupPad(canvas) {
+    if (canvas._padReady) return;
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return; // still hidden — try again next show
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#1a1a1a';
+    canvas._padReady = true;
+
+    var drawing = false;
+    var hasInk = false;
+    var last = null;
+
+    function pos(evt) {
+      var r = canvas.getBoundingClientRect();
+      var point = evt.touches ? evt.touches[0] : evt;
+      return { x: point.clientX - r.left, y: point.clientY - r.top };
+    }
+    function start(evt) {
+      evt.preventDefault();
+      drawing = true;
+      last = pos(evt);
+    }
+    function move(evt) {
+      if (!drawing) return;
+      evt.preventDefault();
+      var p = pos(evt);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      last = p;
+      hasInk = true;
+    }
+    function end() { drawing = false; }
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+
+    canvas._hasInk = function () { return hasInk; };
+    canvas._clear = function () {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasInk = false;
+    };
+  }
+
+  document.querySelectorAll('tr.collapse').forEach(function (row) {
+    var canvas = row.querySelector('.signature-pad');
+    if (!canvas) return;
+    row.addEventListener('shown.bs.collapse', function () { setupPad(canvas); });
+  });
+
+  document.querySelectorAll('.sign-clear-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var form = btn.closest('form');
+      var canvas = form.querySelector('.signature-pad');
+      if (canvas._clear) canvas._clear();
+    });
+  });
+
+  document.querySelectorAll('.sign-form').forEach(function (form) {
+    form.addEventListener('submit', function (evt) {
+      var canvas = form.querySelector('.signature-pad');
+      if (!canvas._padReady || !canvas._hasInk()) {
+        evt.preventDefault();
+        alert('Please sign in the box before submitting.');
+        return;
+      }
+      form.querySelector('.signature-data-input').value = canvas.toDataURL('image/png');
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}
