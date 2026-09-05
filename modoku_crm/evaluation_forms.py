@@ -260,7 +260,16 @@ def get_form_structure(form_id, access_token):
     like a scale), 'choice_text' (multiple-choice with non-numeric options,
     e.g. Excellent/Good/Fair/Poor — tallied as a distribution), 'text' (an
     open-ended question — fed to the AI summary), or 'other' (date/time/file
-    upload/grid — not aggregated at all). Returns {questionId: {...}}.
+    upload — not aggregated at all). Returns {questionId: {...}}.
+
+    Handles "Multiple choice grid" questions too (Google's API calls these
+    a questionGroupItem) — the classic layout for a training evaluation
+    ("Trainer knowledge / Course content / Venue, ..." as rows, sharing one
+    Poor/Uncertain/Fair/Good/Excellent scale across the top) — since a
+    grid's rows don't show up as a questionItem at all; each row is its
+    own question sharing the grid's columns as its options, and is
+    classified exactly like a standalone multiple-choice question above.
+
     Raises EvaluationFormError on any API failure."""
     try:
         resp = requests.get(f"{FORMS_API_URL}/forms/{form_id}",
@@ -275,6 +284,22 @@ def get_form_structure(form_id, access_token):
 
     questions = {}
     for item in data.get("items", []):
+        group = item.get("questionGroupItem")
+        if group:
+            grid_options = [opt.get("value", "") for opt in (group.get("grid") or {}).get("columns", {}).get("options", [])
+                             if opt.get("value")]
+            numeric = bool(grid_options) and all(_is_number(opt) for opt in grid_options)
+            kind = "choice_numeric" if numeric else "choice_text"
+            group_title = item.get("title") or ""
+            for row in group.get("questions", []):
+                row_question_id = row.get("questionId")
+                if not row_question_id:
+                    continue
+                row_title = (row.get("rowQuestion") or {}).get("title") or "(untitled row)"
+                title = f"{group_title} — {row_title}" if group_title else row_title
+                questions[row_question_id] = {"title": title, "kind": kind, "options": grid_options}
+            continue
+
         question_item = item.get("questionItem") or {}
         question = question_item.get("question")
         question_id = question.get("questionId") if question else None

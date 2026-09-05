@@ -67,7 +67,7 @@
       <small class="text-white-50 d-block mt-1">Modoku Hub</small>
     </a>
     <button type="button" id="cmdPaletteTrigger" class="cmd-palette-trigger flex-shrink-0 mb-2">
-      <i class="bi bi-search me-2"></i><span>Search pages…</span><kbd>/</kbd>
+      <i class="bi bi-search me-2"></i><span>Search pages…</span><kbd id="cmdPaletteKbd">Ctrl+/</kbd>
     </button>
     <ul class="nav nav-pills flex-column flex-nowrap gap-1 sidebar-nav" id="sidebarNav">
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='dashboard' }}" href="{{ url_for('dashboard.index') }}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
@@ -207,19 +207,26 @@
 // clears its caches on next activation, but until that happens we don't
 // register a new one here.
 
-// Command palette — press "/" (or click "Search pages…" in the sidebar) to
-// jump straight to any page in the sidebar nav. The searchable list is read
-// straight off the rendered sidebar itself, not a separately maintained
-// list, so it automatically matches whatever this user can actually see
-// (module toggles, admin-only links, etc.) with nothing to keep in sync.
+// Command palette — press Cmd+/ (Mac) or Ctrl+/ (Windows/Linux), or click
+// "Search pages…" in the sidebar, to jump straight to any page in the
+// sidebar nav. The searchable list is read straight off the rendered
+// sidebar itself, not a separately maintained list, so it automatically
+// matches whatever this user can actually see (module toggles, admin-only
+// links, etc.) with nothing to keep in sync. A plain "/" was the original
+// shortcut but collided with browser/OS quick-find and typing "/" into any
+// field on the page, so it now requires the platform's own modifier key.
 (function () {
   var overlay = document.getElementById('cmdPaletteOverlay');
   var input = document.getElementById('cmdPaletteInput');
   var resultsEl = document.getElementById('cmdPaletteResults');
   var emptyEl = document.getElementById('cmdPaletteEmpty');
   var trigger = document.getElementById('cmdPaletteTrigger');
+  var kbdEl = document.getElementById('cmdPaletteKbd');
   var navEl = document.getElementById('sidebarNav');
   if (!overlay || !input || !resultsEl || !navEl) return;
+
+  var isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+  if (kbdEl) kbdEl.textContent = isMac ? '⌘ /' : 'Ctrl+/';
 
   var items = Array.prototype.slice.call(navEl.querySelectorAll('a.nav-link')).map(function (a) {
     return { label: a.textContent.replace(/\s+/g, ' ').trim(), href: a.getAttribute('href') };
@@ -300,7 +307,10 @@
   if (trigger) trigger.addEventListener('click', open);
 
   document.addEventListener('keydown', function (e) {
-    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key !== '/' || e.altKey) return;
+    var wantsModifier = isMac ? e.metaKey : e.ctrlKey;
+    var unwantedModifier = isMac ? e.ctrlKey : e.metaKey;
+    if (!wantsModifier || unwantedModifier) return;
     if (!overlay.hidden) return;
     var active = document.activeElement;
     var tag = active && active.tagName;
