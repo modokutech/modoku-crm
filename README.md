@@ -348,6 +348,44 @@ it only re-reads Google and re-runs the AI summary on that click, not on every p
 view. Only available for classes with an auto-generated Form — there's no reliable
 way to read responses back from a hand-pasted Evaluation Form link.
 
+### Generate Full Report — the branded client-facing PDF
+
+Once a Training Report has at least one response, a **Generate Full Report** button
+appears next to Refresh Report. This is the automated version of the branded "Course
+Training Report" PDF Modoku Tech has always compiled by hand once a class wraps up —
+cover page, Foreword, Objective, participant list, a performance-details table, a
+chart for every rating/choice question, every open-text answer, and a Conclusion —
+built to the same format as Modoku's existing reports, sent from the app instead of
+assembled by hand.
+
+Clicking it creates an **editable draft** on its own page: the Foreword, Objective,
+and Conclusion paragraphs are pre-filled by Claude (requires `ANTHROPIC_API_KEY`,
+same key as the Training Report AI summary above) from the class's real course
+description, trainer, dates, and — for the Conclusion — the exact numbers already
+computed on the Training Report, written in Modoku's own established style rather
+than generic AI phrasing. Everything else in the finished PDF (participant list,
+ratings, every chart, every open-text table) is pulled fresh from the evaluation
+data at send time — never something AI writes.
+
+On the draft page:
+- **Save Draft** saves the three text boxes exactly as typed, no AI involved.
+- **Rewrite with AI** regenerates just that one section fresh; the other two are
+  left exactly as they are.
+- **Preview PDF** opens the report built from the currently-saved draft text, to
+  check it before sending.
+- **Approve & Send** builds the final PDF, emails it to the address you fill in
+  (defaulting to the class's PIC/client email), and **locks** the report — once
+  sent, it can no longer be regenerated or edited from this page, so a document
+  the client already received is never silently replaced. Clicking Generate Full
+  Report again before that point never overwrites text you've already edited and
+  saved — it only fills in whichever section(s), if any, are still empty.
+
+The finished PDF lands in the same **Training Report** section on the class page
+that a manually-uploaded report already uses (renamed from "Evaluation Report") —
+so that section always shows whichever report is current, automated or manual, and
+the manual upload/send buttons there keep working exactly as before for the times
+you'd still rather put a report together by hand.
+
 ## Setting up AI attendance matching (optional)
 
 When a trainer returns photo(s) of the signed T3 attendance sheet (via their "Return

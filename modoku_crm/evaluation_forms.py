@@ -161,10 +161,10 @@ def generate_form_for_session(session_row):
     (the caller does that once this returns successfully).
 
     session_row should carry a "client_name" key (companies.name, via a
-    LEFT JOIN on client_company_id) when available — the Drive file name
-    gets prefixed with the first two words of it. Missing the key entirely,
-    or a session with no client company on file, is fine too — the file
-    just isn't prefixed."""
+    LEFT JOIN on client_company_id) when available — it's woven into the
+    Drive file name (see below). Missing the key entirely, or a session
+    with no client company on file, is fine too — that segment is just
+    left out."""
     if not is_connected():
         raise EvaluationFormError(
             "No Google account connected for Evaluation Forms yet — connect one under Settings first.")
@@ -182,15 +182,17 @@ def generate_form_for_session(session_row):
     trainer_name = session_row["trainer_name"] if "trainer_name" in session_row.keys() else None
     client_name = session_row["client_name"] if "client_name" in session_row.keys() else None
     date_text = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    # Prefix the Drive file name with the client's name so a Drive folder full
-    # of these is easy to scan/sort by client — only the first two words, so
-    # a long registered company name (e.g. "PETRONAS Chemicals Group Berhad")
-    # doesn't dominate the file name. In-house/public sessions with no client
-    # company on file get no prefix at all.
-    client_prefix = ""
+    # Drive file name: "<date>: <client name> — <course title> Training
+    # Evaluation — <trainer name>" — the date leads so a Drive folder full
+    # of these sorts/scans chronologically, and the client name (up to the
+    # first four words, so a long registered company name like "PETRONAS
+    # Chemicals Group Berhad Sdn Bhd" doesn't run on forever) sits right
+    # after it so classes for the same client are easy to spot. In-house/
+    # public sessions with no client company on file just skip that segment.
+    client_segment = ""
     if client_name and client_name.strip():
-        client_prefix = " ".join(client_name.strip().split()[:2]) + " — "
-    file_name = f"{client_prefix}{course_title} Training Evaluation — {trainer_name or 'TBC'} — {date_text}"
+        client_segment = " ".join(client_name.strip().split()[:4]) + " — "
+    file_name = f"{date_text}: {client_segment}{course_title} Training Evaluation — {trainer_name or 'TBC'}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:
@@ -328,6 +330,20 @@ def get_form_structure(form_id, access_token):
     open-ended question — fed to the AI summary), or 'other' (date/time/file
     upload — not aggregated at all). Returns {questionId: {...}}.
 
+    Every entry also carries a "group" — the Form's own section heading this
+    question sits under (e.g. "Programme Content"), used purely for laying
+    the Training Report PDF out in the same section-by-section shape as the
+    Form itself (full_reports.py); None if the question isn't under any
+    section heading. A "questionGroupItem" (grid) supplies its own group
+    title directly (the grid's own title doubles as both its section
+    heading and its questions' shared header). A standalone question takes
+    whatever plain section-header item (title/description, no question of
+    its own — Google's own "Section" break) most recently preceded it in
+    the Form; a choice question also carries "widget" ('RADIO', 'CHECKBOX',
+    or 'DROP_DOWN') so the PDF can tell a single-answer question (pie
+    chart) from a pick-many one (horizontal bar) apart — both still get a
+    plain vote-count distribution from training_reports.py either way.
+
     Handles "Multiple choice grid" questions too (Google's API calls these
     a questionGroupItem) — the classic layout for a training evaluation
     ("Trainer knowledge / Course content / Venue, ..." as rows, sharing one
@@ -349,6 +365,7 @@ def get_form_structure(form_id, access_token):
         ) from exc
 
     questions = {}
+    current_section = None
     for item in data.get("items", []):
         group = item.get("questionGroupItem")
         if group:
@@ -362,7 +379,7 @@ def get_form_structure(form_id, access_token):
                     continue
                 row_title = (row.get("rowQuestion") or {}).get("title") or "(untitled row)"
                 title = f"{group_title} — {row_title}" if group_title else row_title
-                entry = {"title": title, "kind": kind, "options": grid_options}
+                entry = {"title": title, "kind": kind, "options": grid_options, "group": group_title or None}
                 if scale:
                     entry["scale"] = list(scale)
                 questions[row_question_id] = entry
@@ -372,23 +389,34 @@ def get_form_structure(form_id, access_token):
         question = question_item.get("question")
         question_id = question.get("questionId") if question else None
         if not question_id:
-            continue  # section headers, images, page breaks — nothing to aggregate
+            # Section headers, images, plain page breaks — nothing to
+            # aggregate, but a titled one (a "Section" break in the Forms
+            # UI) becomes the group every question up to the next one falls
+            # under, so the PDF can lay out one chart page per section the
+            # same way the Form itself is organized.
+            section_title = item.get("title")
+            if section_title:
+                current_section = section_title
+            continue
         title = item.get("title") or "(untitled question)"
         if "scaleQuestion" in question:
             sq = question["scaleQuestion"]
-            questions[question_id] = {"title": title, "kind": "scale", "low": sq.get("low"), "high": sq.get("high")}
+            questions[question_id] = {"title": title, "kind": "scale", "low": sq.get("low"), "high": sq.get("high"),
+                                       "group": current_section}
         elif "choiceQuestion" in question:
-            options = [opt.get("value", "") for opt in question["choiceQuestion"].get("options", [])
+            cq = question["choiceQuestion"]
+            options = [opt.get("value", "") for opt in cq.get("options", [])
                        if opt.get("value")]
             kind, scale = _classify_choice_options(options)
-            entry = {"title": title, "kind": kind, "options": options}
+            entry = {"title": title, "kind": kind, "options": options, "group": current_section,
+                      "widget": cq.get("type")}
             if scale:
                 entry["scale"] = list(scale)
             questions[question_id] = entry
         elif "textQuestion" in question:
-            questions[question_id] = {"title": title, "kind": "text"}
+            questions[question_id] = {"title": title, "kind": "text", "group": current_section}
         else:
-            questions[question_id] = {"title": title, "kind": "other"}
+            questions[question_id] = {"title": title, "kind": "other", "group": current_section}
     return questions
 
 

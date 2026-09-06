@@ -333,7 +333,21 @@
         {% endif %}
     </div>
     <div class="card p-3 mt-3">
-        <h6>Evaluation Report</h6>
+        <h6>Training Report</h6>
+        {% if full_report %}
+        {% if full_report.approved_at %}
+        <p class="small text-success mb-2">
+          <i class="bi bi-robot me-1"></i>Automated report approved and emailed to {{ full_report.sent_to }} on {{ full_report.approved_at|fmtdatetime }}.
+          <a href="{{ url_for('full_reports.edit', session_id=s.id) }}">View</a>
+        </p>
+        {% else %}
+        <p class="small text-muted mb-2">
+          <i class="bi bi-robot me-1"></i>A Generate Full Report draft is in progress —
+          <a href="{{ url_for('full_reports.edit', session_id=s.id) }}">continue editing</a>.
+        </p>
+        {% endif %}
+        <p class="small text-muted mb-2">Or upload a manually-prepared report below instead/as well.</p>
+        {% endif %}
         {% if s.evaluation_report_file %}
         <p class="small mb-2">
           <i class="bi bi-file-earmark-check text-success me-1"></i>

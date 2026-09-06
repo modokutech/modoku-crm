@@ -23,6 +23,23 @@
         <i class="bi bi-arrow-repeat me-1"></i>{{ 'Refresh' if report else 'Generate' }} Report
       </button>
     </form>
+    {% if full_report and full_report.approved_at %}
+    <a href="{{ url_for('full_reports.edit', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-check-circle me-1"></i>View Sent Report
+    </a>
+    {% elif full_report %}
+    <a href="{{ url_for('full_reports.edit', session_id=s.id) }}" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-pencil-square me-1"></i>Continue Editing Draft
+    </a>
+    {% elif report and report.response_count %}
+    <form method="post" action="{{ url_for('full_reports.generate', session_id=s.id) }}">
+      {{ csrf_field()|safe }}
+      <button class="btn btn-sm btn-outline-primary" type="submit" {{ 'disabled' if not ai_configured }}
+              title="{{ '' if ai_configured else 'AI drafting is not set up yet.' }}">
+        <i class="bi bi-file-earmark-richtext me-1"></i>Generate Full Report
+      </button>
+    </form>
+    {% endif %}
   </div>
 </div>
 

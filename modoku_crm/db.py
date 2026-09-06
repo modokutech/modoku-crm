@@ -709,6 +709,33 @@ CREATE TABLE IF NOT EXISTS training_reports (
     generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- The branded, client-facing PDF report (full_reports.py) — distinct from
+-- training_reports above, which is just the numeric/AI rollup those PDFs
+-- are partly built from. One row per class: while approved_at is NULL the
+-- three prose sections below are an editable AI-prefilled draft (see
+-- full_reports.py's "keep edits" rule — regenerating never overwrites text
+-- already sitting in these columns, only ever fills in a still-empty one);
+-- once "Approve & Send" succeeds, approved_at/approved_by/sent_to are
+-- stamped, the finalized PDF is saved into course_sessions.
+-- evaluation_report_file (the same slot a manually-uploaded report uses,
+-- so the class page's Training Report section shows either one the same
+-- way), and this row locks — regenerating is refused once approved_at is
+-- set, by design (a document a client already received is never silently
+-- replaced by clicking a button again; a real correction goes through the
+-- manual-upload fallback instead).
+CREATE TABLE IF NOT EXISTS full_training_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL UNIQUE REFERENCES course_sessions(id) ON DELETE CASCADE,
+    foreword_text TEXT,
+    objective_text TEXT,
+    conclusion_text TEXT,
+    generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TEXT,
+    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    sent_to TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_hotel_capacities_hotel ON hotel_capacities(hotel_id);
 CREATE INDEX IF NOT EXISTS idx_po_payment_receipts_po ON po_payment_receipts(po_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_po_payment_receipts_po ON vendor_po_payment_receipts(po_id);
@@ -745,6 +772,7 @@ CREATE INDEX IF NOT EXISTS idx_certificates_session ON certificates(session_id);
 CREATE INDEX IF NOT EXISTS idx_t3_day_attendance_participant ON t3_day_attendance(participant_id);
 CREATE INDEX IF NOT EXISTS idx_company_files_pinned ON company_files(pinned);
 CREATE INDEX IF NOT EXISTS idx_training_reports_session ON training_reports(session_id);
+CREATE INDEX IF NOT EXISTS idx_full_training_reports_session ON full_training_reports(session_id);
 """
 
 

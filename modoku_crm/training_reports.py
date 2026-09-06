@@ -384,10 +384,16 @@ def build_report(session_id, user_id=None):
             values.extend(_collect_answer_values(response, question_id))
         if not values:
             continue
+        form_group = meta.get("group")
         if kind in ("scale", "choice_numeric"):
             agg = _aggregate_numeric(values)
             if agg:
-                numeric_summary.append({"question": meta["title"], "kind": kind, **agg})
+                # A distribution (exact vote counts per value) alongside the
+                # average/min/max — full_reports.py's PDF charts a question
+                # the same way regardless of kind, so every kind that can
+                # have values needs one, not just the worded-scale kinds.
+                agg["distribution"] = _aggregate_categorical(values)["distribution"]
+                numeric_summary.append({"question": meta["title"], "kind": kind, "group": form_group, **agg})
         elif kind == "choice_ordinal":
             scale = meta.get("scale") or []
             agg = _aggregate_categorical(values)
@@ -395,15 +401,17 @@ def build_report(session_id, user_id=None):
             if scores:
                 agg["average"] = _clean_num(round(sum(scores) / len(scores), 2))
                 agg["scale_max"] = len(scale)
-            numeric_summary.append({"question": meta["title"], "kind": kind, "scale": scale, **agg})
+            numeric_summary.append({"question": meta["title"], "kind": kind, "scale": scale, "group": form_group,
+                                     **agg})
             if scale:
                 group = ordinal_groups.setdefault(tuple(scale), {"titles": [], "values": []})
                 group["titles"].append(meta["title"])
                 group["values"].extend(values)
         elif kind == "choice_text":
-            numeric_summary.append({"question": meta["title"], "kind": kind, **_aggregate_categorical(values)})
+            numeric_summary.append({"question": meta["title"], "kind": kind, "group": form_group,
+                                     "widget": meta.get("widget"), **_aggregate_categorical(values)})
         elif kind == "text":
-            text_summary.append({"question": meta["title"], "answers": values})
+            text_summary.append({"question": meta["title"], "answers": values, "group": form_group})
 
     combined_ratings = []
     for scale, group in ordinal_groups.items():
@@ -474,11 +482,16 @@ def view(session_id):
     if session_row is None:
         flash("Class not found.", "danger")
         return redirect(url_for("training_reports.index"))
+    # Local import to avoid a circular import — full_reports.py imports this
+    # module at the top level (it reuses _call_claude_json/get_report), so
+    # this module can't import full_reports back at the top level too.
+    from . import full_reports
     return render_template(
         "training_reports/view.html",
         s=session_row,
         report=get_report(session_id),
         ai_configured=is_ai_configured(),
+        full_report=full_reports.get_full_report(session_id),
     )
 
 
