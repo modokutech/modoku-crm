@@ -406,6 +406,23 @@ A few formatting notes on the finished PDF:
   `modoku_crm/static/fonts/` and update `_FONT_GEORGIA_ITALIC` in
   `full_report_pdf.py` if you're able to source a properly licensed copy later.
 
+## e-Signature on the Attendance Form
+
+Toggling **e-Signature** on for a class (on its T3 Attendance List page) lets each
+participant sign their own row from their phone via the public Attendance Form link,
+on the day(s) they're actually attending — verified by re-typing their own IC number,
+which is deliberately never shown on that page (so it can't just be copied off the
+screen). A day a participant e-signs is recorded the same way an AI-matched or
+manually-ticked day is, and once every scheduled day is covered they're certificate-
+eligible exactly as before.
+
+Any day a participant e-signed also carries over to the actual printable/emailed
+**T3 Attendance Form** (the PSMB/SBL-KHAS/T3/01 sheet enclosed with HRDCorp claims) —
+that day's Signature column shows their captured signature image instead of being left
+blank for a pen signature, so a trainee who already e-signed doesn't need to sign the
+official claim document by hand too. A day marked some other way (AI-matched from a
+photo, or ticked manually by staff) still leaves that cell blank, same as always.
+
 ## Setting up AI attendance matching (optional)
 
 When a trainer returns photo(s) of the signed T3 attendance sheet (via their "Return

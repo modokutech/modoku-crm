@@ -9,7 +9,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, ai_match, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
+from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -1035,7 +1035,10 @@ def _training_days_for_session(session_row):
 def _t3_form_session_and_participants(session_id):
     """Shared lookup for the printable T3 form's page + its "Email to
     Trainer" action — both need the same session (with trainer info),
-    participant list, and per-day breakdown."""
+    participant list, per-day breakdown, and the map of any e-signatures
+    already captured (so a trainee who e-signed on the Attendance Form
+    doesn't also need to sign this official HRDCorp claim document by
+    hand — see signatures_by_participant below)."""
     session_row = db.query(
         """SELECT cs.*, c.title AS course_title, t.name AS trainer_name, t.email AS trainer_email
            FROM course_sessions cs
@@ -1045,18 +1048,19 @@ def _t3_form_session_and_participants(session_id):
         (session_id,), one=True,
     )
     if session_row is None:
-        return None, None, None
+        return None, None, None, None
     participants = db.query(
         "SELECT * FROM t3_participants WHERE session_id = ? ORDER BY id", (session_id,)
     )
     training_days = _training_days_for_session(session_row)
-    return session_row, participants, training_days
+    signatures_by_participant = attendance_days.signatures_by_participant(session_id)
+    return session_row, participants, training_days, signatures_by_participant
 
 
 @bp.route("/<int:session_id>/t3-attendance")
 @login_required
 def t3_attendance_form(session_id):
-    session_row, participants, training_days = _t3_form_session_and_participants(session_id)
+    session_row, participants, training_days, signatures_by_participant = _t3_form_session_and_participants(session_id)
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
@@ -1072,7 +1076,8 @@ def t3_attendance_form(session_id):
                             default_t3_form_email_subject=_default_t3_form_email_subject(session_row),
                             default_t3_form_email_body=_default_t3_form_email_body(session_row),
                             t3_form_pdf_filename=_t3_form_pdf_filename(session_row),
-                            extra_blank_rows=extra_blank_rows)
+                            extra_blank_rows=extra_blank_rows,
+                            signatures_by_participant=signatures_by_participant)
 
 
 @bp.route("/<int:session_id>/email-t3-form", methods=("POST",))
@@ -1085,7 +1090,7 @@ def email_t3_form(session_id):
     Distinct from send_t3_form above, which emails a link to the online
     form (usually to the client's PIC) rather than a PDF (usually to the
     trainer)."""
-    session_row, participants, training_days = _t3_form_session_and_participants(session_id)
+    session_row, participants, training_days, signatures_by_participant = _t3_form_session_and_participants(session_id)
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
@@ -1103,7 +1108,8 @@ def email_t3_form(session_id):
 
     try:
         pdf_bytes = pdfgen.generate_t3_form_pdf(session_row, participants, training_days,
-                                                 extra_blank_rows=extra_blank_rows)
+                                                 extra_blank_rows=extra_blank_rows,
+                                                 signatures_by_participant=signatures_by_participant)
         attachments = [(_t3_form_pdf_filename(session_row), pdf_bytes, "application/pdf")]
         mailer.send_email(to_email, subject, body, attachments=attachments,
                            related_type="course_session", related_id=session_id, cc_email=cc_email)

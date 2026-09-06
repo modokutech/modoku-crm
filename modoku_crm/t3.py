@@ -302,17 +302,10 @@ def manage(session_id):
     # Also build a participant_id -> {training_date: signature_file} map so
     # the template can show a small pen icon per scheduled day, filled in
     # once that day has a captured e-signature — an audit trail for staff,
-    # regardless of whether e-signature is currently on or off.
-    sig_rows = db.query(
-        """SELECT tda.participant_id, tda.training_date, tda.signature_file
-           FROM t3_day_attendance tda
-           JOIN t3_participants p ON p.id = tda.participant_id
-           WHERE p.session_id = ?""",
-        (session_id,),
-    )
-    signatures_by_participant = {}
-    for row in sig_rows:
-        signatures_by_participant.setdefault(row["participant_id"], {})[row["training_date"]] = row["signature_file"]
+    # regardless of whether e-signature is currently on or off. Shared with
+    # the printable T3 Attendance Form (sessions.py), which embeds these
+    # same signatures into the actual HRDCorp claim document.
+    signatures_by_participant = attendance_days.signatures_by_participant(session_id)
 
     participants_with_status = []
     for p in participants:

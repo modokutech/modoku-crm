@@ -8,13 +8,16 @@
   </div>
   <div class="d-flex gap-2">
     <form method="post" action="{{ url_for('t3.toggle_e_signature', session_id=s.id) }}"
-          class="d-flex align-items-center form-check form-switch mb-0 ps-0 border rounded px-2"
+          class="d-flex align-items-center gap-2 border rounded px-3"
+          style="height:31px;"
           title="When on, participants can also sign their own row from their phone via the T3 Attendance Form link on a scheduled training day.">
       {{ csrf_field()|safe }}
-      <i class="bi bi-pen me-2"></i>
-      <input class="form-check-input mt-0 me-2" style="cursor:pointer" type="checkbox" role="switch"
-             id="eSignatureToggle" {{ 'checked' if s.e_signature_enabled }} onchange="this.form.submit()">
-      <label class="form-check-label small" for="eSignatureToggle">e-Signature</label>
+      <i class="bi bi-pen text-muted"></i>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" style="cursor:pointer" type="checkbox" role="switch"
+               id="eSignatureToggle" {{ 'checked' if s.e_signature_enabled }} onchange="this.form.submit()">
+        <label class="form-check-label small" for="eSignatureToggle">e-Signature</label>
+      </div>
     </form>
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
       <i class="bi bi-robot me-1"></i>AI Match Attendance

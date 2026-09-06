@@ -76,17 +76,58 @@ def _rating_color(index, count):  # noqa: ARG001 - count kept for call-site symm
     return _RATING_PALETTE[index % len(_RATING_PALETTE)]
 
 
-def _truncate(text, max_len=42):
-    text = text or ""
-    return text if len(text) <= max_len else text[: max_len - 1].rstrip() + "…"
+_MEASURE_DRAW = None
+
+
+def _text_width_px(text, font_path, font_size_px):
+    """Approximate rendered width of `text` at `font_size_px` in the given
+    font (measured via the same Poppins TTF wkhtmltopdf will actually use,
+    loaded through Pillow purely for its text-metrics — nothing is drawn).
+    Used to word-wrap long SVG chart labels, which never wrap on their own;
+    not pixel-perfect versus WebKit's own layout, but close enough to
+    choose safe wrap points."""
+    global _MEASURE_DRAW
+    if _MEASURE_DRAW is None:
+        _MEASURE_DRAW = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    font = ImageFont.truetype(font_path, max(1, round(font_size_px)))
+    return _MEASURE_DRAW.textlength(text, font=font)
+
+
+def _wrap_label(text, font_path, font_size_px, max_width_px):
+    """Greedy word-wrap for one SVG chart label — wraps onto as many lines
+    as it takes rather than cutting the text short, so a long option (e.g.
+    a full training title in a "choose all that interest you" checkbox
+    question) is always fully readable instead of ending in an ellipsis."""
+    words = (text or "").split()
+    if not words:
+        return [""]
+    lines, line = [], ""
+    for word in words:
+        candidate = f"{line} {word}".strip()
+        if not line or _text_width_px(candidate, font_path, font_size_px) <= max_width_px:
+            line = candidate
+        else:
+            lines.append(line)
+            line = word
+    if line:
+        lines.append(line)
+    return lines or [""]
 
 
 # --- Chart builders (return an inline <svg>...</svg> string) ---------------
 
-def svg_bar_chart(categories, counts, colors, width=500, height=190):
+def svg_bar_chart(categories, counts, colors, width=500, height=190, bar_width_ratio=0.5):
     """A small clustered vertical bar chart for one question — categories
     are always short here (a rating scale's own labels: Poor/Fair/Good/...,
-    or 1/2/3/4/5), so no label wrapping/truncation is needed."""
+    or 1/2/3/4/5), so no label wrapping/truncation is needed.
+
+    Each category gets an equal-width "slot" across the plot area (as
+    before), but the bar drawn inside that slot is only bar_width_ratio of
+    the slot's width (centered within it) rather than filling it — a
+    direct request to make the bars visually slimmer/less blocky, since a
+    bar spanning its whole slot read as too wide. Slot positions (and so
+    label/count spacing) are unchanged; only the bar rectangle itself
+    shrinks."""
     n = len(categories)
     if n == 0:
         return ""
@@ -95,21 +136,25 @@ def svg_bar_chart(categories, counts, colors, width=500, height=190):
     plot_w = width - margin_left - margin_right
     plot_h = height - margin_top - margin_bottom
     bar_gap = 14
-    bar_w = max((plot_w - bar_gap * (n - 1)) / n, 4)
+    slot_w = max((plot_w - bar_gap * (n - 1)) / n, 8)
+    bar_w = max(slot_w * bar_width_ratio, 4)
+    bar_x_offset = (slot_w - bar_w) / 2
     parts = []
     baseline_y = margin_top + plot_h
     parts.append(f'<line x1="{margin_left}" y1="{baseline_y:.1f}" x2="{width - margin_right}" '
                  f'y2="{baseline_y:.1f}" stroke="{RULE}" stroke-width="1"/>')
     for i, (cat, count) in enumerate(zip(categories, counts)):
         bar_h = (count / max_count) * plot_h if max_count else 0
-        x = margin_left + i * (bar_w + bar_gap)
+        slot_x = margin_left + i * (slot_w + bar_gap)
+        slot_center = slot_x + slot_w / 2
+        x = slot_x + bar_x_offset
         y = margin_top + (plot_h - bar_h)
         parts.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{max(bar_h, 0):.1f}" '
                      f'fill="{colors[i % len(colors)]}" rx="3"/>')
         if count:
-            parts.append(f'<text x="{x + bar_w / 2:.1f}" y="{y - 6:.1f}" font-size="11" fill="{INK}" '
+            parts.append(f'<text x="{slot_center:.1f}" y="{y - 6:.1f}" font-size="11" fill="{INK}" '
                          f'text-anchor="middle" font-family="Poppins,Arial,sans-serif">{count}</text>')
-        parts.append(f'<text x="{x + bar_w / 2:.1f}" y="{height - margin_bottom + 16:.1f}" font-size="10" '
+        parts.append(f'<text x="{slot_center:.1f}" y="{height - margin_bottom + 16:.1f}" font-size="10" '
                      f'fill="{MUTED}" text-anchor="middle" font-family="Poppins,Arial,sans-serif">'
                      f'{escape(cat)}</text>')
     return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
@@ -121,25 +166,45 @@ def svg_hbar_chart(categories, counts, total_responses, width=500, row_h=22):
     labeled at the bar's end — for a pick-many (checkbox) question, or a
     single-choice question with too many options for a pie chart to stay
     readable. Percentages can add to more than 100% for a checkbox
-    question (a respondent can pick several), by design."""
+    question (a respondent can pick several), by design.
+
+    Category labels wrap onto as many lines as needed instead of being cut
+    short with an ellipsis — a checkbox question's options are often full
+    phrases (e.g. a training course title), and truncating one mid-word
+    made it unreadable. Rows grow taller to fit a wrapped label; the bar
+    and count/percentage stay vertically centered within that taller row."""
     n = len(categories)
     if n == 0:
         return ""
     max_count = max(counts) if counts and max(counts) > 0 else 1
     margin_left, margin_right = 210, 70
     plot_w = width - margin_left - margin_right
-    height = n * row_h + 8
+    label_font_size = 10.5
+    label_line_h = 12
+    label_max_width = margin_left - 16
+    bar_row_h = row_h - 7
+
+    wrapped_labels = [_wrap_label(cat, _FONT_REGULAR, label_font_size, label_max_width) for cat in categories]
+    row_heights = [max(row_h, len(lines) * label_line_h + 8) for lines in wrapped_labels]
+
     parts = []
-    for i, (cat, count) in enumerate(zip(categories, counts)):
-        y = 4 + i * row_h
+    y = 4
+    for cat_lines, count, rh in zip(wrapped_labels, counts, row_heights):
         bar_w = (count / max_count) * plot_w if max_count else 0
+        bar_y = y + (rh - bar_row_h) / 2
         pct = round(count / total_responses * 100) if total_responses else 0
-        parts.append(f'<text x="{margin_left - 8}" y="{y + row_h / 2 + 4:.1f}" font-size="10.5" fill="{INK}" '
-                     f'text-anchor="end" font-family="Poppins,Arial,sans-serif">{escape(_truncate(cat))}</text>')
-        parts.append(f'<rect x="{margin_left}" y="{y:.1f}" width="{max(bar_w, 0):.1f}" height="{row_h - 7}" '
+        label_block_h = len(cat_lines) * label_line_h
+        first_baseline = y + (rh - label_block_h) / 2 + label_line_h - 3
+        for li, line in enumerate(cat_lines):
+            parts.append(f'<text x="{margin_left - 8}" y="{first_baseline + li * label_line_h:.1f}" '
+                         f'font-size="{label_font_size}" fill="{INK}" text-anchor="end" '
+                         f'font-family="Poppins,Arial,sans-serif">{escape(line)}</text>')
+        parts.append(f'<rect x="{margin_left}" y="{bar_y:.1f}" width="{max(bar_w, 0):.1f}" height="{bar_row_h}" '
                      f'fill="{NAVY}" rx="2"/>')
-        parts.append(f'<text x="{margin_left + bar_w + 8:.1f}" y="{y + row_h / 2 + 4:.1f}" font-size="10.5" '
+        parts.append(f'<text x="{margin_left + bar_w + 8:.1f}" y="{bar_y + bar_row_h / 2 + 4:.1f}" font-size="10.5" '
                      f'fill="{MUTED}" font-family="Poppins,Arial,sans-serif">{count} ({pct}%)</text>')
+        y += rh
+    height = y + 4
     return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
             f'xmlns="http://www.w3.org/2000/svg">' + "".join(parts) + "</svg>")
 
@@ -535,12 +600,17 @@ def _build_content_html(ctx):
 body {{ font-family:'Poppins',Arial,sans-serif; font-size:13.8px; color:{INK}; margin:0; }}
 .section-heading {{ color:{NAVY}; font-size:15.3px; font-weight:700; text-transform:uppercase;
   letter-spacing:.02em; margin:0 0 10px; }}
-p {{ line-height:1.2; margin:0 0 10px; }}
+p {{ line-height:1.4; margin:0 0 10px; }}
 .muted {{ color:{MUTED}; }}
 table.plain {{ width:100%; border-collapse:collapse; margin-bottom:14px; page-break-inside:avoid; }}
 table.plain th, table.plain td {{ border:1px solid #cfcdc6; padding:6px 10px; text-align:left; font-size:11.5px; }}
 table.plain thead th {{ background:#333; color:#fff; font-weight:600; }}
 table.performance th {{ width:35%; background:#fff; color:{INK}; font-weight:700; }}
+/* Extra room below the performance table specifically — it's immediately
+   followed by the first rating chart's own section heading (often named
+   "Overall Evaluation" by the Form itself), which otherwise sat right
+   against the table above it. */
+table.performance {{ margin-bottom:28px; }}
 td.num, th.num {{ width:34px; text-align:center; }}
 table.answers {{ width:100%; border-collapse:collapse; margin:14px 0; page-break-inside:avoid; }}
 table.answers th {{ background:#333; color:#fff; font-weight:600; text-align:center; padding:7px 10px; font-size:11px; }}

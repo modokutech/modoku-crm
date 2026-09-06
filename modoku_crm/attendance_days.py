@@ -125,6 +125,28 @@ def clear_all_days(participant_id):
     db.execute("UPDATE t3_participants SET attended = 0 WHERE id = ?", (participant_id,))
 
 
+def signatures_by_participant(session_id):
+    """participant_id -> {training_date_iso: signature_file} map of every
+    captured e-signature on file for this session. Used by the staff
+    Manage Participants page (a small pen icon per scheduled day) and the
+    printable/emailed T3 Attendance Form (embedding the actual signature
+    image in the Signature* column for any day a participant e-signed,
+    instead of leaving that cell blank for a pen-and-paper signature —
+    since HRDCorp's own T3/01 form just needs *a* signature, and one
+    captured electronically is one the trainee already provided)."""
+    rows = db.query(
+        """SELECT tda.participant_id, tda.training_date, tda.signature_file
+           FROM t3_day_attendance tda
+           JOIN t3_participants p ON p.id = tda.participant_id
+           WHERE p.session_id = ?""",
+        (session_id,),
+    )
+    result = {}
+    for row in rows:
+        result.setdefault(row["participant_id"], {})[row["training_date"]] = row["signature_file"]
+    return result
+
+
 def _sync_attended_rollup(participant_id, session_id):
     session_row = db.query("SELECT * FROM course_sessions WHERE id = ?", (session_id,), one=True)
     if session_row is None:

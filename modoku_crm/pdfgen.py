@@ -44,6 +44,18 @@ def _user_signature_data_uri(signature_file, user_id):
     return _data_uri(path)
 
 
+def _t3_signature_data_uri(session_id, signature_file):
+    """Same idea as _user_signature_data_uri, for a captured T3 e-signature
+    PNG (see t3._t3_signature_dir) — embedded straight into the emailed T3
+    Attendance Form PDF so a trainee who already e-signed on the
+    Attendance Form doesn't need to sign this official HRDCorp claim
+    document again by hand."""
+    if not signature_file:
+        return ""
+    path = os.path.join(current_app.config["UPLOAD_FOLDER"], "sessions", str(session_id), "signatures", signature_file)
+    return _data_uri(path)
+
+
 def _linelist_html(text, ordered=False):
     """Python equivalent of the `linelist` Jinja filter, for use outside a
     Jinja render (wkhtmltopdf gets raw HTML strings, not a template)."""
@@ -903,7 +915,8 @@ def generate_certificate_pdf(fullname, course_title, date_range):
     return buf.getvalue()
 
 
-def _build_t3_form_html(session_row, participants, training_days, extra_blank_rows=0):
+def _build_t3_form_html(session_row, participants, training_days, extra_blank_rows=0,
+                         signatures_by_participant=None):
     """Self-contained HTML for the printable T3 (PSMB/SBL-KHAS/T3/01)
     Attendance List — same layout as templates/sessions/t3_attendance_form.html,
     reimplemented here with inline CSS instead of reusing that Jinja
@@ -919,17 +932,20 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
     matching the on-screen version's per-day sheets for multi-day
     trainings. Participant-supplied fields (name, employer, IC no. —
     entered via the public T3 form) are HTML-escaped since they're the one
-    part of this document that isn't staff-typed."""
+    part of this document that isn't staff-typed.
+
+    signatures_by_participant is the {participant_id: {training_date_iso:
+    signature_file}} map from attendance_days.signatures_by_participant()
+    — when a participant e-signed for a given day, that day's Signature*
+    cell embeds the actual captured signature (as a base64 data URI, since
+    wkhtmltopdf has no login session or guaranteed network access to fetch
+    it any other way) instead of being left blank for a pen signature.
+    Because signature presence varies by day, participant rows are now
+    built once per page rather than shared across every page."""
     course_title = escape(session_row["course_title"] or "")
     session_code = escape(session_row["session_code"] or "")
+    signatures_by_participant = signatures_by_participant or {}
 
-    participant_rows = "".join(
-        f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
-        f"<td>{escape(p['employer_name'] or '')}</td><td>{escape(p['ic_no'] or '')}</td>"
-        f"<td>{escape(p['citizenship'] or 'Malaysian')}</td>"
-        f"<td style='text-align:center'>{escape((p['gender'] or '')[:1])}</td><td></td></tr>"
-        for i, p in enumerate(participants, start=1)
-    )
     # At least 6 rows total, plus any extra blank rows the user asked for
     # (e.g. for last-minute walk-in participants to fill in by hand).
     blank_row_count = max(0, 6 - len(participants)) + max(0, extra_blank_rows)
@@ -941,9 +957,24 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
     pages = []
     for idx, day in enumerate(training_days):
         day_label = _fmtdate(day.isoformat())
+        day_iso = day.isoformat()
         if len(training_days) > 1:
             day_label += f" (Day {idx + 1})"
         page_style = "page-break-before: always;" if idx > 0 else ""
+
+        participant_rows = ""
+        for i, p in enumerate(participants, start=1):
+            sig_file = signatures_by_participant.get(p["id"], {}).get(day_iso)
+            sig_cell = (f"<img src='{_t3_signature_data_uri(session_row['id'], sig_file)}' "
+                        f"style='max-height:26px;max-width:100%'>") if sig_file else ""
+            participant_rows += (
+                f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
+                f"<td>{escape(p['employer_name'] or '')}</td><td>{escape(p['ic_no'] or '')}</td>"
+                f"<td>{escape(p['citizenship'] or 'Malaysian')}</td>"
+                f"<td style='text-align:center'>{escape((p['gender'] or '')[:1])}</td>"
+                f"<td style='text-align:center'>{sig_cell}</td></tr>"
+            )
+
         pages.append(f"""
         <div class="t3-page" style="{page_style}">
           <div class="code-stamp">{session_code}</div>
@@ -1062,14 +1093,19 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
 <body>{pages_html}</body></html>"""
 
 
-def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_rows=0):
+def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_rows=0,
+                          signatures_by_participant=None):
     """Returns portrait A4 PDF bytes for the printable T3 (PSMB/SBL-KHAS/T3/01)
     Attendance List — used to email the current form straight to the
     trainer when the client hasn't filled the online version, so they can
     print it and get it signed manually (see sessions.email_t3_form).
     extra_blank_rows adds extra empty rows on top of the usual minimum, for
-    last-minute walk-in participants to fill in by hand."""
-    html = _build_t3_form_html(session_row, participants, training_days, extra_blank_rows=extra_blank_rows)
+    last-minute walk-in participants to fill in by hand. signatures_by_participant
+    (from attendance_days.signatures_by_participant) fills in any day a
+    participant already e-signed on the online Attendance Form, so that
+    day's Signature* cell doesn't also need a pen signature."""
+    html = _build_t3_form_html(session_row, participants, training_days, extra_blank_rows=extra_blank_rows,
+                                signatures_by_participant=signatures_by_participant)
     with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as html_file:
         html_file.write(html)
         html_path = html_file.name
