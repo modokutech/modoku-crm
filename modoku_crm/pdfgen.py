@@ -13,7 +13,7 @@ from io import BytesIO
 
 from flask import current_app
 from markupsafe import escape
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 # The certificate's signee — a fixed company signatory (not the logged-in
@@ -33,6 +33,37 @@ def _data_uri(path):
         return ""
 
 
+def _data_uri_from_bytes(data, mimetype):
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mimetype};base64,{encoded}"
+
+
+def _bolden_signature_bytes(data, size=7):
+    """Thickens a captured e-signature's ink strokes by dilating its alpha
+    channel. The signature pad draws dark ink on a fully transparent
+    canvas background (no fillRect clear), so alpha *is* the "how much ink
+    is here" channel — running a max-filter over it grows the opaque
+    stroke outward in every direction, exactly like dilating a mask, while
+    leaving the ink's own colour untouched. Needed because the pad's
+    default line width reads as thin/faint once printed small on the
+    official T3 Attendance Form, and a signature already captured can't
+    be redrawn — so this is applied wherever it's embedded instead.
+    `size` (an odd max-filter kernel width) is deliberately larger than a
+    typical "sharpen" radius: the source canvas capture is comfortably
+    higher-resolution than the ~30px-tall cell it ends up displayed in, so
+    a small dilation would simply disappear on that downscale."""
+    try:
+        img = Image.open(BytesIO(data)).convert("RGBA")
+    except Exception:  # noqa: BLE001 - fall back to the original image rather than fail the whole form
+        return data
+    r, g, b, a = img.split()
+    a = a.filter(ImageFilter.MaxFilter(size))
+    boldened = Image.merge("RGBA", (r, g, b, a))
+    buf = BytesIO()
+    boldened.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _logo_data_uri():
     return _data_uri(os.path.join(current_app.root_path, "static", "img", "logo.png"))
 
@@ -44,16 +75,29 @@ def _user_signature_data_uri(signature_file, user_id):
     return _data_uri(path)
 
 
-def _t3_signature_data_uri(session_id, signature_file):
+def t3_signature_data_uri(session_id, signature_file):
     """Same idea as _user_signature_data_uri, for a captured T3 e-signature
-    PNG (see t3._t3_signature_dir) — embedded straight into the emailed T3
-    Attendance Form PDF so a trainee who already e-signed on the
-    Attendance Form doesn't need to sign this official HRDCorp claim
-    document again by hand."""
+    PNG (see t3._t3_signature_dir) — embedded into both the emailed T3
+    Attendance Form PDF and the on-screen/print version (sessions.py) so a
+    trainee who already e-signed on the Attendance Form doesn't need to
+    sign this official HRDCorp claim document again by hand. Not
+    underscore-prefixed since sessions.py calls this directly too (for the
+    live page) rather than only pdfgen.py's own PDF builder.
+
+    The image is boldened (see _bolden_signature_bytes) before encoding —
+    a raw capture reads too thin/faint once printed small on the actual
+    form — but the original file on disk is left untouched, so the
+    staff-only audit view (t3.view_signature) still shows exactly what was
+    captured."""
     if not signature_file:
         return ""
     path = os.path.join(current_app.config["UPLOAD_FOLDER"], "sessions", str(session_id), "signatures", signature_file)
-    return _data_uri(path)
+    try:
+        with open(path, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return ""
+    return _data_uri_from_bytes(_bolden_signature_bytes(raw), "image/png")
 
 
 def _linelist_html(text, ordered=False):
@@ -965,8 +1009,10 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
         participant_rows = ""
         for i, p in enumerate(participants, start=1):
             sig_file = signatures_by_participant.get(p["id"], {}).get(day_iso)
-            sig_cell = (f"<img src='{_t3_signature_data_uri(session_row['id'], sig_file)}' "
-                        f"style='max-height:26px;max-width:100%'>") if sig_file else ""
+            # 31px = 26px + 20%, per request that the embedded signature
+            # reads too tiny/small on the printed form.
+            sig_cell = (f"<img src='{t3_signature_data_uri(session_row['id'], sig_file)}' "
+                        f"style='max-height:31px;max-width:100%'>") if sig_file else ""
             participant_rows += (
                 f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
                 f"<td>{escape(p['employer_name'] or '')}</td><td>{escape(p['ic_no'] or '')}</td>"

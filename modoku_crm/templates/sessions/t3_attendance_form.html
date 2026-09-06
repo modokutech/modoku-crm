@@ -116,7 +116,7 @@
     </thead>
     <tbody>
       {% for p in participants %}
-      {% set sig = signatures_by_participant.get(p.id, {}).get(day.isoformat()) %}
+      {% set sig = signature_data_uris.get(p.id, {}).get(day.isoformat()) %}
       <tr>
         <td class="text-center">{{ loop.index }}</td>
         <td>{{ p.name }}</td>
@@ -126,8 +126,11 @@
         <td class="text-center">{{ (p.gender or '')[:1] }}</td>
         <td class="text-center">
           {% if sig %}
-          <img src="{{ url_for('t3.view_signature', participant_id=p.id, training_date=day.isoformat()) }}"
-               alt="e-Signature" style="max-height:30px;max-width:100%;">
+          {# Boldened + 20% larger (36px, was 30px) — a raw capture read
+             too thin/faint once printed this small; see
+             pdfgen.t3_signature_data_uri. The staff-only audit view
+             (t3.view_signature) still shows the exact original file. #}
+          <img src="{{ sig }}" alt="e-Signature" style="max-height:36px;max-width:100%;">
           {% endif %}
         </td>
       </tr>

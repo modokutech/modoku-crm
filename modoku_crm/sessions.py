@@ -1071,13 +1071,24 @@ def t3_attendance_form(session_id):
     # never the saved participant list.
     extra_blank_rows = max(0, min(request.args.get("extra_blank_rows", 0, type=int) or 0, 50))
 
+    # Pre-render each captured e-signature as a boldened base64 data URI
+    # (same helper the emailed PDF uses — see pdfgen.t3_signature_data_uri)
+    # rather than pointing <img> at the staff-only audit route: that route
+    # serves the exact original capture (right, for an audit trail), but a
+    # raw capture reads too thin/faint printed this small, so the actual
+    # form embeds a boldened copy instead, computed once here.
+    signature_data_uris = {
+        pid: {day: pdfgen.t3_signature_data_uri(session_id, fname) for day, fname in days.items()}
+        for pid, days in signatures_by_participant.items()
+    }
+
     return render_template("sessions/t3_attendance_form.html", s=session_row, participants=participants,
                             training_days=training_days, mail_configured=mailer.is_configured(),
                             default_t3_form_email_subject=_default_t3_form_email_subject(session_row),
                             default_t3_form_email_body=_default_t3_form_email_body(session_row),
                             t3_form_pdf_filename=_t3_form_pdf_filename(session_row),
                             extra_blank_rows=extra_blank_rows,
-                            signatures_by_participant=signatures_by_participant)
+                            signature_data_uris=signature_data_uris)
 
 
 @bp.route("/<int:session_id>/email-t3-form", methods=("POST",))
