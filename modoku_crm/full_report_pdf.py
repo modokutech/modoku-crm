@@ -26,14 +26,14 @@ that no other document here does.
 Charts are hand-built inline SVG (bar / horizontal-bar / pie) — no
 charting library needed, and wkhtmltopdf's WebKit renders plain SVG
 without issue. Colours: rating charts (Poor..Excellent, or any other
-worded/numeric scale) use a red-to-green gradient keyed to the option's
-position in the scale, so "bad" and "good" are visually obvious at a
-glance — a deliberate improvement over pasting Google Sheets' arbitrary
-default series colours (blue/red/orange/green/purple) into the original
-hand-made reports, which don't read as a "bad to good" progression at
-all. Plain categorical choice questions (Yes/No/Not sure, a checkbox
-multi-select, ...) use Modoku's own secondary palette instead, since
-there's no inherent order to colour by.
+worded/numeric scale) use the same fixed per-position colours as Google
+Forms' own response-summary charts (blue/red/orange/green/purple —
+_RATING_PALETTE below, sampled from a real Forms chart legend), keyed to
+each option's position in the scale, so the report's bars match what
+staff already see when they open the Form itself. Plain categorical
+choice questions (Yes/No/Not sure, a checkbox multi-select, ...) use
+Modoku's own secondary palette instead, since there's no inherent order
+to colour by.
 """
 import io
 import math
@@ -57,32 +57,23 @@ RULE = "#E4E2DC"
 # qualitative (non-ordered) chart palette for plain categorical questions.
 CATEGORICAL_PALETTE = [NAVY, GOLD, "#247EFF", "#F43FC1", MUTED, "#0090D0"]
 
-# A red -> orange -> yellow -> light-green -> green diverging scale
-# (ColorBrewer's "RdYlGn"), rather than a direct two-colour red-to-green
-# blend — a straight red/green lerp passes through a muddy, unreadable
-# brown at the midpoint, which a proper multi-stop "bad to good" scale
-# avoids.
-_GRADIENT_STOPS = [
-    (0.0, (215, 48, 39)),
-    (0.25, (252, 141, 89)),
-    (0.5, (254, 224, 139)),
-    (0.75, (145, 207, 96)),
-    (1.0, (26, 152, 80)),
-]
+# Fixed per-position colours for a rating scale's bars — Poor/Uncertain/
+# Fair/Good/Excellent (or however many points a given scale actually has),
+# always assigned worst-to-best by POSITION, never by which options
+# happened to receive votes. Sampled directly from a real Google Forms
+# response-summary chart's own legend (blue/red/orange/green/purple), per
+# a direct request to match that familiar look rather than an invented
+# "bad to good" gradient. A scale longer than 5 points (rare for a rating
+# question) wraps rather than erroring.
+_RATING_PALETTE = ["#426ac3", "#cd4a2b", "#f29c3c", "#499634", "#8c2594"]
 
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 
 
-def _gradient_color(index, count):
-    """A red -> yellow -> green hex colour for position `index` of `count`
-    ordered categories (0 = worst/reddest, count-1 = best/greenest)."""
-    t = 0.5 if count <= 1 else index / (count - 1)
-    for (t0, c0), (t1, c1) in zip(_GRADIENT_STOPS, _GRADIENT_STOPS[1:]):
-        if t0 <= t <= t1:
-            local_t = 0 if t1 == t0 else (t - t0) / (t1 - t0)
-            rgb = tuple(round(a + (b - a) * local_t) for a, b in zip(c0, c1))
-            return "#{:02x}{:02x}{:02x}".format(*rgb)
-    return "#{:02x}{:02x}{:02x}".format(*_GRADIENT_STOPS[-1][1])
+def _rating_color(index, count):  # noqa: ARG001 - count kept for call-site symmetry/future use
+    """The fixed palette colour for position `index` of a rating scale (0 =
+    worst, count-1 = best) — see _RATING_PALETTE above."""
+    return _RATING_PALETTE[index % len(_RATING_PALETTE)]
 
 
 def _truncate(text, max_len=42):
@@ -210,7 +201,7 @@ def _chart_for_question(q):
             n = len(scale)
             order = {label.lower(): i for i, label in enumerate(scale)}
             ordered = sorted(dist, key=lambda d: order.get(d["option"].strip().lower(), 999))
-            colors = [_gradient_color(order.get(d["option"].strip().lower(), 0), n) for d in ordered]
+            colors = [_rating_color(order.get(d["option"].strip().lower(), 0), n) for d in ordered]
         else:
             # No worded scale (a plain numeric 1-5 "scale" question, or a
             # choice_numeric question) — order low to high by value, and
@@ -223,7 +214,7 @@ def _chart_for_question(q):
                 except ValueError:
                     return 0
             ordered = sorted(dist, key=_num)
-            colors = [_gradient_color(i, len(ordered)) for i in range(len(ordered))]
+            colors = [_rating_color(i, len(ordered)) for i in range(len(ordered))]
         categories = [d["option"] for d in ordered]
         counts = [d["count"] for d in ordered]
         return svg_bar_chart(categories, counts, colors)
@@ -265,6 +256,13 @@ _FONT_LIGHT = os.path.join(_FONT_DIR, "Poppins-Light.ttf")
 _FONT_REGULAR = os.path.join(_FONT_DIR, "Poppins-Regular.ttf")
 _FONT_ITALIC = os.path.join(_FONT_DIR, "Poppins-Italic.ttf")
 _FONT_BOLD = os.path.join(_FONT_DIR, "Poppins-Bold.ttf")
+# Georgia itself is a proprietary Microsoft font with no redistributable
+# file available to bundle here, so the cover's italic "for" uses DejaVu
+# Serif Italic instead — a real, freely-licensed serif italic (already
+# used nowhere else in this app) that reads the same way Georgia Italic
+# would in this one-word spot. Swap in an actual Georgia Italic .ttf here
+# if one becomes available.
+_FONT_GEORGIA_ITALIC = os.path.join(_FONT_DIR, "DejaVuSerif-Italic.ttf")
 
 
 def _hex_to_rgb(hex_color):
@@ -325,7 +323,7 @@ def _build_cover_pdf(course_title, date_range, client_name):
     title_font = _cover_font(_FONT_BOLD, 22)
     date_font = _cover_font(_FONT_LIGHT, 12)
     label_font = _cover_font(_FONT_REGULAR, 14)
-    for_font = _cover_font(_FONT_ITALIC, 11)
+    for_font = _cover_font(_FONT_GEORGIA_ITALIC, 11)
     client_font = _cover_font(_FONT_BOLD, 16)
     company_font = _cover_font(_FONT_REGULAR, 10)
 
@@ -337,13 +335,16 @@ def _build_cover_pdf(course_title, date_range, client_name):
     if client_name:
         _cover_center(draw, y + 3, client_name, client_font, "white", max_width_mm=160)
 
+    # Logo sized 20% larger than before and moved down to sit close above
+    # "Modoku Tech Sdn Bhd" (rather than floating alone with a lot of empty
+    # space beneath it), per request.
     logo_path = os.path.join(os.path.dirname(__file__), "static", "img", "logo.png")
     try:
         logo = Image.open(logo_path).convert("RGBA")
-        logo_w_px = round(_cover_mm(24))
+        logo_w_px = round(_cover_mm(24 * 1.2))
         logo_h_px = round(logo.height * (logo_w_px / logo.width))
         logo = logo.resize((logo_w_px, logo_h_px))
-        img.paste(logo, (round((_COVER_W_PX - logo_w_px) / 2), round(_cover_mm(217))), logo)
+        img.paste(logo, (round((_COVER_W_PX - logo_w_px) / 2), round(_cover_mm(241))), logo)
     except OSError:
         pass
     _cover_center(draw, 262, "Modoku Tech Sdn Bhd", company_font, (222, 227, 245))
@@ -402,7 +403,11 @@ def _build_page_overlay_pdf():
     c.setFont(footer_font, 8)
     left_lines = ["Level 30, Menara Prestige", "1, Jalan Pinang", "50450 Kuala Lumpur"]
     right_lines = ["+603 2728 1035", "hello@modoku.tech", "www.modoku.tech"]
-    base_y = 15 * mm
+    # Lifted further off the physical bottom edge than the logo's own top
+    # gap (was flush enough to look cramped) — the content pages' own
+    # margin-bottom (see build_full_report_pdf) leaves the matching room
+    # above this block.
+    base_y = 20 * mm
     line_gap = 4 * mm
     for i, (left, right) in enumerate(zip(left_lines, right_lines)):
         y = base_y - i * line_gap
@@ -527,10 +532,10 @@ def _build_content_html(ctx):
 <style>
 {_font_face_css()}
 * {{ box-sizing:border-box; }}
-body {{ font-family:'Poppins',Arial,sans-serif; font-size:12.5px; color:{INK}; margin:0; }}
-.section-heading {{ color:{NAVY}; font-size:14px; font-weight:700; text-transform:uppercase;
+body {{ font-family:'Poppins',Arial,sans-serif; font-size:13.8px; color:{INK}; margin:0; }}
+.section-heading {{ color:{NAVY}; font-size:15.3px; font-weight:700; text-transform:uppercase;
   letter-spacing:.02em; margin:0 0 10px; }}
-p {{ line-height:1.6; margin:0 0 10px; }}
+p {{ line-height:1.2; margin:0 0 10px; }}
 .muted {{ color:{MUTED}; }}
 table.plain {{ width:100%; border-collapse:collapse; margin-bottom:14px; page-break-inside:avoid; }}
 table.plain th, table.plain td {{ border:1px solid #cfcdc6; padding:6px 10px; text-align:left; font-size:11.5px; }}
@@ -579,13 +584,16 @@ def build_full_report_pdf(ctx):
     from pypdf import PdfReader, PdfWriter
 
     cover_pdf = _build_cover_pdf(ctx["course_title"], ctx["date_range"], ctx["client_name"])
-    # Margins sized to leave exactly enough blank room for the logo+footer
-    # overlay stamped onto every content page below (see
-    # _build_page_overlay_pdf for why it's a post-process stamp rather than
-    # a wkhtmltopdf --header-html/--footer-html render).
+    # Margins sized to leave enough blank room for the logo+footer overlay
+    # stamped onto every content page below (see _build_page_overlay_pdf
+    # for why it's a post-process stamp rather than a wkhtmltopdf
+    # --header-html/--footer-html render) PLUS a bit of extra breathing
+    # room past the logo/footer themselves, so a heading like "Foreword"
+    # never sits flush against the logo and the footer never sits flush
+    # against the last line of content.
     content_pdf = _render_pdf(
         _build_content_html(ctx),
-        extra_args=["--margin-top", "26mm", "--margin-bottom", "24mm",
+        extra_args=["--margin-top", "34mm", "--margin-bottom", "28mm",
                     "--margin-left", "18mm", "--margin-right", "18mm"],
     )
     overlay_pdf = _build_page_overlay_pdf()

@@ -3,7 +3,7 @@
 {% block guest_content %}
 <div class="auth-wrap" style="align-items:flex-start;padding-top:40px;padding-bottom:40px;overflow-y:auto;">
   <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
-  <div class="card auth-card p-4 shadow mb-4" style="max-width:900px;">
+  <div class="card auth-card p-4 shadow mb-4" style="max-width:900px;margin:0 14px;">
     <div class="text-center mb-3">
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
       <h4 class="login-title mb-0">T3 Attendance Form</h4>
@@ -15,7 +15,22 @@
       {% if s.venue %}<div class="small text-muted">{{ s.venue }}</div>{% endif %}
     </div>
 
-    {% if editable %}
+    {# On a training day with e-Signature on, this page's only job is
+       signing — the participant-list management UI below (the instructions
+       paragraph, Add Participant, CSV upload, Edit/Delete) is a completely
+       different job for a different moment (the PIC keeping the list
+       current before training day) and is hidden entirely here, even
+       though t3_form_is_editable() can still technically return True on
+       the class's own start date. #}
+    {% set show_management_controls = editable and not e_sign_open %}
+
+    {% if e_sign_open %}
+    <div class="alert alert-info small mb-3">
+      <i class="bi bi-pen me-1"></i>Today is a training day for this class — find your name below and tap
+      <strong>Sign</strong> to confirm your own attendance from your phone. You'll be asked to re-enter your
+      IC number so we know it's really you.
+    </div>
+    {% elif show_management_controls %}
       {% if remaining is not none and remaining <= 0 %}
       <div class="alert alert-warning small mb-3">
         <i class="bi bi-exclamation-triangle me-1"></i>This class's attendance list is full
@@ -26,30 +41,26 @@
         list is what our office and trainer will use, so please keep it up to date.
         {% if remaining is not none %}Room for {{ remaining }} more (of {{ s.capacity }} pax).{% endif %}</p>
       {% endif %}
-    {% else %}
+    {% elif not editable %}
     <div class="alert alert-warning small mb-3">
       <i class="bi bi-lock-fill me-1"></i>This list is now locked — training has started or this class has
       been cancelled. Contact us if you need a change.
     </div>
     {% endif %}
 
-    {% if e_sign_open %}
-    <div class="alert alert-info small mb-3">
-      <i class="bi bi-pen me-1"></i>Today is a training day for this class — find your name below and tap
-      <strong>Sign</strong> to confirm your own attendance from your phone. You'll be asked to re-enter your
-      IC number so we know it's really you.
-    </div>
-    {% endif %}
-
-    {% set colspan = 4 + (1 if editable else 0) + (1 if e_sign_open else 0) %}
+    {# IC No. is deliberately never shown in this table — anyone with the
+       (unauthenticated, shareable) link could otherwise read a
+       participant's IC number and use it to sign in as them; it stays in
+       the Add/Edit forms below, since typing it in is a different thing
+       from having it sit there readable by everyone. #}
+    {% set colspan = 3 + (1 if show_management_controls else 0) + (1 if e_sign_open else 0) %}
     <div class="table-responsive mb-3">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if editable %}<th></th>{% endif %}</tr></thead>
+        <thead><tr><th>Name</th><th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if show_management_controls %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for p in participants %}
           <tr>
             <td>{{ p.name }}</td>
-            <td>{{ p.ic_no or '-' }}</td>
             <td>{{ p.employer_name or '-' }}</td>
             <td>{{ p.gender or '-' }}</td>
             {% if e_sign_open %}
@@ -61,7 +72,7 @@
               {% endif %}
             </td>
             {% endif %}
-            {% if editable %}
+            {% if show_management_controls %}
             <td class="text-end text-nowrap">
               <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit-{{ p.id }}">Edit</button>
               <form method="post" action="{{ url_for('t3_public.delete', token=token, participant_id=p.id) }}" class="d-inline" onsubmit="return confirm('Remove {{ p.name }} from the list?');">
@@ -95,7 +106,7 @@
             </td>
           </tr>
           {% endif %}
-          {% if editable %}
+          {% if show_management_controls %}
           <tr class="collapse" id="edit-{{ p.id }}">
             <td colspan="{{ colspan }}" class="bg-light">
               <form method="post" action="{{ url_for('t3_public.edit', token=token, participant_id=p.id) }}" class="row g-2 py-2">
@@ -121,7 +132,7 @@
       </table>
     </div>
 
-    {% if editable and (remaining is none or remaining > 0) %}
+    {% if show_management_controls and (remaining is none or remaining > 0) %}
     <form method="post" action="{{ url_for('t3_public.add', token=token) }}" class="row g-2">
       {{ csrf_field()|safe }}
       <div class="col-12"><label class="form-label small fw-semibold">Add participant</label></div>

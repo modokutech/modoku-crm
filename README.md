@@ -392,6 +392,20 @@ so that section always shows whichever report is current, automated or manual, a
 the manual upload/send buttons there keep working exactly as before for the times
 you'd still rather put a report together by hand.
 
+A few formatting notes on the finished PDF:
+- Every rating/choice chart uses a **fixed set of colours by position** (Poor/blue,
+  Uncertain/red, Fair/orange, Good/green, Excellent/purple) sampled from Google
+  Forms' own response-summary charts, so the report matches what staff already see
+  when they open the Form itself — not a colour that shifts with which options
+  happened to get votes.
+- The cover page's italic "for" is set in **DejaVu Serif Italic**, not Georgia.
+  Georgia is a proprietary Microsoft font with no redistributable file available
+  to bundle into the app, and this environment has no internet access to fetch an
+  open metric-compatible alternative either — DejaVu Serif Italic is the closest
+  freely-licensed serif italic available. Drop a real `Georgia Italic.ttf` into
+  `modoku_crm/static/fonts/` and update `_FONT_GEORGIA_ITALIC` in
+  `full_report_pdf.py` if you're able to source a properly licensed copy later.
+
 ## Setting up AI attendance matching (optional)
 
 When a trainer returns photo(s) of the signed T3 attendance sheet (via their "Return
