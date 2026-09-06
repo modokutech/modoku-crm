@@ -363,7 +363,13 @@ and Conclusion paragraphs are pre-filled by Claude (requires `ANTHROPIC_API_KEY`
 same key as the Training Report AI summary above) from the class's real course
 description, trainer, dates, and — for the Conclusion — the exact numbers already
 computed on the Training Report, written in Modoku's own established style rather
-than generic AI phrasing. Everything else in the finished PDF (participant list,
+than generic AI phrasing. When a course has an **uploaded outline/syllabus file**
+(the same "Course Outline" upload used elsewhere, PDF or image), the Objective
+paragraph is drafted by having Claude read that file directly and summarize what
+it actually covers — so it stays aligned with the real outline rather than the
+shorter Course Description field — falling back to that description (a Word/Excel
+outline can't be read this way) whenever there's no outline on file or that read
+fails for any reason. Everything else in the finished PDF (participant list,
 ratings, every chart, every open-text table) is pulled fresh from the evaluation
 data at send time — never something AI writes.
 

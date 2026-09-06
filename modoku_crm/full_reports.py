@@ -33,13 +33,16 @@ regenerating after that is refused; a real correction goes through that
 same manual-upload button instead. See the module docstring in
 full_report_pdf.py for how the PDF itself is built.
 """
+import json
 import os
 import uuid
 
+import requests
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for, Response
 
-from . import activity, db, full_report_pdf, mailer, training_reports
+from . import activity, courses, db, doc_sanity, full_report_pdf, mailer, training_reports
 from . import fmtdaterange
+from .ai_match import ANTHROPIC_API_URL, ANTHROPIC_API_VERSION
 from .auth import login_required
 
 bp = Blueprint("full_reports", __name__, url_prefix="/training-report")
@@ -65,7 +68,7 @@ def _attendance_dir(session_id):
 def _session_context(session_id):
     return db.query(
         """SELECT cs.*, c.title AS course_title, c.description AS course_description,
-                  c.duration_days AS course_duration_days,
+                  c.duration_days AS course_duration_days, c.outline_file AS course_outline_file,
                   t.name AS trainer_name, cl.name AS client_name, cl.email AS client_email,
                   pic.name AS pic_name, pic.email AS pic_email
            FROM course_sessions cs
@@ -156,32 +159,123 @@ def _generate_foreword(session_row):
     return text or None
 
 
+_OBJECTIVE_EXAMPLE = (
+    "\"The Office 365 PowerUser training program equips participants with advanced skills to "
+    "maximize the use of Microsoft 365 applications for greater productivity and collaboration. "
+    "Through practical, hands-on exercises, participants will learn to integrate and leverage tools "
+    "such as Outlook, Teams, OneDrive, SharePoint, and Excel to streamline workflows and enhance "
+    "workplace efficiency.\n\nThis comprehensive program is designed for professionals who already "
+    "have a basic understanding of Microsoft Office and wish to elevate their capabilities to a more "
+    "strategic, power-user level.\n\nBy the end of the course, attendees will be able to confidently "
+    "apply their new skills to manage tasks, collaborate effectively across departments, and "
+    "optimize daily operations.\""
+)
+_OBJECTIVE_STYLE_RULES = (
+    "Vary your wording and structure naturally rather than reusing a fixed template every time. "
+    "Avoid bombastic or obviously AI-generated language. 2-3 short paragraphs. Reply with ONLY a "
+    "JSON object, nothing else: {\"text\": \"paragraph one\\n\\nparagraph two\"}"
+)
+
+
+def _call_claude_json_with_document(prompt, content_block, max_tokens=700):
+    """Like training_reports._call_claude_json, but the message also hands
+    Claude a document to actually read (a base64 PDF/image content block —
+    see doc_sanity._content_block, reused here) rather than relying purely
+    on text already typed into the database. Only _generate_objective uses
+    this, when the course has an outline file Claude can read; raises on
+    any failure exactly like _call_claude_json, so callers keep the same
+    try/except-and-fall-back-to-plain-text pattern."""
+    api_key = current_app.config.get("ANTHROPIC_API_KEY")
+    response = requests.post(
+        ANTHROPIC_API_URL,
+        timeout=45,
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": ANTHROPIC_API_VERSION,
+            "content-type": "application/json",
+        },
+        json={
+            "model": current_app.config.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": [content_block, {"type": "text", "text": prompt}]}],
+        },
+    )
+    response.raise_for_status()
+    text = response.json()["content"][0]["text"].strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if "\n" in text:
+            text = text.split("\n", 1)[1]
+    return json.loads(text)
+
+
+def _outline_content_block(session_row):
+    """A Claude document/image content block for this course's uploaded
+    outline file (courses.outline_file), or None when there isn't one, it's
+    not a file Claude can visually read (e.g. Word/Excel — only PDF/image
+    are supported, same limitation as doc_sanity's upload sanity-checks),
+    or it's missing on disk. Never raises."""
+    outline_file = session_row["course_outline_file"] if "course_outline_file" in session_row.keys() else None
+    if not outline_file:
+        return None
+    try:
+        path = os.path.join(courses._course_upload_dir(session_row["course_id"]), outline_file)
+        if not os.path.isfile(path):
+            return None
+        return doc_sanity._content_block(path)
+    except Exception:  # noqa: BLE001 - a bad/unreadable outline file must never break drafting
+        current_app.logger.exception("Couldn't read course outline file for course %s", session_row["course_id"])
+        return None
+
+
 def _generate_objective(session_row):
+    """Writes the Objective section — grounded in the course's actual
+    uploaded outline document when Claude can read one (PDF/image), so it
+    aligns with what the outline really covers rather than the shorter
+    courses.description field; falls back to that description (or, absent
+    even that, the bare course title) when there's no outline file, it's a
+    format Claude can't read (e.g. Word), or the outline-based call fails
+    for any reason."""
     description = (session_row["course_description"] or "").strip() if \
         "course_description" in session_row.keys() else ""
     description_line = description or ("(no description on file for this course — write a brief, "
                                          "plausible objective from the course title alone, without "
                                          "inventing specific tools/techniques the course may not cover)")
+
+    outline_block = _outline_content_block(session_row)
+    if outline_block is not None:
+        outline_prompt = (
+            "You write the \"Objective\" section of Modoku Tech Sdn Bhd's post-training evaluation "
+            "reports — 2-3 short paragraphs describing what the course equips participants to do. A "
+            "real example, purely as a style/length reference (a different course — do not reuse its "
+            "specific content):\n\n" + _OBJECTIVE_EXAMPLE + "\n\n"
+            "Attached is this course's actual outline/syllabus document. Read it and write the "
+            "Objective section for this course:\n"
+            f"Course: {session_row['course_title']}\n\n"
+            "Base the content on what the attached outline actually covers — its real topics, skills, "
+            "and target audience — never invent a capability, tool, or audience the outline doesn't "
+            "actually mention. " + _OBJECTIVE_STYLE_RULES
+        )
+        try:
+            parsed = _call_claude_json_with_document(outline_prompt, outline_block, max_tokens=700)
+            text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
+            if text:
+                return text
+        except Exception:  # noqa: BLE001 - fall back to the plain-text prompt below
+            current_app.logger.exception(
+                "Outline-based Objective generation failed for course %s — falling back to description",
+                session_row["course_id"],
+            )
+
     prompt = (
         "You write the \"Objective\" section of Modoku Tech Sdn Bhd's post-training evaluation reports — "
         "2-3 short paragraphs describing what the course equips participants to do. A real example, "
         "purely as a style/length reference (a different course — do not reuse its specific content):\n\n"
-        "\"The Office 365 PowerUser training program equips participants with advanced skills to "
-        "maximize the use of Microsoft 365 applications for greater productivity and collaboration. "
-        "Through practical, hands-on exercises, participants will learn to integrate and leverage tools "
-        "such as Outlook, Teams, OneDrive, SharePoint, and Excel to streamline workflows and enhance "
-        "workplace efficiency.\n\nThis comprehensive program is designed for professionals who already "
-        "have a basic understanding of Microsoft Office and wish to elevate their capabilities to a more "
-        "strategic, power-user level.\n\nBy the end of the course, attendees will be able to confidently "
-        "apply their new skills to manage tasks, collaborate effectively across departments, and "
-        "optimize daily operations.\"\n\n"
+        + _OBJECTIVE_EXAMPLE + "\n\n"
         "Now write the Objective section for this course:\n"
         f"Course: {session_row['course_title']}\n"
         f"Course description (base your content on this — never invent a capability it doesn't "
-        f"actually mention): {description_line}\n\n"
-        "Vary your wording and structure naturally rather than reusing a fixed template every time. "
-        "Avoid bombastic or obviously AI-generated language. 2-3 short paragraphs. Reply with ONLY a "
-        "JSON object, nothing else: {\"text\": \"paragraph one\\n\\nparagraph two\"}"
+        f"actually mention): {description_line}\n\n" + _OBJECTIVE_STYLE_RULES
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=700)
     text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
@@ -377,6 +471,30 @@ def _default_full_report_email_body(session_row):
     )
 
 
+def _build_pdf_or_raise(ctx, session_id, action):
+    """Wraps full_report_pdf.build_full_report_pdf with error handling
+    shared by approve_and_send and the preview route — same PDF, same
+    failure modes. Gives a specific, actionable message for the one
+    failure most likely right after this feature is first deployed
+    (pypdf — a brand-new dependency this feature introduced — not yet
+    installed on the server), and a generic one otherwise; either way the
+    real traceback is always logged so a persistent failure can be
+    diagnosed from the server log."""
+    try:
+        return full_report_pdf.build_full_report_pdf(ctx)
+    except ModuleNotFoundError as exc:
+        current_app.logger.exception("Full Report PDF %s failed for session %s (missing dependency)",
+                                      action, session_id)
+        raise FullReportError(
+            f"Couldn't build the report PDF — the server is missing a required Python package "
+            f"({exc.name or 'pypdf'}). An admin needs to run `pip install -r requirements.txt` "
+            "(and restart the app) to pick up the newest dependencies, then try again."
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Full Report PDF %s failed for session %s", action, session_id)
+        raise FullReportError("Couldn't build the report PDF — try again, or contact support if it keeps failing.") from exc
+
+
 def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id=None):
     """Renders the final PDF from the current saved draft + freshest data,
     saves it into course_sessions.evaluation_report_file (the same slot
@@ -417,11 +535,7 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
         "numeric_summary": report["numeric_summary"],
         "text_summary": report["text_summary"],
     }
-    try:
-        pdf_bytes = full_report_pdf.build_full_report_pdf(ctx)
-    except Exception as exc:  # noqa: BLE001
-        current_app.logger.exception("Full Report PDF generation failed for session %s", session_id)
-        raise FullReportError("Couldn't build the report PDF — try again, or contact support if it keeps failing.") from exc
+    pdf_bytes = _build_pdf_or_raise(ctx, session_id, "generation")
 
     stored_name = f"training_report_{uuid.uuid4().hex[:8]}.pdf"
     saved_path = os.path.join(_attendance_dir(session_id), stored_name)
@@ -512,7 +626,7 @@ def rewrite(session_id, section):
     return redirect(url_for("full_reports.edit", session_id=session_id))
 
 
-@bp.route("/<int:session_id>/full/preview")
+@bp.route("/<int:session_id>/full/preview", methods=("GET", "POST"))
 @login_required
 def preview(session_id):
     session_row = _session_context(session_id)
@@ -520,6 +634,18 @@ def preview(session_id):
     if session_row is None or full_report is None:
         flash("No draft to preview yet.", "danger")
         return redirect(url_for("training_reports.view", session_id=session_id))
+    if request.method == "POST" and not is_locked(full_report):
+        # The Preview button lives inside the same <form> as the three
+        # textareas — save whatever's currently typed first (same "save
+        # whatever's on screen" rule Rewrite/Approve use below) so the
+        # preview always matches what's on screen, not just the last
+        # explicit Save Draft click.
+        try:
+            save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
+                       request.form.get("conclusion_text", ""))
+            full_report = get_full_report(session_id)
+        except FullReportError:
+            pass  # e.g. locked by another tab just now — preview whatever's already on file instead
     report = training_reports.get_report(session_id) or {"response_count": 0, "numeric_summary": [], "text_summary": []}
     participants = _participant_names(session_id)
     client_name = session_row["client_name"] if "client_name" in session_row.keys() else None
@@ -539,10 +665,9 @@ def preview(session_id):
         "text_summary": report["text_summary"],
     }
     try:
-        pdf_bytes = full_report_pdf.build_full_report_pdf(ctx)
-    except Exception:  # noqa: BLE001
-        current_app.logger.exception("Full Report preview failed for session %s", session_id)
-        flash("Couldn't build a preview right now — try again in a moment.", "danger")
+        pdf_bytes = _build_pdf_or_raise(ctx, session_id, "preview")
+    except FullReportError as exc:
+        flash(str(exc), "danger")
         return redirect(url_for("full_reports.edit", session_id=session_id))
     return Response(pdf_bytes, mimetype="application/pdf",
                      headers={"Content-Disposition": "inline; filename=training-report-preview.pdf"})
