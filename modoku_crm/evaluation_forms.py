@@ -158,7 +158,13 @@ def generate_form_for_session(session_row):
     (form_id, responder_uri). Raises EvaluationFormError (with a clear,
     already user-facing message) on any failure — never a bare/unclear
     exception, and never partially updates the class's own DB row itself
-    (the caller does that once this returns successfully)."""
+    (the caller does that once this returns successfully).
+
+    session_row should carry a "client_name" key (companies.name, via a
+    LEFT JOIN on client_company_id) when available — the Drive file name
+    gets prefixed with the first two words of it. Missing the key entirely,
+    or a session with no client company on file, is fine too — the file
+    just isn't prefixed."""
     if not is_connected():
         raise EvaluationFormError(
             "No Google account connected for Evaluation Forms yet — connect one under Settings first.")
@@ -174,8 +180,17 @@ def generate_form_for_session(session_row):
 
     course_title = session_row["course_title"]
     trainer_name = session_row["trainer_name"] if "trainer_name" in session_row.keys() else None
+    client_name = session_row["client_name"] if "client_name" in session_row.keys() else None
     date_text = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    file_name = f"{course_title} Training Evaluation — {trainer_name or 'TBC'} — {date_text}"
+    # Prefix the Drive file name with the client's name so a Drive folder full
+    # of these is easy to scan/sort by client — only the first two words, so
+    # a long registered company name (e.g. "PETRONAS Chemicals Group Berhad")
+    # doesn't dominate the file name. In-house/public sessions with no client
+    # company on file get no prefix at all.
+    client_prefix = ""
+    if client_name and client_name.strip():
+        client_prefix = " ".join(client_name.strip().split()[:2]) + " — "
+    file_name = f"{client_prefix}{course_title} Training Evaluation — {trainer_name or 'TBC'} — {date_text}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:
@@ -493,10 +508,11 @@ def set_template():
 @login_required
 def generate(session_id):
     session_row = db.query(
-        """SELECT cs.*, c.title AS course_title, t.name AS trainer_name
+        """SELECT cs.*, c.title AS course_title, t.name AS trainer_name, co.name AS client_name
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN trainers t ON t.id = cs.trainer_id
+           LEFT JOIN companies co ON co.id = cs.client_company_id
            WHERE cs.id = ?""",
         (session_id,), one=True,
     )

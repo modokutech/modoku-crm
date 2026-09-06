@@ -73,6 +73,16 @@ def _collect_answer_values(response, question_id):
     return [a.get("value", "").strip() for a in text_answers if a.get("value", "").strip()]
 
 
+def _clean_num(value):
+    """Renders a whole-number score as a plain int (3 instead of 3.0)
+    everywhere it's displayed or embedded in a summary_text string, while
+    leaving a genuine decimal (3.38) untouched. Applied once here, at the
+    point every average/min/max is computed, rather than in the template —
+    JSON and Jinja both render an int with no trailing decimal on their
+    own, so nothing downstream needs to know about this."""
+    return int(value) if float(value) == int(value) else value
+
+
 def _aggregate_numeric(values):
     nums = []
     for v in values:
@@ -84,9 +94,9 @@ def _aggregate_numeric(values):
         return None
     return {
         "count": len(nums),
-        "average": round(sum(nums) / len(nums), 2),
-        "min": min(nums),
-        "max": max(nums),
+        "average": _clean_num(round(sum(nums) / len(nums), 2)),
+        "min": _clean_num(min(nums)),
+        "max": _clean_num(max(nums)),
     }
 
 
@@ -135,7 +145,7 @@ def _describe_combined_ratings(scale, titles, values):
     positive = sum(1 for s in scores if s > mid)
     negative = sum(1 for s in scores if s < mid)
     neutral = len(scores) - positive - negative
-    average = round(sum(scores) / len(scores), 2)
+    average = _clean_num(round(sum(scores) / len(scores), 2))
     pct_positive = round(positive / len(scores) * 100)
     pct_negative = round(negative / len(scores) * 100)
     pct_neutral = round(neutral / len(scores) * 100)
@@ -383,7 +393,7 @@ def build_report(session_id, user_id=None):
             agg = _aggregate_categorical(values)
             scores = _score_ordinal_values(values, scale)
             if scores:
-                agg["average"] = round(sum(scores) / len(scores), 2)
+                agg["average"] = _clean_num(round(sum(scores) / len(scores), 2))
                 agg["scale_max"] = len(scale)
             numeric_summary.append({"question": meta["title"], "kind": kind, "scale": scale, **agg})
             if scale:
