@@ -48,19 +48,24 @@
     </div>
     {% endif %}
 
-    {# IC No. is deliberately never shown in this table — anyone with the
-       (unauthenticated, shareable) link could otherwise read a
-       participant's IC number and use it to sign in as them; it stays in
-       the Add/Edit forms below, since typing it in is a different thing
-       from having it sit there readable by everyone. #}
-    {% set colspan = 3 + (1 if show_management_controls else 0) + (1 if e_sign_open else 0) %}
+    {# IC No. is visible here before training day — the PIC managing this
+       list needs to see it to fill it in/verify it correctly. It's only
+       hidden once e-signature is actually open on a training day: at that
+       point anyone with the (unauthenticated, shareable) link could
+       otherwise read a participant's IC number and use it to sign in as
+       them, so the column disappears for that window specifically rather
+       than always. It stays in the Add/Edit forms below regardless, since
+       typing it in is a different thing from having it sit there readable
+       by everyone. #}
+    {% set colspan = 3 + (1 if not e_sign_open else 0) + (1 if show_management_controls else 0) + (1 if e_sign_open else 0) %}
     <div class="table-responsive mb-3">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Name</th><th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if show_management_controls %}<th></th>{% endif %}</tr></thead>
+        <thead><tr><th>Name</th>{% if not e_sign_open %}<th>IC No.</th>{% endif %}<th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if show_management_controls %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for p in participants %}
           <tr>
             <td>{{ p.name }}</td>
+            {% if not e_sign_open %}<td>{{ p.ic_no or '-' }}</td>{% endif %}
             <td>{{ p.employer_name or '-' }}</td>
             <td>{{ p.gender or '-' }}</td>
             {% if e_sign_open %}
