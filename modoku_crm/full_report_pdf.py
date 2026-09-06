@@ -600,7 +600,7 @@ def _build_content_html(ctx):
 body {{ font-family:'Poppins',Arial,sans-serif; font-size:13.8px; color:{INK}; margin:0; }}
 .section-heading {{ color:{NAVY}; font-size:15.3px; font-weight:700; text-transform:uppercase;
   letter-spacing:.02em; margin:0 0 10px; }}
-p {{ line-height:1.6; margin:0 0 10px; }}
+p {{ line-height:1.8; margin:0 0 10px; }}
 .muted {{ color:{MUTED}; }}
 table.plain {{ width:100%; border-collapse:collapse; margin-bottom:14px; page-break-inside:avoid; }}
 table.plain th, table.plain td {{ border:1px solid #cfcdc6; padding:6px 10px; text-align:left; font-size:11.5px; }}

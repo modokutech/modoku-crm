@@ -1009,10 +1009,12 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
         participant_rows = ""
         for i, p in enumerate(participants, start=1):
             sig_file = signatures_by_participant.get(p["id"], {}).get(day_iso)
-            # 31px = 26px + 20%, per request that the embedded signature
-            # reads too tiny/small on the printed form.
+            # 62px — scaled up the same 2x factor as the on-screen/print
+            # page's own signature size (36px -> 72px), so the emailed PDF
+            # (the actual document sent for HRDCorp claims) isn't left
+            # looking smaller than the page staff actually look at.
             sig_cell = (f"<img src='{t3_signature_data_uri(session_row['id'], sig_file)}' "
-                        f"style='max-height:31px;max-width:100%'>") if sig_file else ""
+                        f"style='max-height:62px;max-width:100%'>") if sig_file else ""
             participant_rows += (
                 f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
                 f"<td>{escape(p['employer_name'] or '')}</td><td>{escape(p['ic_no'] or '')}</td>"

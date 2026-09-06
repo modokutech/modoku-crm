@@ -126,11 +126,11 @@
         <td class="text-center">{{ (p.gender or '')[:1] }}</td>
         <td class="text-center">
           {% if sig %}
-          {# Boldened + 20% larger (36px, was 30px) — a raw capture read
-             too thin/faint once printed this small; see
-             pdfgen.t3_signature_data_uri. The staff-only audit view
+          {# Boldened + enlarged (72px, was 36px, was 30px before that) —
+             a raw capture read too thin/faint once printed this small;
+             see pdfgen.t3_signature_data_uri. The staff-only audit view
              (t3.view_signature) still shows the exact original file. #}
-          <img src="{{ sig }}" alt="e-Signature" style="max-height:36px;max-width:100%;">
+          <img src="{{ sig }}" alt="e-Signature" style="max-height:72px;max-width:100%;">
           {% endif %}
         </td>
       </tr>
