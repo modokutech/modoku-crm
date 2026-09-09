@@ -679,6 +679,31 @@ CREATE TABLE IF NOT EXISTS staff_claim_receipts (
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Petty Cash Vouchers (/petty-cash) — a simple log of small cash-out
+-- payments (no float/imprest balance tracked, just a running list), each
+-- one going through a lightweight Pending -> Approved/Rejected approval
+-- step before it counts as final. Works fully standalone (free-text payee
+-- and purpose, no class or receipt needed) but can optionally link to a
+-- class and/or carry one attached receipt image/PDF.
+CREATE TABLE IF NOT EXISTS petty_cash_vouchers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    voucher_no TEXT NOT NULL UNIQUE,
+    voucher_date TEXT NOT NULL,          -- date the cash was paid out
+    payee_name TEXT NOT NULL,
+    purpose TEXT NOT NULL,
+    category TEXT,                       -- free-text expense category, e.g. Transport, Meals, Materials
+    amount REAL NOT NULL DEFAULT 0,
+    session_id INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL,  -- optional class link
+    receipt_filename TEXT,               -- optional single attached receipt/proof
+    receipt_original_name TEXT,
+    status TEXT NOT NULL DEFAULT 'Pending',   -- Pending, Approved, Rejected
+    requested_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TEXT,
+    rejection_reason TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS company_files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     filename TEXT NOT NULL,             -- stored filename on disk (uuid-prefixed)
@@ -742,6 +767,8 @@ CREATE INDEX IF NOT EXISTS idx_vendor_po_payment_receipts_po ON vendor_po_paymen
 CREATE INDEX IF NOT EXISTS idx_staff_claims_session ON staff_claims(session_id);
 CREATE INDEX IF NOT EXISTS idx_staff_claim_files_claim ON staff_claim_files(claim_id);
 CREATE INDEX IF NOT EXISTS idx_staff_claim_receipts_claim ON staff_claim_receipts(claim_id);
+CREATE INDEX IF NOT EXISTS idx_petty_cash_vouchers_session ON petty_cash_vouchers(session_id);
+CREATE INDEX IF NOT EXISTS idx_petty_cash_vouchers_status ON petty_cash_vouchers(status);
 CREATE INDEX IF NOT EXISTS idx_po_session ON purchase_orders(session_id);
 CREATE INDEX IF NOT EXISTS idx_po_trainer ON purchase_orders(trainer_id);
 CREATE INDEX IF NOT EXISTS idx_po_items_po ON po_items(po_id);

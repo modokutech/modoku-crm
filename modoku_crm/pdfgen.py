@@ -1311,3 +1311,102 @@ def generate_vendor_po_pdf(po, items, grand_total):
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _build_petty_cash_html(voucher):
+    """Petty Cash Voucher — a simple single-page slip: voucher no., date,
+    paid to, purpose, category, amount, an optional linked-class line, and
+    signature lines (Prepared By / Approved By / Received By) since it's
+    meant to be printed and physically signed."""
+    logo_uri = _logo_data_uri()
+
+    class_block = ""
+    if voucher["course_title"]:
+        dates = _fmtdaterange(voucher["start_date"], voucher["end_date"]) if voucher["start_date"] else "-"
+        class_block = f"""
+        <table>
+          <thead><tr><th>For Class</th><th>Date(s)</th><th>Venue</th></tr></thead>
+          <tbody><tr>
+            <td>{voucher['course_title']}</td><td>{dates}</td><td>{voucher['venue'] or '-'}</td>
+          </tr></tbody>
+        </table>"""
+
+    status_colors = {"Approved": "#1a7a3c", "Rejected": "#b3261e", "Pending": "#8a6d00"}
+    status_color = status_colors.get(voucher["status"], "#666")
+
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; margin: 32px; }}
+  table {{ width: 100%; border-collapse: collapse; margin-top: 16px; }}
+  th, td {{ padding: 8px 6px; border-bottom: 1px solid #eee; text-align: left; }}
+  th {{ font-size: 11px; text-transform: uppercase; color: #666; }}
+  .muted {{ color: #666; }}
+  img.logo {{ width: 76px; height: auto; display: block; margin-bottom: 10px; }}
+  .sig-table td {{ border: none; padding-top: 48px; }}
+  .sig-line {{ border-top: 1px solid #1a1a1a; padding-top: 4px !important; font-size: 11px; color: #666; }}
+</style></head>
+<body>
+  <table style="border:none;margin-top:0"><tr style="border:none">
+    <td style="border:none;width:60%">
+      <img class="logo" src="{logo_uri}">
+      <strong>Modoku Tech Sdn Bhd (1390352-H)</strong><br>
+      <span class="muted">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</span><br>
+      <span class="muted">hello@modoku.tech</span>
+    </td>
+    <td style="border:none;text-align:right;vertical-align:top">
+      <h2 style="margin:0">PETTY CASH VOUCHER</h2>
+      <div class="muted">{voucher['voucher_no']}</div>
+      <div style="color:{status_color};font-weight:700;margin-top:4px">{voucher['status'].upper()}</div>
+    </td>
+  </tr></table>
+
+  <table>
+    <tbody>
+      <tr><td style="width:30%" class="muted">Date</td><td>{_fmtdate(voucher['voucher_date'])}</td></tr>
+      <tr><td class="muted">Paid To</td><td>{voucher['payee_name']}</td></tr>
+      <tr><td class="muted">Purpose</td><td>{voucher['purpose']}</td></tr>
+      <tr><td class="muted">Category</td><td>{voucher['category'] or '-'}</td></tr>
+      <tr style="font-weight:700"><td class="muted" style="font-weight:400">Amount</td>
+          <td>RM {voucher['amount']:,.2f}</td></tr>
+    </tbody>
+  </table>
+
+  {class_block}
+
+  <table class="sig-table">
+    <tr>
+      <td style="width:33%"></td>
+      <td style="width:33%"></td>
+      <td style="width:33%"></td>
+    </tr>
+    <tr>
+      <td class="sig-line">Prepared By{f" — {voucher['requested_by_name']}" if voucher['requested_by_name'] else ""}</td>
+      <td class="sig-line">Approved By{f" — {voucher['approved_by_name']}" if voucher['approved_by_name'] else ""}</td>
+      <td class="sig-line">Received By</td>
+    </tr>
+  </table>
+</body></html>"""
+
+
+def generate_petty_cash_pdf(voucher):
+    """Returns PDF bytes for the given Petty Cash Voucher (sqlite Row)."""
+    html = _build_petty_cash_html(voucher)
+    with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as html_file:
+        html_file.write(html)
+        html_path = html_file.name
+    pdf_path = html_path.replace(".html", ".pdf")
+    try:
+        subprocess.run(
+            ["wkhtmltopdf", "--quiet", "--page-size", "A4", "--margin-top", "10mm",
+             "--margin-bottom", "10mm", html_path, pdf_path],
+            check=True, timeout=30, capture_output=True,
+        )
+        with open(pdf_path, "rb") as f:
+            return f.read()
+    finally:
+        for path in (html_path, pdf_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass

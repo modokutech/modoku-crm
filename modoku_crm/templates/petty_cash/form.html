@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Voucher' if voucher else 'New Petty Cash Voucher' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ 'Edit Voucher' if voucher else 'New Petty Cash Voucher' }}</h4>
+    <small class="text-muted">{{ 'Only a Pending voucher can be edited.' if voucher else 'No float/balance to track — just log the cash-out. Class and receipt are both optional.' }}</small>
+  </div>
+  <a href="{{ url_for('petty_cash.view', voucher_id=voucher.id) if voucher else url_for('petty_cash.index') }}" class="btn btn-outline-secondary">Back</a>
+</div>
+
+<div class="card p-4" style="max-width:640px;">
+  <form method="post" enctype="multipart/form-data">
+    {{ csrf_field()|safe }}
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label small">Date</label>
+        <input type="date" name="voucher_date" class="form-control" value="{{ voucher.voucher_date if voucher else today }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Amount (RM)</label>
+        <input type="number" step="0.01" min="0.01" name="amount" class="form-control" value="{{ voucher.amount if voucher else '' }}" required>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label small">Paid To</label>
+      <input type="text" name="payee_name" class="form-control" value="{{ voucher.payee_name if voucher else '' }}" placeholder="Person or company paid" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label small">Purpose</label>
+      <input type="text" name="purpose" class="form-control" value="{{ voucher.purpose if voucher else '' }}" placeholder="What the cash was paid out for" required>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label small">Category <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" name="category" class="form-control" value="{{ voucher.category if voucher else '' }}" placeholder="e.g. Transport, Meals, Materials">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Link to a Class <span class="text-muted small fw-normal">(optional)</span></label>
+        <select name="session_id" class="form-select">
+          <option value="">— None (standalone) —</option>
+          {% for s in sessions %}
+          <option value="{{ s.id }}" {{ 'selected' if voucher and voucher.session_id == s.id }}>
+            {{ s.title }} — {{ s.start_date|fmtdate }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label small">Receipt / Proof <span class="text-muted small fw-normal">(optional)</span></label>
+      {% if voucher and voucher.receipt_filename %}
+      <p class="small mb-1">
+        <i class="bi bi-paperclip me-1"></i>Currently attached:
+        <a href="{{ url_for('petty_cash.download_receipt', voucher_id=voucher.id) }}" target="_blank">{{ voucher.receipt_original_name }}</a>
+        — uploading a new file below will replace it.
+      </p>
+      {% endif %}
+      <input type="file" name="receipt" class="form-control">
+      <small class="text-muted">Image or PDF, max 2 MB.</small>
+    </div>
+    <button class="btn btn-success w-100" type="submit">
+      {{ 'Save Changes' if voucher else 'Submit Voucher' }}
+    </button>
+  </form>
+</div>
+{% endblock %}

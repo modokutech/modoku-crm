@@ -33,8 +33,16 @@
 <div class="card p-3">
   {% if vendors %}
   <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead><tr><th>Vendor</th><th>Type</th><th>Service</th><th>Contact</th><th>Rating</th></tr></thead>
+    <table class="table table-hover align-middle" id="vendorsTable">
+      <thead>
+        <tr>
+          <th class="sortable-th" data-sort-col="0" style="cursor:pointer">Vendor <i class="bi sort-icon"></i></th>
+          <th>Type</th>
+          <th class="sortable-th" data-sort-col="2" style="cursor:pointer">Service <i class="bi sort-icon"></i></th>
+          <th>Contact</th>
+          <th>Rating</th>
+        </tr>
+      </thead>
       <tbody>
       {% for v in vendors %}
         <tr onclick="window.location='{{ url_for('vendors.view', vendor_id=v.id) }}'" style="cursor:pointer">
@@ -56,4 +64,36 @@
   <p class="text-muted mb-0">{% if q %}No vendors match "{{ q }}".{% else %}No vendors added yet.{% endif %}</p>
   {% endif %}
 </div>
+
+<script>
+// Click-to-sort on the Vendor and Service columns — plain client-side
+// text sort over the rows already on the page (the list is a directory,
+// not paginated, so no need to round-trip to the server for this).
+(function () {
+  var table = document.getElementById("vendorsTable");
+  if (!table) return;
+  table.querySelectorAll(".sortable-th").forEach(function (th) {
+    th.addEventListener("click", function () {
+      var colIndex = parseInt(th.dataset.sortCol, 10);
+      var tbody = table.querySelector("tbody");
+      var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+      var ascending = th.dataset.sortDir !== "asc";
+
+      rows.sort(function (a, b) {
+        var aText = a.children[colIndex].textContent.trim().toLowerCase();
+        var bText = b.children[colIndex].textContent.trim().toLowerCase();
+        return ascending ? aText.localeCompare(bText) : bText.localeCompare(aText);
+      });
+      rows.forEach(function (row) { tbody.appendChild(row); });
+
+      table.querySelectorAll(".sortable-th").forEach(function (other) {
+        other.dataset.sortDir = "";
+        other.querySelector(".sort-icon").className = "bi sort-icon";
+      });
+      th.dataset.sortDir = ascending ? "asc" : "desc";
+      th.querySelector(".sort-icon").className = "bi sort-icon bi-caret-" + (ascending ? "up-fill" : "down-fill");
+    });
+  });
+})();
+</script>
 {% endblock %}

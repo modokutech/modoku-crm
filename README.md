@@ -36,6 +36,12 @@ no command line needed day-to-day, so non-technical staff can use it comfortably
   session, warns you if that trainer already has a Sent/Confirmed PO overlapping dates
   (so you don't accidentally double-book them), and can **email the PO straight to the
   trainer** from inside Modoku Hub — no need to also send it manually via Gmail.
+- **Petty Cash Vouchers** — a simple running log of small cash-out payments (date, paid
+  to, purpose, category, amount) — deliberately not a float/imprest balance system, just
+  one voucher per payout. Each voucher starts Pending and only counts once an admin
+  Approves or Rejects it. Optional (never required): link a voucher to a class, and
+  attach one receipt/proof image or PDF — it works fully standalone too. Auto-numbered
+  (PCV-YYYY-NNNN) and downloadable as a printable PDF slip with signature lines.
 - **Staff Users** (admin-managed logins, role-based: admin/staff).
 - **Dashboard news** — the dashboard's "Corporate Training & HRDCorp News" card pulls the
   5 most recent headlines relevant to corporate training in Malaysia / HRDCorp from

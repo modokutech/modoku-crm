@@ -215,6 +215,7 @@ def create_app(config_object="config.Config"):
     from . import heatmap
     from . import claims
     from . import payment_receipts
+    from . import petty_cash
     from . import library
     from . import jd14_return
     from . import guide
@@ -264,6 +265,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(heatmap.bp)
     app.register_blueprint(claims.bp)
     app.register_blueprint(payment_receipts.bp)
+    app.register_blueprint(petty_cash.bp)
     app.register_blueprint(library.bp)
     app.register_blueprint(evaluation_forms.bp)
     app.register_blueprint(training_reports.bp)

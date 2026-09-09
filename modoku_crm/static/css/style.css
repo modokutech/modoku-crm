@@ -240,6 +240,21 @@ body {
   border-bottom-width: 1px;
 }
 
+/* Click-to-sort column headers (see vendors/list.html) — reserves space
+   for the caret so the header doesn't reflow/jump once a column is sorted. */
+.sortable-th {
+  user-select: none;
+}
+.sortable-th .sort-icon {
+  display: inline-block;
+  width: 0.7em;
+  font-size: 0.7rem;
+  vertical-align: middle;
+}
+.sortable-th:hover {
+  color: #293884;
+}
+
 .badge-status {
   font-weight: 600;
   padding: 0.4em 0.7em;

@@ -107,6 +107,7 @@
       {% endif %}
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='claims' }}" href="{{ url_for('claims.index') }}"><i class="bi bi-cash-coin me-2"></i>Claims</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='payment_receipts' }}" href="{{ url_for('payment_receipts.index') }}"><i class="bi bi-wallet2 me-2"></i>Payment Receipts</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='petty_cash' }}" href="{{ url_for('petty_cash.index') }}"><i class="bi bi-cash-stack me-2"></i>Petty Cash Vouchers</a></li>
 
       <li class="nav-divider"></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainer_utilization' }}" href="{{ url_for('trainer_utilization.index') }}"><i class="bi bi-graph-up me-2"></i>Trainer Log</a></li>

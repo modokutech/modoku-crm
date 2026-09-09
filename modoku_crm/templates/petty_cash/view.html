@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Voucher {{ voucher.voucher_no }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ voucher.voucher_no }}</h4>
+    <small class="text-muted">{{ voucher.payee_name }} · {{ voucher.voucher_date|fmtdate }}</small>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge badge-status
+      {% if voucher.status == 'Approved' %}bg-success
+      {% elif voucher.status == 'Rejected' %}bg-danger
+      {% else %}bg-warning text-dark{% endif %}">{{ voucher.status }}</span>
+    <a href="{{ url_for('petty_cash.download', voucher_id=voucher.id) }}" class="btn btn-sm btn-outline-success">
+      <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+    </a>
+    {% if voucher.status == 'Pending' %}
+    <a href="{{ url_for('petty_cash.edit', voucher_id=voucher.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+    {% endif %}
+    <a href="{{ url_for('petty_cash.index') }}" class="btn btn-sm btn-outline-secondary">Back</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-4">
+      <h6>Voucher Details</h6>
+      <table class="table table-sm table-borderless mb-0">
+        <tr><td class="text-muted" style="width:160px;">Date</td><td>{{ voucher.voucher_date|fmtdate }}</td></tr>
+        <tr><td class="text-muted">Paid To</td><td>{{ voucher.payee_name }}</td></tr>
+        <tr><td class="text-muted align-top">Purpose</td><td>{{ voucher.purpose }}</td></tr>
+        <tr><td class="text-muted">Category</td><td>{{ voucher.category or '-' }}</td></tr>
+        <tr><td class="text-muted">Amount</td><td class="fw-semibold">RM {{ voucher.amount|fmtmoney }}</td></tr>
+        {% if voucher.course_title %}
+        <tr><td class="text-muted">Class</td><td>{{ voucher.course_title }} — {{ voucher.start_date|fmtdate }}{% if voucher.end_date and voucher.end_date != voucher.start_date %} – {{ voucher.end_date|fmtdate }}{% endif %}{% if voucher.venue %} · {{ voucher.venue }}{% endif %}</td></tr>
+        {% endif %}
+        <tr><td class="text-muted">Raised by</td><td>{{ voucher.requested_by_name or '—' }}</td></tr>
+        <tr><td class="text-muted">Date Submitted</td><td>{{ voucher.created_at|fmtdatetime }}</td></tr>
+        {% if voucher.approved_by_name %}
+        <tr><td class="text-muted">{{ 'Approved' if voucher.status == 'Approved' else 'Rejected' }} by</td><td>{{ voucher.approved_by_name }} on {{ voucher.approved_at|fmtdatetime }}</td></tr>
+        {% endif %}
+        {% if voucher.rejection_reason %}
+        <tr><td class="text-muted align-top">Rejection Reason</td><td>{{ voucher.rejection_reason }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+
+    <div class="card p-4 mt-3">
+      <h6>Receipt / Proof</h6>
+      {% if voucher.receipt_filename %}
+      <div class="d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('petty_cash.download_receipt', voucher_id=voucher.id) }}" target="_blank">
+          <i class="bi bi-paperclip me-1"></i>{{ voucher.receipt_original_name }}
+        </a>
+        {% if voucher.status == 'Pending' %}
+        <form method="post" action="{{ url_for('petty_cash.delete_receipt', voucher_id=voucher.id) }}" onsubmit="return confirm('Remove this receipt?');">
+          {{ csrf_field()|safe }}
+          <button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-x"></i></button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="small text-muted mb-0">No receipt attached — this voucher is standalone.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if voucher.status == 'Pending' %}
+    <div class="card p-3">
+      <h6>Approve / Reject <span class="small text-muted fw-normal">(Admin)</span></h6>
+      {% if g.user.role == 'admin' %}
+      <form method="post" action="{{ url_for('petty_cash.approve', voucher_id=voucher.id) }}" class="mb-2" onsubmit="return confirm('Approve this voucher?');">
+        {{ csrf_field()|safe }}
+        <button class="btn btn-success btn-sm w-100" type="submit"><i class="bi bi-check-lg me-1"></i>Approve</button>
+      </form>
+      <form method="post" action="{{ url_for('petty_cash.reject', voucher_id=voucher.id) }}" onsubmit="return confirm('Reject this voucher?');">
+        {{ csrf_field()|safe }}
+        <div class="mb-2">
+          <label class="form-label small">Reason <span class="text-muted small fw-normal">(optional)</span></label>
+          <textarea name="rejection_reason" class="form-control form-control-sm" rows="2"></textarea>
+        </div>
+        <button class="btn btn-outline-danger btn-sm w-100" type="submit"><i class="bi bi-x-lg me-1"></i>Reject</button>
+      </form>
+      {% else %}
+      <p class="small text-muted mb-0">Awaiting approval from an administrator.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
