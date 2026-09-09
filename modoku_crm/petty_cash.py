@@ -317,3 +317,15 @@ def download(voucher_id):
         pdf_bytes, mimetype="application/pdf",
         headers={"Content-Disposition": content_disposition(f"{voucher['voucher_no']}.pdf")},
     )
+
+
+@bp.route("/<int:voucher_id>/delete", methods=("POST",))
+@login_required
+@admin_required
+def delete(voucher_id):
+    voucher = db.query("SELECT voucher_no FROM petty_cash_vouchers WHERE id = ?", (voucher_id,), one=True)
+    db.execute("DELETE FROM petty_cash_vouchers WHERE id = ?", (voucher_id,))
+    activity.log("delete", "petty_cash_voucher", voucher_id,
+                 f"Deleted petty cash voucher {voucher['voucher_no'] if voucher else voucher_id}")
+    flash("Voucher deleted.", "success")
+    return redirect(url_for("petty_cash.index"))

@@ -17,6 +17,13 @@
     {% if voucher.status == 'Pending' %}
     <a href="{{ url_for('petty_cash.edit', voucher_id=voucher.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
     {% endif %}
+    {% if g.user.role == 'admin' %}
+    <form method="post" action="{{ url_for('petty_cash.delete', voucher_id=voucher.id) }}"
+          onsubmit="return confirm('Delete voucher {{ voucher.voucher_no }}? This cannot be undone.');">
+      {{ csrf_field()|safe }}
+      <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+    </form>
+    {% endif %}
     <a href="{{ url_for('petty_cash.index') }}" class="btn btn-sm btn-outline-secondary">Back</a>
   </div>
 </div>
