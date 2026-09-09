@@ -121,6 +121,7 @@
       <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint=='admin_logs.activity' }}" href="{{ url_for('admin_logs.activity') }}"><i class="bi bi-clock-history me-2"></i>Activity Log</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint=='admin_logs.mail' }}" href="{{ url_for('admin_logs.mail') }}"><i class="bi bi-envelope-paper me-2"></i>Mail Log</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='export' }}" href="{{ url_for('export.index') }}"><i class="bi bi-file-earmark-zip me-2"></i>Data Export</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='audit_export' }}" href="{{ url_for('audit_export.index') }}"><i class="bi bi-clipboard-check me-2"></i>Audit Export</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='settings' }}" href="{{ url_for('settings.index') }}"><i class="bi bi-toggles me-2"></i>Settings</a></li>
       {% endif %}
     </ul>

@@ -42,6 +42,15 @@ no command line needed day-to-day, so non-technical staff can use it comfortably
   Approves or Rejects it. Optional (never required): link a voucher to a class, and
   attach one receipt/proof image or PDF — it works fully standalone too. Auto-numbered
   (PCV-YYYY-NNNN) and downloadable as a printable PDF slip with signature lines.
+- **Audit Export** (admin-only) — compiles a year's *finalized* Purchase Orders (trainer +
+  vendor), Quotations, Invoices, Payment Receipts, Claims, Petty Cash Vouchers, and
+  trainer/vendor-submitted invoice documents into one zip for the external
+  accountant/auditor — one numbered folder per document type, plus a plain-text summary
+  and a CSV rollup with per-category totals and a grand total (and, separately, an
+  Income vs. Expenses breakdown so the grand total isn't mistaken for a profit figure).
+  Only Confirmed/Accepted/Paid/Approved records count — Draft, Pending, Cancelled and
+  Rejected ones are left out. Defaults to a calendar year, or pick a custom date range for
+  a non-calendar financial year.
 - **Staff Users** (admin-managed logins, role-based: admin/staff).
 - **Dashboard news** — the dashboard's "Corporate Training & HRDCorp News" card pulls the
   5 most recent headlines relevant to corporate training in Malaysia / HRDCorp from
