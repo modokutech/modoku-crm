@@ -16,6 +16,8 @@ no command line needed day-to-day, so non-technical staff can use it comfortably
 - **Clients** — company records with SST registration no. and LHDN TIN for
   e-Invoice, address, and a rollup of that company's leads, enrollments and invoices.
 - **Courses** — searchable catalog (by title, code or category), with HRDF-claimable flag.
+  Mark which trainer(s) are qualified to teach each course (multiple allowed) — shown on the
+  course's page and, reciprocally, on each trainer's own page under "Qualified For".
 - **Training Schedule** — scheduled sessions with venue, trainer, capacity, training time,
   training type (In-House/Public/Workshop/Conference), and training mode
   (Physical/Virtual/Hybrid — a meeting link field appears for Virtual/Hybrid). Sortable

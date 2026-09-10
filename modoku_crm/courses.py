@@ -32,6 +32,17 @@ def _handle_outline_upload(course_id):
     db.execute("UPDATE courses SET outline_file = ? WHERE id = ?", (stored_name, course_id))
 
 
+def _set_course_trainers(course_id, trainer_ids):
+    """Replaces the full set of trainers qualified to teach this course —
+    same delete-then-reinsert pattern as sessions._set_session_trainers,
+    since the form always resubmits the complete current list."""
+    trainer_ids = [t for t in dict.fromkeys(trainer_ids) if t]  # dedupe, keep order
+    db.execute("DELETE FROM course_trainers WHERE course_id = ?", (course_id,))
+    for tid in trainer_ids:
+        db.execute("INSERT OR IGNORE INTO course_trainers (course_id, trainer_id) VALUES (?,?)",
+                   (course_id, tid))
+
+
 def _filtered_courses():
     q = request.args.get("q", "").strip()
     sql = """SELECT c.*, (SELECT COUNT(*) FROM course_sessions cs WHERE cs.course_id = c.id) AS session_count
@@ -98,10 +109,13 @@ def new():
                 ),
             )
             _handle_outline_upload(course_id)
+            trainer_ids = [int(t) for t in request.form.getlist("trainer_ids") if t]
+            _set_course_trainers(course_id, trainer_ids)
             activity.log("create", "course", course_id, f"Created course {title}")
             flash("Course added.", "success")
             return redirect(url_for("courses.index"))
-    return render_template("courses/form.html", course=None)
+    trainers = db.query("SELECT * FROM trainers ORDER BY name")
+    return render_template("courses/form.html", course=None, trainers=trainers, selected_trainer_ids=set())
 
 
 @bp.route("/<int:course_id>")
@@ -118,7 +132,13 @@ def view(course_id):
            WHERE cs.course_id = ? ORDER BY cs.start_date DESC""",
         (course_id,),
     )
-    return render_template("courses/view.html", course=course, sessions=sessions)
+    qualified_trainers = db.query(
+        """SELECT t.* FROM course_trainers ct JOIN trainers t ON t.id = ct.trainer_id
+           WHERE ct.course_id = ? ORDER BY t.name""",
+        (course_id,),
+    )
+    return render_template("courses/view.html", course=course, sessions=sessions,
+                            qualified_trainers=qualified_trainers)
 
 
 @bp.route("/<int:course_id>/edit", methods=("GET", "POST"))
@@ -156,10 +176,16 @@ def edit(course_id):
                 ),
             )
             _handle_outline_upload(course_id)
+            trainer_ids = [int(t) for t in request.form.getlist("trainer_ids") if t]
+            _set_course_trainers(course_id, trainer_ids)
             activity.log("update", "course", course_id, f"Updated course {title}")
             flash("Course updated.", "success")
             return redirect(url_for("courses.view", course_id=course_id))
-    return render_template("courses/form.html", course=course)
+    trainers = db.query("SELECT * FROM trainers ORDER BY name")
+    selected_trainer_ids = {row["trainer_id"] for row in db.query(
+        "SELECT trainer_id FROM course_trainers WHERE course_id = ?", (course_id,))}
+    return render_template("courses/form.html", course=course, trainers=trainers,
+                            selected_trainer_ids=selected_trainer_ids)
 
 
 @bp.route("/<int:course_id>/outline")

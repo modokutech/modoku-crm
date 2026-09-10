@@ -178,9 +178,14 @@ def view(trainer_id):
            WHERE h.trainer_id = ? ORDER BY h.changed_at DESC""",
         (trainer_id,),
     )
+    qualified_courses = db.query(
+        """SELECT c.* FROM course_trainers ct JOIN courses c ON c.id = ct.course_id
+           WHERE ct.trainer_id = ? ORDER BY c.title""",
+        (trainer_id,),
+    )
     return render_template("trainers/view.html", trainer=trainer, sessions=sessions,
                             purchase_orders=purchase_orders, document_fields=DOCUMENT_FIELDS,
-                            rate_history=rate_history)
+                            rate_history=rate_history, qualified_courses=qualified_courses)
 
 
 @bp.route("/<int:trainer_id>/edit", methods=("GET", "POST"))

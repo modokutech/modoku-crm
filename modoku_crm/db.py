@@ -135,6 +135,16 @@ CREATE TABLE IF NOT EXISTS courses (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Which trainers are qualified/able to teach a given course — a catalog-level
+-- reference relationship, separate from session_trainers below (which is the
+-- roster actually assigned to one specific scheduled class).
+CREATE TABLE IF NOT EXISTS course_trainers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    UNIQUE(course_id, trainer_id)
+);
+
 CREATE TABLE IF NOT EXISTS course_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -781,6 +791,8 @@ CREATE INDEX IF NOT EXISTS idx_vendor_po_documents_po ON vendor_po_documents(po_
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vendor_po_confirm_token ON vendor_purchase_orders(confirm_token);
 CREATE INDEX IF NOT EXISTS idx_session_trainers_session ON session_trainers(session_id);
 CREATE INDEX IF NOT EXISTS idx_session_trainers_trainer ON session_trainers(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_course_trainers_course ON course_trainers(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_trainers_trainer ON course_trainers(trainer_id);
 CREATE INDEX IF NOT EXISTS idx_t3_participants_session ON t3_participants(session_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_leads_company ON leads(company_id);

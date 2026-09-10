@@ -67,6 +67,19 @@
       </ul>
       {% else %}<p class="text-muted mb-0 small">No rate changes recorded yet.</p>{% endif %}
     </div>
+    <div class="card p-3 mb-3">
+      <h6>Qualified For</h6>
+      {% if qualified_courses %}
+      <ul class="list-unstyled mb-0">
+        {% for c in qualified_courses %}
+        <li class="mb-1"><a href="{{ url_for('courses.view', course_id=c.id) }}">{{ c.title }}</a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-muted small mb-0">Not marked as qualified for any course yet —
+        <a href="{{ url_for('courses.index') }}">add this trainer on a course's Edit page</a>.</p>
+      {% endif %}
+    </div>
     <div class="card p-3">
       <h6>Documents</h6>
       <ul class="list-unstyled mb-0">
