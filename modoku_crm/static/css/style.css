@@ -32,6 +32,7 @@ body {
   min-width: 250px;
   background: linear-gradient(180deg, var(--brand-dark), var(--brand));
   color: #fff;
+  border-top-right-radius: 50px;
 }
 
 /* The nav list is the only part of the sidebar that scrolls — the logo
@@ -39,6 +40,7 @@ body {
    at the bottom, even when there are more nav links than fit the
    viewport (e.g. the full Admin section). */
 .sidebar-nav {
+  --bs-nav-link-padding-y: 0.7rem;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
