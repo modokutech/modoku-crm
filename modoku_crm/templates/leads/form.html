@@ -43,11 +43,17 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">Namecard</label>
-        <input type="file" name="namecard_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        <input type="file" name="namecard_file" id="namecard_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
+        {% if namecard_ai_configured %}
+        <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="scanNamecardBtn" disabled>
+          <i class="bi bi-magic me-1"></i>Read card &amp; fill the form
+        </button>
+        <div class="small mt-1" id="scanNamecardStatus"></div>
+        {% endif %}
         {% if lead and lead.namecard_file %}
-        <small class="text-muted">Choosing a new one will replace the current namecard. Max 2 MB.</small>
+        <small class="text-muted d-block">Choosing a new one will replace the current namecard. Max 2 MB.</small>
         {% else %}
-        <small class="text-muted">Max 2 MB.</small>
+        <small class="text-muted d-block">Max 2 MB.</small>
         {% endif %}
       </div>
       <div class="col-md-6">
@@ -187,6 +193,93 @@ document.getElementById('qc_save').addEventListener('click', function () {
       errorBox.classList.remove('d-none');
     });
 });
+
+{% if namecard_ai_configured %}
+// Namecard OCR — send the picked card image to the server, which reads it
+// with Claude and hands back the contact details (see namecard_ai.py). The
+// card itself still uploads normally when the form is saved; this is only
+// a suggestion into the form, and it deliberately never overwrites a field
+// you've already typed something into.
+(function () {
+  const fileInput = document.getElementById('namecard_file');
+  const btn = document.getElementById('scanNamecardBtn');
+  const status = document.getElementById('scanNamecardStatus');
+  if (!fileInput || !btn) return;
+
+  const FIELD_LABELS = { name: 'name', role: 'role', email: 'email', phone: 'phone',
+                          linkedin_url: 'LinkedIn' };
+
+  function say(message, tone) {
+    status.textContent = message;
+    status.className = 'small mt-1 ' + (tone === 'error' ? 'text-danger'
+                        : tone === 'ok' ? 'text-success' : 'text-muted');
+  }
+
+  fileInput.addEventListener('change', function () {
+    btn.disabled = !fileInput.files.length;
+    say('', '');
+  });
+
+  btn.addEventListener('click', function () {
+    if (!fileInput.files.length) return;
+    const data = new FormData();
+    data.append('namecard_file', fileInput.files[0]);
+    btn.disabled = true;
+    say('Reading the card…', '');
+
+    fetch("{{ url_for('leads.scan_namecard') }}", {
+      method: 'POST',
+      body: data,
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': "{{ csrf_token() }}" },
+    })
+      .then(r => r.json())
+      .then(payload => {
+        btn.disabled = false;
+        if (payload.error) { say(payload.error, 'error'); return; }
+        const f = payload.fields || {};
+        const filled = [], skipped = [];
+
+        Object.keys(FIELD_LABELS).forEach(function (key) {
+          const value = f[key];
+          if (!value) return;
+          const input = document.querySelector('[name="' + key + '"]');
+          if (!input) return;
+          if (input.value.trim()) { skipped.push(FIELD_LABELS[key]); return; }
+          input.value = value;
+          filled.push(FIELD_LABELS[key]);
+        });
+
+        // The company is a dropdown of saved clients, so it only gets
+        // preselected when the card's company matched one closely enough
+        // (see namecard_ai.COMPANY_MATCH_THRESHOLD) — otherwise we just
+        // name what was printed so it can be added with "+ New".
+        const companySelect = document.getElementById('company_id');
+        let companyNote = '';
+        if (f.company_id && companySelect && !companySelect.value) {
+          companySelect.value = String(f.company_id);
+          if (companySelect.value === String(f.company_id)) {
+            companyNote = ' Company set to ' + (f.matched_company_name || 'the matched client') + '.';
+          }
+        } else if (f.company && (!companySelect || !companySelect.value)) {
+          companyNote = ' Card reads “' + f.company + '” — not on file, add it with “+ New” if needed.';
+        }
+
+        if (!filled.length && !companyNote) {
+          say('Nothing new to fill — everything on the card is already typed in.', '');
+          return;
+        }
+        let message = filled.length ? 'Filled ' + filled.join(', ') + '.' : '';
+        if (skipped.length) message += ' Left your own ' + skipped.join(', ') + ' as typed.';
+        say((message + companyNote).trim() + ' Check it against the card before saving.', 'ok');
+      })
+      .catch(() => {
+        btn.disabled = false;
+        say('Could not read the card — type the details in instead.', 'error');
+      });
+  });
+})();
+{% endif %}
 
 function toggleLostReason() {
   const field = document.getElementById('lost_reason_field');

@@ -56,6 +56,25 @@
     }
     .cmd-palette-results li a.active, .cmd-palette-results li a:hover { background: #eef1ff; color: #2e3192; }
     .cmd-palette-empty { padding: 1rem; text-align: center; color: #999; font-size: .875rem; }
+    /* Record results (companies, quotes, invoices…) carry a type chip and a
+       second line of context; page results stay the plain single-line rows
+       they've always been. */
+    .cmd-palette-group {
+      padding: .5rem .6rem .25rem; font-size: .7rem; text-transform: uppercase;
+      letter-spacing: .04em; color: #9a9aa8; font-weight: 600;
+    }
+    .cmd-palette-results li a .cmd-result-body { flex: 1 1 auto; min-width: 0; }
+    .cmd-palette-results li a .cmd-result-label { display: block; }
+    .cmd-palette-results li a .cmd-result-sub {
+      display: block; font-size: .75rem; color: #8a8a99; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .cmd-palette-results li a.active .cmd-result-sub { color: #6b6fb0; }
+    .cmd-result-type {
+      flex: 0 0 auto; background: #f1f1f4; border-radius: .25rem; padding: .05rem .35rem;
+      font-size: .68rem; color: #7a7a88;
+    }
+    .cmd-palette-searching { padding: .35rem .6rem; font-size: .75rem; color: #9a9aa8; }
   </style>
 </head>
 <body>
@@ -67,7 +86,7 @@
       <small class="text-white-50 d-block mt-1">Modoku Hub</small>
     </a>
     <button type="button" id="cmdPaletteTrigger" class="cmd-palette-trigger flex-shrink-0 mb-2">
-      <i class="bi bi-search me-2"></i><span>Search pages…</span><kbd id="cmdPaletteKbd">Ctrl+/</kbd>
+      <i class="bi bi-search me-2"></i><span>Search…</span><kbd id="cmdPaletteKbd">Ctrl+/</kbd>
     </button>
     <ul class="nav nav-pills flex-column flex-nowrap gap-1 sidebar-nav" id="sidebarNav">
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='dashboard' }}" href="{{ url_for('dashboard.index') }}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
@@ -145,14 +164,14 @@
   </main>
 </div>
 <div class="cmd-palette-overlay" id="cmdPaletteOverlay" hidden>
-  <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="Search pages">
+  <div class="cmd-palette" role="dialog" aria-modal="true" aria-label="Search pages and records">
     <div class="cmd-palette-input-wrap">
       <i class="bi bi-search"></i>
-      <input type="text" id="cmdPaletteInput" class="cmd-palette-input" placeholder="Search pages… (e.g. quotations)" autocomplete="off">
+      <input type="text" id="cmdPaletteInput" class="cmd-palette-input" placeholder="Search pages, clients, quotes, invoices, people…" autocomplete="off">
       <span class="cmd-palette-esc">Esc</span>
     </div>
     <ul class="cmd-palette-results" id="cmdPaletteResults"></ul>
-    <div class="cmd-palette-empty" id="cmdPaletteEmpty" hidden>No matching page.</div>
+    <div class="cmd-palette-empty" id="cmdPaletteEmpty" hidden>Nothing matched.</div>
   </div>
 </div>
 {% else %}
@@ -236,9 +255,18 @@
 
   var selectedIndex = 0;
   var currentResults = [];
+  // Records (clients, quotes, invoices, people…) come from the server —
+  // see search.py. Pages stay client-side off the sidebar as before, so
+  // the palette is still instantly useful before any request comes back.
+  var RECORDS_URL = '{{ url_for("search.records") }}';
+  var MIN_RECORD_QUERY = 2;
+  var recordQuery = '';      // the query the records below actually belong to
+  var records = [];
+  var recordsLoading = false;
+  var debounceTimer = null;
+  var requestSeq = 0;        // guards against an older response landing last
 
-  function render(query) {
-    var q = query.trim().toLowerCase();
+  function matchPages(q) {
     var starts = [], contains = [];
     items.forEach(function (item) {
       var label = item.label.toLowerCase();
@@ -247,25 +275,123 @@
       if (idx === 0) starts.push(item);
       else if (idx > 0) contains.push(item);
     });
-    currentResults = starts.concat(contains).slice(0, 8);
-    selectedIndex = 0;
+    return starts.concat(contains);
+  }
+
+  function groupHeading(text) {
+    var li = document.createElement('li');
+    li.className = 'cmd-palette-group';
+    li.textContent = text;
+    return li;
+  }
+
+  function resultRow(item, index, isRecord) {
+    var li = document.createElement('li');
+    var a = document.createElement('a');
+    a.href = item.href;
+    a.className = index === selectedIndex ? 'active' : '';
+    if (isRecord) {
+      var icon = document.createElement('i');
+      icon.className = 'bi ' + (item.icon || 'bi-dot');
+      var body = document.createElement('div');
+      body.className = 'cmd-result-body';
+      var label = document.createElement('span');
+      label.className = 'cmd-result-label';
+      label.textContent = item.label;
+      body.appendChild(label);
+      if (item.sub) {
+        var sub = document.createElement('span');
+        sub.className = 'cmd-result-sub';
+        sub.textContent = item.sub;
+        body.appendChild(sub);
+      }
+      var chip = document.createElement('span');
+      chip.className = 'cmd-result-type';
+      chip.textContent = item.type;
+      a.appendChild(icon);
+      a.appendChild(body);
+      a.appendChild(chip);
+    } else {
+      var arrow = document.createElement('i');
+      arrow.className = 'bi bi-arrow-right-short';
+      a.appendChild(arrow);
+      a.appendChild(document.createTextNode(item.label));
+    }
+    a.addEventListener('mouseenter', function () { setSelected(index); });
+    a.addEventListener('click', function () { close(); });
+    li.appendChild(a);
+    return li;
+  }
+
+  function renderList(query) {
+    var q = query.trim().toLowerCase();
+    var pages = matchPages(q);
+    var showRecords = records.length && recordQuery === q;
+    // With records on screen the page list gives up some room; on its own
+    // it keeps the full eight it always had.
+    pages = pages.slice(0, showRecords ? 4 : 8);
+
+    currentResults = pages.concat(showRecords ? records : []);
+    if (selectedIndex >= currentResults.length) selectedIndex = 0;
     resultsEl.innerHTML = '';
+
     if (!currentResults.length) {
-      emptyEl.hidden = false;
+      emptyEl.hidden = !!recordsLoading;
+      if (recordsLoading) {
+        var pending = document.createElement('li');
+        pending.className = 'cmd-palette-searching';
+        pending.textContent = 'Searching…';
+        resultsEl.appendChild(pending);
+      }
       return;
     }
     emptyEl.hidden = true;
-    currentResults.forEach(function (item, i) {
-      var li = document.createElement('li');
-      var a = document.createElement('a');
-      a.href = item.href;
-      a.className = i === 0 ? 'active' : '';
-      a.innerHTML = '<i class="bi bi-arrow-right-short"></i>' + item.label;
-      a.addEventListener('mouseenter', function () { setSelected(i); });
-      a.addEventListener('click', function () { close(); });
-      li.appendChild(a);
-      resultsEl.appendChild(li);
-    });
+
+    var index = 0;
+    if (pages.length) {
+      if (showRecords) resultsEl.appendChild(groupHeading('Pages'));
+      pages.forEach(function (item) { resultsEl.appendChild(resultRow(item, index++, false)); });
+    }
+    if (showRecords) {
+      resultsEl.appendChild(groupHeading('Records'));
+      records.forEach(function (item) { resultsEl.appendChild(resultRow(item, index++, true)); });
+    } else if (recordsLoading) {
+      var searching = document.createElement('li');
+      searching.className = 'cmd-palette-searching';
+      searching.textContent = 'Searching records…';
+      resultsEl.appendChild(searching);
+    }
+  }
+
+  function fetchRecords(query) {
+    var q = query.trim();
+    if (q.length < MIN_RECORD_QUERY) {
+      records = [];
+      recordQuery = '';
+      recordsLoading = false;
+      renderList(query);
+      return;
+    }
+    var seq = ++requestSeq;
+    recordsLoading = true;
+    renderList(query);
+    fetch(RECORDS_URL + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { results: [] }; })
+      .catch(function () { return { results: [] }; })
+      .then(function (data) {
+        if (seq !== requestSeq) return;  // a newer keystroke already won
+        records = data.results || [];
+        recordQuery = q.toLowerCase();
+        recordsLoading = false;
+        renderList(input.value);
+      });
+  }
+
+  function render(query) {
+    selectedIndex = 0;
+    renderList(query);
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () { fetchRecords(query); }, 180);
   }
 
   function setSelected(i) {
@@ -279,6 +405,10 @@
   function open() {
     overlay.hidden = false;
     input.value = '';
+    records = [];
+    recordQuery = '';
+    recordsLoading = false;
+    requestSeq++;  // discard anything still in flight from the last time it was open
     render('');
     setTimeout(function () { input.focus(); }, 0);
   }

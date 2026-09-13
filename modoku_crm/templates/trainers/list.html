@@ -34,7 +34,7 @@
   {% if trainers %}
   <div class="table-responsive">
     <table class="table table-hover align-middle">
-      <thead><tr><th style="width:2.6rem"></th><th>Name</th><th>Specialization</th><th>Rate/Day</th><th>Contact</th><th>Documents</th><th>Sessions</th></tr></thead>
+      <thead><tr><th style="width:2.6rem"></th><th>Name</th><th>Specialization</th><th>Rate/Day</th><th>Contact</th><th>Documents</th><th>Sessions</th><th>Score</th></tr></thead>
       <tbody>
       {% for t in trainers %}
         <tr onclick="window.location='{{ url_for('trainers.view', trainer_id=t.id) }}'" style="cursor:pointer">
@@ -55,6 +55,13 @@
             {% if t.accredited_cert_file %}<span class="badge bg-secondary-subtle text-secondary-emphasis" title="Accreditation on file">Accredited</span>{% endif %}
           </td>
           <td>{{ t.session_count }}</td>
+          <td>
+            {% set card = trainer_scorecards.get(t.id) if trainer_scorecards else None %}
+            {% if card %}
+            <span class="badge {{ score_badge(card.overall_pct) }}"
+                  title="Average participant evaluation across {{ card.rated_classes }} rated class{{ 'es' if card.rated_classes != 1 }}">{{ card.overall_pct }}%</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
         </tr>
       {% endfor %}
       </tbody>

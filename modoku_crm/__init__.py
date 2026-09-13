@@ -223,6 +223,7 @@ def create_app(config_object="config.Config"):
     from . import evaluation_forms
     from . import training_reports
     from . import full_reports
+    from . import search
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(dashboard.bp)
@@ -272,6 +273,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(evaluation_forms.bp)
     app.register_blueprint(training_reports.bp)
     app.register_blueprint(full_reports.bp)
+    app.register_blueprint(search.bp)
 
     security.init_app(app)
 

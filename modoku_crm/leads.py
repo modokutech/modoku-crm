@@ -1,11 +1,12 @@
 import os
+import tempfile
 import uuid
 
 from flask import (Blueprint, current_app, flash, g, jsonify, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, uploadutil
+from . import activity, db, namecard_ai, uploadutil
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -147,6 +148,47 @@ def quick_add():
                      "company_id": company_id})
 
 
+@bp.route("/namecard/scan", methods=("POST",))
+@login_required
+def scan_namecard():
+    """Reads the business card the user just picked on the lead form and
+    returns the contact details as JSON for the form to fill in — nothing
+    is saved here; the card is written to disk only when the lead itself
+    is saved, by the normal _handle_namecard_upload path.
+
+    Always returns 200 with a JSON body: the form treats an "error"
+    message as "type it in yourself", which is exactly the behaviour
+    before this existed, so a failure here never blocks anyone."""
+    if not namecard_ai.is_configured():
+        return jsonify({"error": "AI namecard reading isn't set up on this server."})
+    file_storage = request.files.get("namecard_file")
+    if not file_storage or not file_storage.filename:
+        return jsonify({"error": "Choose a namecard image first."})
+    error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.IMAGE_EXTENSIONS)
+    if error:
+        return jsonify({"error": error})
+
+    # Straight to a temp file, deleted as soon as it's been read — the real
+    # upload still happens on save, so nothing here leaves a stray file
+    # behind if the user abandons the form.
+    suffix = os.path.splitext(secure_filename(file_storage.filename))[1] or ".jpg"
+    handle, temp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(handle)
+    try:
+        file_storage.save(temp_path)
+        fields = namecard_ai.analyze_namecard(temp_path)
+    finally:
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+
+    if not any(fields.get(key) for key in ("name", "role", "company", "email", "phone")):
+        return jsonify({"error": "Couldn't read anything usable off that image — try a sharper, "
+                                  "straight-on photo, or type the details in."})
+    return jsonify({"fields": fields})
+
+
 @bp.route("/new", methods=("GET", "POST"))
 @login_required
 def new():
@@ -195,7 +237,8 @@ def new():
 
     return render_template("leads/form.html", lead=None, companies=companies,
                             users=users, courses=courses, statuses=STATUSES, sources=SOURCES,
-                            preselect_company_id=preselect_company_id)
+                            preselect_company_id=preselect_company_id,
+                            namecard_ai_configured=namecard_ai.is_configured())
 
 
 @bp.route("/<int:lead_id>")
@@ -285,7 +328,8 @@ def edit(lead_id):
             return redirect(url_for("leads.view", lead_id=lead_id))
 
     return render_template("leads/form.html", lead=lead, companies=companies,
-                            users=users, courses=courses, statuses=STATUSES, sources=SOURCES)
+                            users=users, courses=courses, statuses=STATUSES, sources=SOURCES,
+                            namecard_ai_configured=namecard_ai.is_configured())
 
 
 @bp.route("/<int:lead_id>/namecard")

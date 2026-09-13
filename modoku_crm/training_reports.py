@@ -100,6 +100,26 @@ def _aggregate_numeric(values):
     }
 
 
+def _declared_scale_max(kind, meta):
+    """The top of a numeric question's scale as the Form itself declares
+    it — a linear scale's `high`, or the largest option on a question whose
+    options are numbers. Returns None rather than a guess when the form
+    doesn't say (an average with no known ceiling can't be compared against
+    one that has a different ceiling)."""
+    if kind == "scale":
+        high = _clean_num(meta.get("high"))
+        return high if isinstance(high, (int, float)) and high > 0 else None
+    if kind == "choice_numeric":
+        options = []
+        for opt in meta.get("options") or []:
+            try:
+                options.append(float(opt))
+            except (TypeError, ValueError):
+                continue
+        return _clean_num(max(options)) if options else None
+    return None
+
+
 def _aggregate_categorical(values):
     counts = Counter(values)
     return {
@@ -393,6 +413,14 @@ def build_report(session_id, user_id=None):
                 # the same way regardless of kind, so every kind that can
                 # have values needs one, not just the worded-scale kinds.
                 agg["distribution"] = _aggregate_categorical(values)["distribution"]
+                # The question's own declared ceiling (a linear scale's
+                # "high", or the largest numeric option on a numbers-as-
+                # options question), so anything reading this back knows
+                # whether a 4.2 is 4.2-out-of-5 or 4.2-out-of-10 —
+                # trainer_scores.py needs it to compare classes whose
+                # forms use different scales. None when it can't be
+                # determined; never guessed at.
+                agg["scale_max"] = _declared_scale_max(kind, meta)
                 numeric_summary.append({"question": meta["title"], "kind": kind, "group": form_group, **agg})
         elif kind == "choice_ordinal":
             scale = meta.get("scale") or []

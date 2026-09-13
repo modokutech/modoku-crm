@@ -114,14 +114,23 @@
         <label class="form-label">Trainer(s)</label>
         <div class="border rounded p-2" style="max-height:160px; overflow-y:auto;">
           {% for t in trainers %}
-          <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="trainer_{{ t.id }}" name="trainer_ids" value="{{ t.id }}"
+          {% set card = trainer_scorecards.get(t.id) if trainer_scorecards else None %}
+          <div class="form-check d-flex align-items-center gap-2">
+            <input type="checkbox" class="form-check-input mt-0" id="trainer_{{ t.id }}" name="trainer_ids" value="{{ t.id }}"
               {{ 'checked' if t.id in selected_trainer_ids }}>
-            <label class="form-check-label" for="trainer_{{ t.id }}">{{ t.name }}</label>
+            <label class="form-check-label flex-grow-1" for="trainer_{{ t.id }}">{{ t.name }}</label>
+            {% if card %}
+            <span class="badge {{ score_badge(card.overall_pct) }}"
+                  title="Average participant evaluation across {{ card.rated_classes }} rated class{{ 'es' if card.rated_classes != 1 }}{{ ' — only a couple so far' if card.thin }}">
+              {{ card.overall_pct }}%{% if card.thin %} <i class="bi bi-asterisk small"></i>{% endif %}
+            </span>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
-        <small class="text-muted">Select one or more co-facilitators. First checked is the primary trainer.</small>
+        <small class="text-muted">Select one or more co-facilitators. First checked is the primary trainer.
+          Badges are each trainer's average participant evaluation score (an asterisk means only a class or
+          two so far).</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Capacity</label>

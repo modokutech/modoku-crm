@@ -32,7 +32,8 @@ no command line needed day-to-day, so non-technical staff can use it comfortably
   via the browser's Print dialog.
 - **Trainers** — contact details plus document uploads (Trainer Profile/CV, TTT
   certificate, Accredited/HRDCorp certificate), each viewable/downloadable from the
-  trainer's page.
+  trainer's page, and a **Quality Score** rolled up from participant evaluations across
+  every class they've taught (see "Trainer quality scorecard" below).
 - **Purchase Orders** — for engaging external/freelance trainers once a client has
   confirmed a class date. Auto-numbered (PO-YYYY-NNNN), linked to a trainer and a class
   session, warns you if that trainer already has a Sent/Confirmed PO overlapping dates
@@ -54,6 +55,11 @@ no command line needed day-to-day, so non-technical staff can use it comfortably
   Rejected ones are left out. Defaults to a calendar year, or pick a custom date range for
   a non-calendar financial year.
 - **Staff Users** (admin-managed logins, role-based: admin/staff).
+- **Global search** — press `Ctrl+/` (or `Cmd+/` on a Mac), or click "Search…" at the top
+  of the sidebar, to jump straight to any page *or any record*: clients, leads, courses,
+  trainers, classes, quotations, invoices, purchase orders, and participants (by name or
+  by IC, typed with or without dashes). Typing "Petronas" takes you to that client, not
+  to the Clients list.
 - **Dashboard news** — the dashboard's "Corporate Training & HRDCorp News" card pulls the
   5 most recent headlines relevant to corporate training in Malaysia / HRDCorp from
   Google News' public search feed. No API key needed, but it does need outbound
@@ -481,6 +487,64 @@ by hand on the T3 Attendance List) keeps working exactly as it always has.
 This uses Claude Haiku by default (fast and inexpensive — reading one photo costs a small
 fraction of a cent). Set `ANTHROPIC_MODEL` to override the model if you ever want to.
 
+The same `ANTHROPIC_API_KEY` also powers **AI namecard reading** on the lead form (below) —
+set it once and both features work.
+
+## Reading a namecard into a lead (optional)
+
+Leads have always had a Namecard upload; now the card can fill the form in for you. On
+**New Lead** (or Edit), pick the card image and click **Read card & fill the form** —
+Modoku Hub reads it with Claude's vision API and fills in the PIC name, role, email,
+phone and LinkedIn, and if the company printed on the card closely matches a client
+already on file, preselects that client in the Company dropdown. A company it doesn't
+recognize is named in the status line instead, so you can add it with "+ New".
+
+Three deliberate safety rails, since a business card photo is easy to misread:
+
+- It **never overwrites anything you've already typed** — only blank fields get filled,
+  and the status line says which of your own entries it left alone.
+- It **never saves anything by itself**. The values land in the unsaved form for you to
+  check against the card before you hit Save, so a misread costs a correction, not a bad
+  record.
+- An email address that doesn't look like an email is dropped rather than filled in, and
+  a company that isn't a close match is never silently attached to the wrong client.
+
+The card image itself still uploads the normal way when you save the lead; the scan uses a
+temporary copy that's deleted immediately after it's read.
+
+Needs `ANTHROPIC_API_KEY` set (same key as AI attendance matching). Without it the button
+simply doesn't appear and the form works exactly as it always has.
+
+## Trainer quality scorecard
+
+Once a class's [Training Report](#training-report--the-evaluation-feedback-rollup) has been
+generated, its participant ratings also roll up onto the **trainer's own page** as a
+**Quality Score** — an average across every class they've taught, alongside a per-class
+breakdown so you can see the trend rather than just one number. The same score shows as a
+column on the Trainers list and as a badge beside each name when you pick trainers for a
+class, so the person scheduling has the quality signal in front of them at the moment they
+choose.
+
+How the number works, since it's worth knowing what it does and doesn't mean:
+
+- Scores are **normalized to a percentage of each form's own scale** before being
+  combined, so a class rated 4.5/5 (87.5%) and one rated 6/10 (55.6%) can be averaged
+  together honestly. The bottom of a 1-to-N scale is 0%, not 1/N — you can't score below
+  the lowest label.
+- The overall is **weighted by how many people responded**, so a class with 30 responses
+  counts for more than one with 2.
+- A class counts for its **primary trainer and every co-facilitator** on the roster — the
+  evaluation rates the delivery, which all of them did.
+- Fewer than three rated classes is **flagged as thin evidence** (an asterisk on the
+  badge, a note on the page) rather than presented as a settled track record.
+- A class whose form has **no rating on a declared scale is left unscored**, never guessed
+  at — the trainer's page says how many those are. Reports generated before this feature
+  existed may fall in that bucket until you hit **Refresh Report** on the class, which is
+  deliberate: assuming a scale ceiling would put a wrong number on someone's record.
+
+No AI is involved in the score itself — it's exact arithmetic over the numbers the
+Training Report already computed.
+
 ## Deploying for real use
 
 The app is a standard Flask app, so it runs on any host that supports Python:
@@ -521,6 +585,9 @@ modoku-crm/
     auth.py                  # login/logout, @login_required, @admin_required
     dashboard.py, leads.py, companies.py, courses.py, sessions.py,
     enrollments.py, invoices.py, trainers.py, users.py, reports.py
+    search.py                # global record search behind the Ctrl+/ palette
+    namecard_ai.py           # reads a business card into the lead form (Claude vision)
+    trainer_scores.py        # per-trainer quality rollup from the Training Reports
     templates/               # one folder per module, plus base.html/login.html
     static/css/style.css
 ```

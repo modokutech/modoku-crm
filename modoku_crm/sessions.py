@@ -9,7 +9,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, uploadutil, settings as settings_module
+from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, trainer_scores, uploadutil, settings as settings_module
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -928,6 +928,8 @@ def new():
             return redirect(url_for("sessions.view", session_id=sid))
 
     return render_template("sessions/form.html", session=None, courses=courses, trainers=trainers,
+                            trainer_scorecards=trainer_scores.overall_by_trainer(),
+                            score_badge=trainer_scores.badge_class,
                             companies=companies, leads=leads, statuses=STATUSES,
                             training_modes=TRAINING_MODES, training_types=TRAINING_TYPES,
                             room_setup_options=ROOM_SETUP_OPTIONS,
@@ -1276,6 +1278,8 @@ def edit(session_id):
         selected_trainer_ids = [session_row["trainer_id"]]
     time_start, time_end = split_training_time(session_row["training_time"])
     return render_template("sessions/form.html", session=session_row, courses=courses, trainers=trainers,
+                            trainer_scorecards=trainer_scores.overall_by_trainer(),
+                            score_badge=trainer_scores.badge_class,
                             companies=companies, leads=leads, statuses=STATUSES,
                             training_modes=TRAINING_MODES, training_types=TRAINING_TYPES, preselect_course=None,
                             room_setup_options=ROOM_SETUP_OPTIONS,

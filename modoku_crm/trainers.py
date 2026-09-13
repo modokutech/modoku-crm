@@ -5,7 +5,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, doc_sanity, uploadutil
+from . import activity, db, doc_sanity, trainer_scores, uploadutil
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -101,7 +101,9 @@ def _filtered_trainers():
 @login_required
 def index():
     trainers, q = _filtered_trainers()
-    return render_template("trainers/list.html", trainers=trainers, q=q)
+    return render_template("trainers/list.html", trainers=trainers, q=q,
+                            trainer_scorecards=trainer_scores.overall_by_trainer(),
+                            score_badge=trainer_scores.badge_class)
 
 
 @bp.route("/export")
@@ -183,9 +185,11 @@ def view(trainer_id):
            WHERE ct.trainer_id = ? ORDER BY c.title""",
         (trainer_id,),
     )
+    scorecard = trainer_scores.for_trainer(trainer_id)
     return render_template("trainers/view.html", trainer=trainer, sessions=sessions,
                             purchase_orders=purchase_orders, document_fields=DOCUMENT_FIELDS,
-                            rate_history=rate_history, qualified_courses=qualified_courses)
+                            rate_history=rate_history, qualified_courses=qualified_courses,
+                            scorecard=scorecard, score_badge=trainer_scores.badge_class)
 
 
 @bp.route("/<int:trainer_id>/edit", methods=("GET", "POST"))
