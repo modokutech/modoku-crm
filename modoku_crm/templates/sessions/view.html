@@ -8,6 +8,9 @@
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('enrollments.new', session_id=s.id) }}" class="btn btn-success btn-sm">+ Enroll Participant</a>
+    {% if modules.quotations %}
+    <a href="{{ url_for('quotations.new', session_id=s.id) }}" class="btn btn-outline-success btn-sm">+ Quotation for Client</a>
+    {% endif %}
     {% if modules.purchase_orders %}
       {% if assigned_trainers|length > 1 %}
       <div class="dropdown d-inline-block">
@@ -62,6 +65,18 @@
         <tr><td class="text-muted">Room Setup</td><td>{{ s.room_setup or '-' }}</td></tr>
         <tr><td class="text-muted">Price</td><td>RM {{ s.course_price|fmtmoney }}
           <span class="text-muted small">({{ 'Public' if s.training_type == 'Public Training' else 'In-house' }} rate)</span></td></tr>
+        {# Only rendered when a quotation is actually linked to this class — the
+           course's own list price above is always there, but a quoted figure
+           only exists once something has been sent to the client. #}
+        {% if quoted_price and modules.quotations %}
+        <tr><td class="text-muted">Quoted Price</td><td>
+          <span class="fw-semibold">RM {{ quoted_price.grand_total|fmtmoney }}</span>
+          <div class="small text-muted">
+            <a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">{{ quoted_price.quote_no }}</a>
+            · {{ quoted_price.status }}{% if quoted_price.sst_rate %} · incl. SST{% endif %}
+          </div>
+        </td></tr>
+        {% endif %}
         <tr><td class="text-muted">HRDCorp Claimable</td><td>{{ 'Yes' if s.hrdf_claimable else 'No' }}</td></tr>
         <tr><td class="text-muted">Laptop Rental</td><td>{% if s.requires_laptop_rental %}Yes{% if s.laptop_rental_qty %} ({{ s.laptop_rental_qty }} unit{{ 's' if s.laptop_rental_qty|int != 1 }}){% endif %}{% else %}No{% endif %}</td></tr>
         {% if s.has_exam %}

@@ -983,7 +983,13 @@ def view(session_id):
     grant_docs_url = url_for("hrdcorp_grant.form", token=grant_docs_token, _external=True)
     jd14_return_token = ensure_jd14_return_token(session_id)
     jd14_return_url = url_for("jd14_return.details", token=jd14_return_token, _external=True)
+    # Imported here, not at module scope: quotations.py already imports this
+    # module, so a top-level import either way would be circular.
+    from . import quotations as _quotations
+    quoted_price = _quotations.quoted_price_for_session(session_id)
+
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
+                            quoted_price=quoted_price,
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
                             ai_configured=ai_match.is_configured(),

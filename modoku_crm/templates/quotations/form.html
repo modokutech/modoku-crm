@@ -38,7 +38,7 @@
             data-start-date="{{ s.start_date or '' }}" data-end-date="{{ s.end_date or '' }}"
             data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
             data-price-inhouse="{{ s.price_inhouse or 0 }}"
-            {{ 'selected' if quotation and quotation.session_id == s.id }}>
+            {{ 'selected' if (quotation and quotation.session_id == s.id) or (not quotation and preselect_session == s.id) }}>
             {{ s.course_title }} — {{ s.start_date|fmtdaterange(s.end_date) }} ({{ s.status }})
           </option>
           {% endfor %}
@@ -453,6 +453,16 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   companySelect.addEventListener('change', function () {
     setAttentionTo(this.value, null);
   });
+
+  // Arrived from a class page's "+ Quotation for Client": the dropdown is
+  // already on that class server-side, but nothing has filled the rest of the
+  // form from it yet — do exactly what picking it by hand would do. Only on a
+  // brand-new quotation, so an edit never has its saved values overwritten.
+  {% if preselect_session and not quotation %}
+  if (sessionSelect.value) {
+    applyClass(sessionSelect.selectedOptions[0]);
+  }
+  {% endif %}
 
   // Initial state on page load: an existing quotation (or a validation-
   // failure re-render) already has its company_id/attention_to values —

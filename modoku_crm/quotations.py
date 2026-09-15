@@ -452,6 +452,44 @@ def _form_common(request_form):
     }
 
 
+def quoted_price_for_session(session_id):
+    """The price actually quoted to the client for one class, for showing on
+    the class page beside the course's own list price. Returns
+    {"quotation_id", "quote_no", "status", "grand_total", "sst_rate"} or None
+    when no quotation is linked to that class.
+
+    A class can carry several quotations (a revision supersedes its
+    predecessor, and the quote number increments), so this picks the one that
+    represents the agreed figure: an **Accepted** quotation wins outright;
+    failing that, the most recent one by date, then by id. A Rejected
+    quotation is only used if it's the only thing on file — worth showing
+    what was asked rather than nothing at all, and the status travels with
+    the figure so the page can say which it is.
+
+    Uses the same _totals() the quotation itself displays, so the number here
+    and the number on the quotation can never disagree (including the
+    SST-inclusive case, where the grand total is what was typed rather than
+    the fees plus tax).
+    """
+    rows = db.query(
+        """SELECT id, quote_no, status, sst_rate, sst_inclusive, quote_date
+           FROM quotations WHERE session_id = ?
+           ORDER BY CASE status WHEN 'Accepted' THEN 0 ELSE 1 END,
+                    quote_date DESC, id DESC
+           LIMIT 1""",
+        (session_id,),
+    )
+    if not rows:
+        return None
+    q = rows[0]
+    items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ?", (q["id"],))
+    _subtotal, _sst, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
+    return {
+        "quotation_id": q["id"], "quote_no": q["quote_no"], "status": q["status"],
+        "grand_total": grand_total, "sst_rate": q["sst_rate"],
+    }
+
+
 def _linkable_sessions(include_id=None):
     """Classes a quotation can be tied to — 'Proposed' and 'Scheduled' only,
     since the point of linking is to drive the not-yet-confirmed workflow
@@ -657,6 +695,13 @@ def new():
     companies = db.query("SELECT * FROM companies ORDER BY name")
     courses = db.query("SELECT id, title FROM courses WHERE active = 1 ORDER BY title")
     preselect_company = request.args.get("company_id", type=int)
+    # Optional ?session_id= — set by the "+ Quotation for Client" button on a
+    # class page, so the quotation opens already tied to that class (and the
+    # form's own JS then fills course title, client, venue, dates and pax from
+    # it). Passed to _linkable_sessions as include_id so the class is in the
+    # dropdown even when its status is past Proposed/Scheduled; otherwise the
+    # button would silently land on an unlinked form.
+    preselect_session = request.args.get("session_id", type=int)
 
     if request.method == "POST":
         fields = _form_common(request.form)
@@ -668,7 +713,10 @@ def new():
                 today=fields["quote_date"], default_valid_until=fields["valid_until"],
                 preselect_company=int(fields["client_company_id"]) if fields["client_company_id"] else None,
                 default_terms=fields["terms"], items=_items_from_form(request.form),
-                linkable_sessions=_linkable_sessions(), leads=_leads_for_dropdown(),
+                linkable_sessions=_linkable_sessions(
+                    int(fields["session_id"]) if fields["session_id"] else preselect_session),
+                preselect_session=None,
+                leads=_leads_for_dropdown(),
             )
         base_date = fields["quote_date"]
         revision = _next_seq_for_date(base_date)
@@ -699,7 +747,9 @@ def new():
         "quotations/form.html", quotation=None, is_edit=False, companies=companies, courses=courses,
         statuses=STATUSES, training_types=TRAINING_TYPES, training_modes=TRAINING_MODES,
         today=today, default_valid_until=valid_until, preselect_company=preselect_company,
-        default_terms=_default_terms("Physical", None, valid_until), linkable_sessions=_linkable_sessions(),
+        default_terms=_default_terms("Physical", None, valid_until),
+        linkable_sessions=_linkable_sessions(preselect_session),
+        preselect_session=preselect_session,
         leads=_leads_for_dropdown(),
     )
 
@@ -803,6 +853,7 @@ def edit(quotation_id):
                 today=fields["quote_date"], default_valid_until=fields["valid_until"], preselect_company=None,
                 default_terms=fields["terms"], items=_items_from_form(request.form),
                 linkable_sessions=_linkable_sessions(q["session_id"]), leads=_leads_for_dropdown(),
+                preselect_session=None,
             )
         db.execute(
             """UPDATE quotations SET client_company_id=?, session_id=?, attention_to=?, company_name_override=?,
@@ -831,6 +882,7 @@ def edit(quotation_id):
         today=q["quote_date"], default_valid_until=q["valid_until"], preselect_company=None,
         default_terms=q["terms"], items=items, linkable_sessions=_linkable_sessions(q["session_id"]),
         leads=_leads_for_dropdown(),
+        preselect_session=None,
     )
 
 
