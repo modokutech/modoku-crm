@@ -962,6 +962,13 @@ _COLUMN_MIGRATIONS = [
     # while the responderUri is only useful to a human clicking the link.
     ("course_sessions", "evaluation_form_id", "TEXT"),
     ("course_sessions", "evaluation_form_generated_at", "TEXT"),
+    # Deductions taken off Training Revenue before profit is worked out (see
+    # training_costs.py): HRDCorp's 4% fee on a claimable class, and 8% SST.
+    # Stored per class rather than assumed, since whether either applies
+    # depends on the deal — both off by default, so an existing costing
+    # sheet's figures don't silently change when this is deployed.
+    ("training_costs", "deduct_hrdcorp_fee", "INTEGER NOT NULL DEFAULT 0"),
+    ("training_costs", "deduct_sst", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 

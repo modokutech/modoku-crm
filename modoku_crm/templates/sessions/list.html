@@ -42,7 +42,6 @@
         <tr onclick="window.location='{{ url_for('sessions.view', session_id=s.id) }}'" style="cursor:pointer">
           <td class="text-truncate" style="max-width:0;"><span class="fw-semibold">{{ s.course_title }}</span> <span class="text-muted small">{{ s.course_code or '' }}</span></td>
           <td class="text-nowrap">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}</td>
-          <td class="text-truncate" style="max-width:0;">{{ s.venue or '-' }}</td>
           <td class="text-truncate" style="max-width:0;">{{ s.trainer_name or '-' }}</td>
           <td class="text-truncate" style="max-width:0;">{{ s.client_name or '-' }}</td>
           <td>
@@ -57,11 +56,10 @@
       {% endmacro %}
       {% set headers %}
         <tr>
-          <th style="width:29%">{{ sort_link('course', 'Course') }}</th>
-          <th style="width:16%">{{ sort_link('date', 'Date') }}</th>
-          <th style="width:16%">{{ sort_link('venue', 'Venue') }}</th>
-          <th style="width:17%">{{ sort_link('trainer', 'Trainer') }}</th>
-          <th style="width:14%">Client</th>
+          <th style="width:35%">{{ sort_link('course', 'Course') }}</th>
+          <th style="width:18%">{{ sort_link('date', 'Date') }}</th>
+          <th style="width:21%">{{ sort_link('trainer', 'Trainer') }}</th>
+          <th style="width:18%">Client</th>
           <th style="width:8%">{{ sort_link('status', 'Status') }}</th>
         </tr>
       {% endset %}

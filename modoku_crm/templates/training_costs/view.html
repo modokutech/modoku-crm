@@ -11,20 +11,20 @@
 <div class="row g-3 mb-3">
   <div class="col-md-4">
     <div class="stat-card" style="background:#0c45a6;">
-      <div class="small text-white-50">Total Costing</div>
+      <div class="small text-white-50">Total Cost</div>
       <div class="stat-value" id="stat_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
     </div>
   </div>
   <div class="col-md-4">
-    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
-      <div class="small">Gross Profit</div>
-      <div class="stat-value" id="stat_gross_profit">RM {{ computed.gross_profit|fmtmoney }}</div>
+    <div class="stat-card" style="background:#7622D7;">
+      <div class="small text-white-50">Net Profit</div>
+      <div class="stat-value" id="stat_net_profit">RM {{ computed.net_profit|fmtmoney }}</div>
     </div>
   </div>
   <div class="col-md-4">
     <div class="stat-card" style="background:#0891b2;">
-      <div class="small text-white-50">Gross Profit %</div>
-      <div class="stat-value" id="stat_gross_profit_pct">{{ computed.gross_profit_pct }}%</div>
+      <div class="small text-white-50">Net Profit %</div>
+      <div class="stat-value" id="stat_net_profit_pct">{{ computed.net_profit_pct }}%</div>
     </div>
   </div>
 </div>
@@ -158,18 +158,40 @@
       </div>
 
       <hr>
-      <div class="row g-2 align-items-center mb-3">
+      <div class="mb-2">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="deduct_hrdcorp_fee" name="deduct_hrdcorp_fee"
+                 {{ 'checked' if costs.deduct_hrdcorp_fee }}>
+          <label class="form-check-label" for="deduct_hrdcorp_fee">4% HRDCorp Fees</label>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="deduct_sst" name="deduct_sst"
+                 {{ 'checked' if costs.deduct_sst }}>
+          <label class="form-check-label" for="deduct_sst">8% SST</label>
+        </div>
+        <small class="text-muted">Tick whichever this class carries — they come off the Training Revenue
+          below before profit is worked out. Both together take 12% off.</small>
+      </div>
+      <div class="row g-2 align-items-center mb-2">
         <div class="col-6">Training Revenue</div>
         <div class="col-6"><input type="number" step="0.01" min="0" id="training_revenue" name="training_revenue" class="form-control form-control-sm" value="{{ costs.training_revenue }}"></div>
       </div>
+      <div class="row g-2 align-items-center mb-1 {{ 'd-none' if not computed.total_deductions }}" id="deductions_row">
+        <div class="col-6 text-muted">Less deductions (<span id="summary_deduction_pct">{{ computed.deduction_rate_pct }}</span>%)</div>
+        <div class="col-6 text-end text-muted">&minus; RM <span id="summary_total_deductions">{{ computed.total_deductions|fmtmoney }}</span></div>
+      </div>
+      <div class="row g-2 align-items-center mb-3 {{ 'd-none' if not computed.total_deductions }}" id="net_revenue_row">
+        <div class="col-6">Net Revenue</div>
+        <div class="col-6 text-end" id="summary_net_revenue">RM {{ computed.net_revenue|fmtmoney }}</div>
+      </div>
 
       <div class="row g-2 align-items-center mb-1">
-        <div class="col-6 fw-semibold">Total Costing</div>
+        <div class="col-6 fw-semibold">Total Cost</div>
         <div class="col-6 text-end fw-semibold" id="summary_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
       </div>
       <div class="row g-2 align-items-center">
-        <div class="col-6 fw-bold">Gross Profit / %</div>
-        <div class="col-6 text-end fw-bold"><span id="summary_gross_profit">RM {{ computed.gross_profit|fmtmoney }}</span> &nbsp; (<span id="summary_gross_profit_pct">{{ computed.gross_profit_pct }}</span>%)</div>
+        <div class="col-6 fw-bold">Net Profit / %</div>
+        <div class="col-6 text-end fw-bold"><span id="summary_net_profit">RM {{ computed.net_profit|fmtmoney }}</span> &nbsp; (<span id="summary_net_profit_pct">{{ computed.net_profit_pct }}</span>%)</div>
       </div>
     </div>
   </div>
@@ -209,6 +231,12 @@
     var el = document.getElementById(id);
     if (el) { el.textContent = fmt(val); }
   }
+  // The deductions line already prints its own "− RM " prefix in the markup,
+  // so this one sets the bare number.
+  function setPlain(id, val) {
+    var el = document.getElementById(id);
+    if (el) { el.textContent = fmtMoney(val); }
+  }
 
   function recalc() {
     var days = TRAINING_DAYS;
@@ -238,8 +266,26 @@
     var revenue = num('training_revenue');
     var totalCosting = lunch + tea + meeting + laptop + courseware + manual + book + cert + exam
       + customTotal + trainerFee + trainerAllowance + busAir + venue + hotel;
-    var grossProfit = revenue - totalCosting;
-    var grossProfitPct = revenue ? (grossProfit / revenue * 100) : 0;
+
+    // Deductions mirror _compute() in training_costs.py exactly: both rates
+    // apply to the gross revenue and add together (4% + 8% = 12%) rather
+    // than compounding, and the margin is measured against what's actually
+    // retained rather than what was billed.
+    var hrdcorpTicked = document.getElementById('deduct_hrdcorp_fee').checked;
+    var sstTicked = document.getElementById('deduct_sst').checked;
+    var deductionRate = (hrdcorpTicked ? {{ hrdcorp_fee_rate }} : 0) + (sstTicked ? {{ sst_rate }} : 0);
+    var totalDeductions = revenue * deductionRate;
+    var netRevenue = revenue - totalDeductions;
+    var netProfit = netRevenue - totalCosting;
+    var netProfitPct = netRevenue ? (netProfit / netRevenue * 100) : 0;
+
+    var showDeductions = deductionRate > 0;
+    document.getElementById('deductions_row').classList.toggle('d-none', !showDeductions);
+    document.getElementById('net_revenue_row').classList.toggle('d-none', !showDeductions);
+    document.getElementById('summary_deduction_pct').textContent =
+      (Math.round(deductionRate * 1000) / 10).toString();
+    setPlain('summary_total_deductions', totalDeductions);
+    setRM('summary_net_revenue', netRevenue);
 
     setPreview('preview_lunch', lunch);
     setPreview('preview_tea_break', tea);
@@ -252,15 +298,18 @@
     setPreview('preview_exam', exam);
 
     setRM('stat_total_costing', totalCosting);
-    setRM('stat_gross_profit', grossProfit);
-    setPct('stat_gross_profit_pct', grossProfitPct);
+    setRM('stat_net_profit', netProfit);
+    setPct('stat_net_profit_pct', netProfitPct);
     setRM('summary_total_costing', totalCosting);
-    setRM('summary_gross_profit', grossProfit);
-    setPct('summary_gross_profit_pct', grossProfitPct);
+    setRM('summary_net_profit', netProfit);
+    setPct('summary_net_profit_pct', netProfitPct);
   }
 
   var form = document.getElementById('costs-form');
   form.addEventListener('input', recalc);
+  // Checkboxes and selects report through 'change' too — listening for both
+  // keeps the deduction toggles instant regardless of how the browser fires.
+  form.addEventListener('change', recalc);
 
   document.getElementById('addFeeItemBtn').addEventListener('click', function () {
     var container = document.getElementById('customFeeItems');

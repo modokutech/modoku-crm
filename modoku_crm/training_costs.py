@@ -42,7 +42,13 @@ _FIELDS = [
     ("trainer_fee_per_day", float, 0), ("trainer_allowance_per_day", float, 0),
     ("bus_air_fee", float, 0), ("venue_fee", float, 0), ("hotel_fee", float, 0),
     ("training_revenue", float, 0),
+    ("deduct_hrdcorp_fee", bool, 0), ("deduct_sst", bool, 0),
 ]
+
+# Taken off Training Revenue when ticked on the costing sheet. Both together
+# come off the gross revenue additively (4 + 8 = 12%), not compounded.
+HRDCORP_FEE_RATE = 0.04
+SST_RATE = 0.08
 
 
 def _session_or_none(session_id):
@@ -76,19 +82,37 @@ def _compute(costs, training_days, custom_items_total=0):
                       + total_courseware + total_manual + total_book + total_certificate + total_exam
                       + custom_items_total + total_trainer_fee + total_trainer_allowance
                       + c["bus_air_fee"] + c["venue_fee"] + c["hotel_fee"])
+    # Revenue is what the client is billed; what the business actually keeps
+    # is that less HRDCorp's fee and/or SST, whichever the deal carries. Both
+    # rates apply to the gross revenue and add up (4% + 8% = 12%) rather than
+    # compounding, so ticking both takes 12% off, not 11.68%.
     revenue = c["training_revenue"]
-    gross_profit = revenue - total_costing
-    gross_profit_pct = round((gross_profit / revenue * 100), 1) if revenue else 0
+    deduction_rate = ((HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0)
+                       + (SST_RATE if c.get("deduct_sst") else 0))
+    hrdcorp_fee_amount = revenue * HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
+    sst_amount = revenue * SST_RATE if c.get("deduct_sst") else 0
+    total_deductions = hrdcorp_fee_amount + sst_amount
+    net_revenue = revenue - total_deductions
+    # Margin is against the revenue actually retained, not the billed figure —
+    # measuring profit against money that was never kept would overstate it.
+    net_profit = net_revenue - total_costing
+    net_profit_pct = round((net_profit / net_revenue * 100), 1) if net_revenue else 0
 
     return {
+        "deduction_rate_pct": round(deduction_rate * 100, 1),
+        "hrdcorp_fee_amount": hrdcorp_fee_amount,
+        "sst_amount": sst_amount,
+        "total_deductions": total_deductions,
+        "net_revenue": net_revenue,
+        "net_profit": net_profit,
+        "net_profit_pct": net_profit_pct,
         "total_lunch": total_lunch, "total_tea_break": total_tea_break,
         "total_meeting_package": total_meeting_package,
         "total_laptop_rental": total_laptop_rental, "total_courseware": total_courseware,
         "total_manual": total_manual, "total_book": total_book,
         "total_certificate": total_certificate, "total_exam": total_exam,
         "total_trainer_fee": total_trainer_fee, "total_trainer_allowance": total_trainer_allowance,
-        "total_costing": total_costing, "gross_profit": gross_profit,
-        "gross_profit_pct": gross_profit_pct,
+        "total_costing": total_costing,
     }
 
 
@@ -165,7 +189,7 @@ def view(session_id):
 
     return render_template("training_costs/view.html", s=session_row, costs=costs, computed=computed,
                             training_days=training_days, cert_types=CERT_TYPES, exam_types=EXAM_TYPES,
-                            items=items)
+                            items=items, hrdcorp_fee_rate=HRDCORP_FEE_RATE, sst_rate=SST_RATE)
 
 
 @bp.route("/<int:session_id>/reset", methods=("POST",))

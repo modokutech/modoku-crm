@@ -19,7 +19,7 @@ page that would just bounce the user back to the dashboard.
 """
 from flask import Blueprint, g, jsonify, request, url_for
 
-from . import db
+from . import db, fmtdate
 from .auth import login_required
 
 bp = Blueprint("search", __name__, url_prefix="/search")
@@ -121,14 +121,14 @@ def _sessions(term):
     )
     return [{
         "type": "Class", "icon": "bi-calendar-event", "label": r["course_title"],
-        "sub": " · ".join(p for p in (r["start_date"], r["venue"], r["status"]) if p),
+        "sub": " · ".join(p for p in (fmtdate(r["start_date"]), r["venue"], r["status"]) if p),
         "href": url_for("sessions.view", session_id=r["id"]),
     } for r in rows]
 
 
 def _quotations(term):
     rows = db.query(
-        """SELECT q.id, q.quote_no, q.status, q.course_title,
+        """SELECT q.id, q.quote_no, q.status, q.course_title, q.quote_date,
                   COALESCE(co.name, q.company_name_override) AS client
            FROM quotations q LEFT JOIN companies co ON co.id = q.client_company_id
            WHERE q.quote_no LIKE ? ESCAPE '\\' OR q.course_title LIKE ? ESCAPE '\\'
@@ -138,14 +138,14 @@ def _quotations(term):
     )
     return [{
         "type": "Quotation", "icon": "bi-file-earmark-ruled", "label": r["quote_no"],
-        "sub": " · ".join(p for p in (r["client"], r["status"]) if p),
+        "sub": " · ".join(p for p in (r["client"], fmtdate(r["quote_date"]), r["status"]) if p),
         "href": url_for("quotations.view", quotation_id=r["id"]),
     } for r in rows]
 
 
 def _invoices(term):
     rows = db.query(
-        """SELECT i.id, i.invoice_no, i.status, i.total,
+        """SELECT i.id, i.invoice_no, i.status, i.total, i.invoice_date,
                   COALESCE(co.name, i.bill_to_name) AS client
            FROM invoices i LEFT JOIN companies co ON co.id = i.company_id
            WHERE i.invoice_no LIKE ? ESCAPE '\\' OR co.name LIKE ? ESCAPE '\\'
@@ -155,14 +155,14 @@ def _invoices(term):
     )
     return [{
         "type": "Invoice", "icon": "bi-receipt", "label": r["invoice_no"],
-        "sub": " · ".join(p for p in (r["client"], r["status"]) if p),
+        "sub": " · ".join(p for p in (r["client"], fmtdate(r["invoice_date"]), r["status"]) if p),
         "href": url_for("invoices.view", invoice_id=r["id"]),
     } for r in rows]
 
 
 def _purchase_orders(term):
     rows = db.query(
-        """SELECT po.id, po.po_no, po.status, t.name AS trainer_name
+        """SELECT po.id, po.po_no, po.status, po.issue_date, t.name AS trainer_name
            FROM purchase_orders po LEFT JOIN trainers t ON t.id = po.trainer_id
            WHERE po.po_no LIKE ? ESCAPE '\\' OR t.name LIKE ? ESCAPE '\\'
            ORDER BY po.issue_date DESC LIMIT ?""",
@@ -170,7 +170,7 @@ def _purchase_orders(term):
     )
     return [{
         "type": "Purchase Order", "icon": "bi-cart-check", "label": r["po_no"],
-        "sub": " · ".join(p for p in (r["trainer_name"], r["status"]) if p),
+        "sub": " · ".join(p for p in (r["trainer_name"], fmtdate(r["issue_date"]), r["status"]) if p),
         "href": url_for("purchase_orders.view", po_id=r["id"]),
     } for r in rows]
 
@@ -204,7 +204,7 @@ def _participants(term):
     )
     return [{
         "type": "Participant", "icon": "bi-people", "label": r["participant_name"],
-        "sub": " · ".join(p for p in (r["course_title"], r["start_date"]) if p),
+        "sub": " · ".join(p for p in (r["course_title"], fmtdate(r["start_date"])) if p),
         "href": url_for("t3.manage", session_id=r["session_id"]),
     } for r in rows]
 
