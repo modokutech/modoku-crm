@@ -393,7 +393,10 @@ body {
   width: 120px;
   height: auto;
   display: block;
-  margin-bottom: 0.5rem;
+  /* Breathing room between the logo and the company name below it — the
+     logo's own artwork has very little bottom bearing, so without this the
+     wordmark's descender almost touches the "Modoku Tech Sdn Bhd" line. */
+  margin-bottom: 1rem;
 }
 .quote-doc-title {
   font-size: 1.7rem;

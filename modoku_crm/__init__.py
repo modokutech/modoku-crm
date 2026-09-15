@@ -1,3 +1,4 @@
+import os
 import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -198,6 +199,22 @@ def create_app(config_object="config.Config"):
     # `fmtaddress(c.address, c.city, c.postcode, c.state)` reads better than
     # piping one of them through it.
     app.jinja_env.globals["fmtaddress"] = fmtaddress
+
+    # Cache-busted static URLs. Browsers hold onto style.css indefinitely
+    # otherwise (the <link> carries no version), so a deployed CSS change can
+    # sit invisible behind a stale cached copy until someone hard-refreshes —
+    # which is exactly what happened when the quotation header was restyled.
+    # Appending the file's own mtime means the URL changes only when the file
+    # does, so caching still works; it just can't serve a stale version.
+    def static_v(filename):
+        url = url_for("static", filename=filename)
+        try:
+            stamp = int(os.path.getmtime(os.path.join(app.static_folder, filename)))
+        except OSError:
+            return url
+        return f"{url}?v={stamp}"
+
+    app.jinja_env.globals["static_v"] = static_v
 
     from .sessions import split_training_time as _split_training_time
     app.jinja_env.filters["_split_training_time"] = _split_training_time
