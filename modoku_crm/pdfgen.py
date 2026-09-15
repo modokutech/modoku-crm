@@ -288,7 +288,17 @@ def _build_quotation_html(q, items, subtotal, title):
     grand_total = subtotal + sst_amount
 
     company_name = q["company_name_override"] or q["client_company_name"] or ""
-    address = q["address"] or (q["client_company_address"] if "client_company_address" in q.keys() else "") or ""
+    # The typed-in override wins; otherwise build the client's full postal
+    # address from their saved record — street, postcode + city, state — via
+    # the same composer the on-screen quotation uses, so the PDF and the page
+    # never disagree.
+    from . import fmtaddress
+    def _col(name):
+        return q[name] if name in q.keys() else ""
+    address = q["address"] or fmtaddress(
+        _col("client_company_address"), _col("client_company_city"),
+        _col("client_company_postcode"), _col("client_company_state"),
+    ) or ""
     tel = q["tel"] or (q["client_company_phone"] if "client_company_phone" in q.keys() else "") or ""
 
     item_rows = "".join(
@@ -365,7 +375,13 @@ def _build_quotation_html(q, items, subtotal, title):
   th, td {{ padding: 8px 6px; border-bottom: 1px solid #eee; text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; color: #666; }}
   .muted {{ color: #666; }}
-  img.logo {{ width: 76px; height: auto; display: block; margin-bottom: 10px; }}
+  /* Standalone logo sitting above the company block, not beside it. 120px to
+     match the on-screen quotation (.quote-doc-logo in style.css). */
+  img.logo {{ width: 120px; height: auto; display: block; margin-bottom: 10px; }}
+  /* 25.5px is 1.7rem at this app's 15px root (see html{{font-size}} in
+     style.css — NOT the usual 16px). Written in px so the PDF engine can't
+     resolve rem against a different root and drift from the web view. */
+  h2.doc-title {{ margin: 0; font-size: 25.5px; line-height: 1.15; }}
 </style></head>
 <body>
   <table style="border:none;margin-top:0"><tr style="border:none">
@@ -376,7 +392,7 @@ def _build_quotation_html(q, items, subtotal, title):
       <span class="muted">hello@modoku.tech</span>
     </td>
     <td style="border:none;text-align:right;vertical-align:top">
-      <h2 style="margin:0">QUOTATION</h2>
+      <h2 class="doc-title">QUOTATION</h2>
       <div class="muted">{q['quote_no']}</div>
     </td>
   </tr></table>
@@ -442,6 +458,19 @@ def _fmt_qty(qty):
 
 
 def _build_invoice_html(invoice, items):
+    # Whatever was billed to is authoritative on a historical document; only
+    # when an invoice carries no address of its own do we fall back to the
+    # client's saved one, composed the same way quotations do it. Written to
+    # tolerate a caller whose row doesn't carry the company columns at all
+    # (audit_export passes a plain invoices row).
+    from . import fmtaddress
+    def _icol(name):
+        return invoice[name] if name in invoice.keys() else ""
+    bill_to_address = invoice["bill_to_address"] or fmtaddress(
+        _icol("company_address"), _icol("company_city"),
+        _icol("company_postcode"), _icol("company_state"),
+    ) or ""
+
     logo_uri = _logo_data_uri()
     brand = "#0c45a6"
     accent = "#fbaf17"
@@ -543,7 +572,7 @@ def _build_invoice_html(invoice, items):
       <td style="border:none;width:34%;vertical-align:top">
         <div class="brand" style="font-size:11px;font-weight:700;text-transform:uppercase">Billed To</div>
         <strong>{invoice['bill_to_name']}</strong><br>
-        {invoice['bill_to_address'] or ''}
+        {bill_to_address}
         {'<br>SST Reg. No: ' + invoice['sst_reg_no'] if invoice['sst_reg_no'] else ''}
         {'<br>TIN: ' + invoice['buyer_tin'] if invoice['buyer_tin'] else ''}
       </td>

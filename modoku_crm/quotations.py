@@ -709,6 +709,8 @@ def new():
 def view(quotation_id):
     q = db.query(
         """SELECT q.*, co.name AS client_company_name, co.address AS client_company_address,
+                  co.city AS client_company_city, co.postcode AS client_company_postcode,
+                  co.state AS client_company_state,
                   co.phone AS client_company_phone, co.email AS client_company_email,
                   u.name AS created_by_name, u.position AS created_by_position,
                   u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature,
@@ -750,6 +752,8 @@ def view(quotation_id):
 def download(quotation_id):
     q = db.query(
         """SELECT q.*, co.name AS client_company_name, co.address AS client_company_address,
+                  co.city AS client_company_city, co.postcode AS client_company_postcode,
+                  co.state AS client_company_state,
                   co.phone AS client_company_phone, co.email AS client_company_email,
                   u.name AS created_by_name, u.position AS created_by_position,
                   u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature
@@ -863,6 +867,8 @@ def update_status(quotation_id):
 def send_email(quotation_id):
     q = db.query(
         """SELECT q.*, co.name AS client_company_name, co.address AS client_company_address,
+                  co.city AS client_company_city, co.postcode AS client_company_postcode,
+                  co.state AS client_company_state,
                   co.phone AS client_company_phone, co.email AS client_company_email,
                   u.name AS created_by_name, u.position AS created_by_position,
                   u.contact_phone AS created_by_phone, u.signature_file AS created_by_signature,

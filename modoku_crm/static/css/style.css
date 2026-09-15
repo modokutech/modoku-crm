@@ -386,6 +386,21 @@ body {
   flex-shrink: 0;
 }
 
+/* The quotation header stacks: a standalone logo with the company name,
+   address and email beneath it, rather than sitting alongside. Quotation-only
+   on purpose — invoices, POs and vendor POs keep the inline .doc-logo above. */
+.quote-doc-logo {
+  width: 120px;
+  height: auto;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.quote-doc-title {
+  font-size: 1.7rem;
+  line-height: 1.15;
+  margin: 0;
+}
+
 /* Invoice document — modeled on the reference Modoku invoice template:
    thin gold frame, blue accent labels, a divider-ruled header. */
 .invoice-doc {

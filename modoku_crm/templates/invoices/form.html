@@ -34,7 +34,7 @@
           <option disabled>──────────</option>
           {% for c in companies %}
           <option value="{{ c.id }}"
-            data-address="{{ c.address or '' }}{% if c.city %}, {{ c.city }}{% endif %}{% if c.postcode %} {{ c.postcode }}{% endif %}{% if c.state %}, {{ c.state }}{% endif %}"
+            data-address="{{ fmtaddress(c.address, c.city, c.postcode, c.state) }}"
             data-sst="{{ c.sst_reg_no or '' }}" data-tin="{{ c.tin or '' }}" data-name="{{ c.name }}">
             {{ c.name }}
           </option>

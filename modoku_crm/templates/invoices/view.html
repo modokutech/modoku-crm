@@ -56,7 +56,8 @@
     <div class="col-md-4">
       <div class="small fw-bold" style="color:var(--brand)">Billed To</div>
       <div class="fw-semibold">{{ invoice.bill_to_name }}</div>
-      <div class="small">{{ invoice.bill_to_address or '' }}</div>
+      <div class="small">{{ invoice.bill_to_address or fmtaddress(invoice.company_address,
+              invoice.company_city, invoice.company_postcode, invoice.company_state) }}</div>
       {% if invoice.sst_reg_no %}<div class="small">SST Reg. No: {{ invoice.sst_reg_no }}</div>{% endif %}
       {% if invoice.buyer_tin %}<div class="small">TIN: {{ invoice.buyer_tin }}</div>{% endif %}
     </div>

@@ -286,7 +286,10 @@ def new():
 @login_required
 def view(invoice_id):
     invoice = db.query(
-        """SELECT i.*, co.name AS company_name, co.email AS company_email, u.name AS created_by_name
+        """SELECT i.*, co.name AS company_name, co.email AS company_email,
+                  co.address AS company_address, co.city AS company_city,
+                  co.postcode AS company_postcode, co.state AS company_state,
+                  u.name AS created_by_name
            FROM invoices i
            LEFT JOIN companies co ON co.id = i.company_id
            LEFT JOIN users u ON u.id = i.created_by WHERE i.id = ?""",
@@ -356,7 +359,10 @@ def send_email(invoice_id):
 @login_required
 def download(invoice_id):
     invoice = db.query(
-        """SELECT i.*, co.name AS company_name FROM invoices i
+        """SELECT i.*, co.name AS company_name,
+                  co.address AS company_address, co.city AS company_city,
+                  co.postcode AS company_postcode, co.state AS company_state
+           FROM invoices i
            LEFT JOIN companies co ON co.id = i.company_id WHERE i.id = ?""",
         (invoice_id,), one=True,
     )

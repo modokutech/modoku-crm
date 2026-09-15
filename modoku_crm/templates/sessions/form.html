@@ -157,15 +157,6 @@
                  placeholder="No. of exam participants" value="{{ (session.exam_participants or '') if session else '' }}">
         </div>
       </div>
-      <div class="col-md-6">
-        <label class="form-label">Training Banner</label>
-        <input type="file" name="training_banner_file" class="form-control" accept=".png,.jpg,.jpeg,.webp">
-        {% if session and session.training_banner_file %}
-        <small class="text-muted">Currently on file: <a href="{{ url_for('sessions.download_banner', session_id=session.id) }}" target="_blank">view current banner</a> — choosing a new one will replace it. Max 2 MB.</small>
-        {% else %}
-        <small class="text-muted">Attached to the trainer's Purchase Order email, if uploaded. Max 2 MB.</small>
-        {% endif %}
-      </div>
       <div class="col-12">
         <label class="form-label">Notes</label>
         <textarea name="notes" class="form-control" rows="2">{{ (session.notes or '') if session else '' }}</textarea>
@@ -293,7 +284,15 @@ document.getElementById('qp_save').addEventListener('click', function () {
     phone: document.getElementById('qp_phone').value,
     company_id: clientSelect.value,
   });
-  fetch("{{ url_for('leads.quick_add') }}", { method: 'POST', body: body })
+  // Same CSRF requirement as every other POST in the app (see security.py) —
+  // without this header the request is rejected with a 400 before reaching
+  // the route, which showed up as a bare "Could not save PIC."
+  fetch("{{ url_for('leads.quick_add') }}", {
+    method: 'POST',
+    body: body,
+    credentials: 'same-origin',
+    headers: { 'X-CSRFToken': "{{ csrf_token() }}" },
+  })
     .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
     .then(function (result) {
       if (!result.ok) {

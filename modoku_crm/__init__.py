@@ -137,6 +137,30 @@ def fmtmoney(value):
     return text
 
 
+def fmtaddress(street, city=None, postcode=None, state=None):
+    """Composes a client's full postal address in Malaysian order —
+    'street, postcode city, state', e.g.
+    '12 Jalan Ampang, 50450 Kuala Lumpur, Wilayah Persekutuan'.
+
+    Postcode goes BEFORE the city here, which is the Malaysian convention
+    (and what appears on a real LHDN/SST-facing document), not the
+    'City 50450' ordering used in the US/UK.
+
+    Every part is optional: blanks are dropped rather than leaving stray
+    commas behind, so a company with only a street line still renders
+    cleanly, and one with nothing at all returns an empty string. Used for
+    quotations and invoices so both documents show the same address for
+    the same client."""
+    def _clean(part):
+        return str(part).strip() if part not in (None, "") else ""
+
+    street, city, postcode, state = (_clean(p) for p in (street, city, postcode, state))
+    # Postcode and city form one line together ("50450 Kuala Lumpur"), so a
+    # missing one must not leave a leading/trailing space on that segment.
+    locality = " ".join(p for p in (postcode, city) if p)
+    return ", ".join(p for p in (street, locality, state) if p)
+
+
 def fmtdays(value):
     """Renders a course duration as '1 day' / '2.5 days' — singular only
     for exactly 1, trailing '.0' dropped ('1.0' -> '1', '2.0' -> '2 days'),
@@ -170,6 +194,10 @@ def create_app(config_object="config.Config"):
     app.jinja_env.filters["linelist"] = linelist
     app.jinja_env.filters["fmtmoney"] = fmtmoney
     app.jinja_env.filters["fmtdays"] = fmtdays
+    # A global rather than a filter — it takes four separate columns, so
+    # `fmtaddress(c.address, c.city, c.postcode, c.state)` reads better than
+    # piping one of them through it.
+    app.jinja_env.globals["fmtaddress"] = fmtaddress
 
     from .sessions import split_training_time as _split_training_time
     app.jinja_env.filters["_split_training_time"] = _split_training_time

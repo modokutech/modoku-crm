@@ -168,7 +168,16 @@ document.getElementById('qc_save').addEventListener('click', function () {
     phone: document.getElementById('qc_phone').value,
     email: document.getElementById('qc_email').value,
   });
-  fetch("{{ url_for('companies.quick_add') }}", { method: 'POST', body: body })
+  // The CSRF header is required — every POST is checked app-wide (see
+  // security.py), and without it this request is rejected with a 400 before
+  // it ever reaches the route, which surfaced as a bare "Something went
+  // wrong" in the modal.
+  fetch("{{ url_for('companies.quick_add') }}", {
+    method: 'POST',
+    body: body,
+    credentials: 'same-origin',
+    headers: { 'X-CSRFToken': "{{ csrf_token() }}" },
+  })
     .then(r => r.json().then(data => ({ ok: r.ok, data })))
     .then(({ ok, data }) => {
       if (!ok) {

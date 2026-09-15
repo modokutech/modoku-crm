@@ -39,16 +39,14 @@
   <div class="col-lg-8">
     <div class="card p-4">
       <div class="d-flex justify-content-between mb-4">
-        <div class="d-flex align-items-start gap-2">
-          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="doc-logo">
-          <div>
-            <div class="fw-bold">Modoku Tech Sdn Bhd (1390352-H)</div>
-            <div class="small text-muted">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</div>
-            <div class="small text-muted">hello@modoku.tech</div>
-          </div>
+        <div>
+          <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="quote-doc-logo">
+          <div class="fw-bold">Modoku Tech Sdn Bhd (1390352-H)</div>
+          <div class="small text-muted">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</div>
+          <div class="small text-muted">hello@modoku.tech</div>
         </div>
         <div class="text-end">
-          <h5 class="mb-0">QUOTATION</h5>
+          <h5 class="quote-doc-title">QUOTATION</h5>
           <div class="text-muted">{{ q.quote_no }}</div>
         </div>
       </div>
@@ -58,7 +56,8 @@
           <div class="small text-muted text-uppercase">Attention To</div>
           <div class="fw-semibold">{{ q.attention_to or '' }}</div>
           <div>{{ q.company_name_override or q.client_company_name or '' }}</div>
-          <div>{{ q.address or q.client_company_address or '' }}</div>
+          <div>{{ q.address or fmtaddress(q.client_company_address, q.client_company_city,
+                                            q.client_company_postcode, q.client_company_state) }}</div>
           <div>{{ q.tel or q.client_company_phone or '' }}</div>
         </div>
         <div class="col-md-6 text-md-end">

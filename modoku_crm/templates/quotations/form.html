@@ -51,7 +51,7 @@
           <option value="">Select company (optional)</option>
           {% for c in companies %}
           <option value="{{ c.id }}"
-            data-address="{{ c.address or '' }}" data-phone="{{ c.phone or '' }}"
+            data-address="{{ fmtaddress(c.address, c.city, c.postcode, c.state) }}" data-phone="{{ c.phone or '' }}"
             {{ 'selected' if (quotation and quotation.client_company_id == c.id) or preselect_company == c.id }}>{{ c.name }}</option>
           {% endfor %}
         </select>
