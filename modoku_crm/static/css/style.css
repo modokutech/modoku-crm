@@ -410,8 +410,38 @@ body {
   border: 6px solid var(--brand-accent);
   padding: 2rem !important;
 }
+/* Poppins — Modoku's brand face — self-hosted from static/fonts rather than
+   fetched from Google, so it matches the invoice PDF exactly and needs no
+   third-party request. These are the same Latin subsets the PDF embeds
+   (~14KB each, vs ~155KB for the full files). */
+@font-face {
+  font-family: "Poppins";
+  src: url("../fonts/Poppins-Regular.subset.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("../fonts/Poppins-Bold.subset.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Invoice document only — the rest of the app stays on Inter. Scoped to the
+   .invoice-doc card, so the surrounding page chrome (sidebar, buttons, the
+   Send-to-client panel beside it) is untouched. */
+.invoice-doc,
+.invoice-doc .table,
+.invoice-doc h1, .invoice-doc h2, .invoice-doc h3,
+.invoice-doc h4, .invoice-doc h5, .invoice-doc h6 {
+  font-family: "Poppins", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
 .invoice-doc-logo {
-  width: 90px;
+  /* +20% from 90px, matching the invoice PDF's own logo width. */
+  width: 108px;
   height: auto;
 }
 .invoice-doc-rule {

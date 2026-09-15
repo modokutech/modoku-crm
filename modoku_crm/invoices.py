@@ -56,7 +56,7 @@ def _sync_invoice_statuses():
         current_app.logger.exception("Failed to auto-mark overdue invoices")
 
 
-def _next_invoice_no():
+def _next_invoice_no(consume=True):
     """INV-<year>-<0001> by default — prefix/suffix are admin-configurable
     under Settings, as is a one-time 'reset next number to' override. The
     <year> segment always reflects the CURRENT calendar year, but the
@@ -67,7 +67,12 @@ def _next_invoice_no():
     prefix = settings_module.get_invoice_number_prefix()
     suffix = settings_module.get_invoice_number_suffix()
     year = date.today().year
-    override = settings_module.consume_invoice_number_override()
+    # consume=False is for previews (the New Invoice form shows the number it
+    # is *about* to use). Consuming there would clear the admin's one-time
+    # override before the invoice is ever saved, so the save would fall back
+    # to the running sequence — see settings._consume_override.
+    override = (settings_module.consume_invoice_number_override() if consume
+                else settings_module.peek_invoice_number_override())
     if override is not None:
         last_seq = override - 1
     else:
@@ -279,7 +284,8 @@ def new():
     return render_template("invoices/form.html", invoice=None, items=[], companies=companies,
                             open_enrollments=open_enrollments, statuses=STATUSES,
                             classes_for_invoice=classes_for_invoice, preselect_session_id=preselect_session_id,
-                            next_invoice_no=_next_invoice_no(), today=date.today().isoformat())
+                            next_invoice_no=_next_invoice_no(consume=False),
+                            today=date.today().isoformat())
 
 
 @bp.route("/<int:invoice_id>")

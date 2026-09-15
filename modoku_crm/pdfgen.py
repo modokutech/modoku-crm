@@ -33,6 +33,47 @@ def _data_uri(path):
         return ""
 
 
+_DOC_FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
+
+# Poppins (Modoku's brand face) embedded straight into the document, the same
+# way the logo is — this module renders with no network access, and the VPS
+# can't be assumed to have the font installed either.
+#
+# These are SUBSETS (Latin + the punctuation these documents use), ~14KB each
+# against ~155KB for the full files, because an invoice PDF gets emailed and
+# bundled into the audit-export zip. The full Poppins*.ttf files in the same
+# folder are left alone — poster.py and the certificate generator draw with
+# them via PIL and need the complete font.
+_DOC_FONT_FACES = (
+    ("Poppins", 400, "normal", "Poppins-Regular.subset.ttf"),
+    ("Poppins", 700, "bold", "Poppins-Bold.subset.ttf"),
+)
+
+
+def _font_data_uri(path):
+    try:
+        with open(path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:font/truetype;base64,{encoded}"
+
+
+def poppins_font_face_css():
+    """@font-face rules embedding Poppins, or '' if the files are missing —
+    in which case the caller's own font stack (Arial/Helvetica) still
+    applies and the document renders fine, just not in the brand face."""
+    rules = []
+    for family, weight, style, filename in _DOC_FONT_FACES:
+        uri = _font_data_uri(os.path.join(_DOC_FONT_DIR, filename))
+        if uri:
+            rules.append(
+                f"@font-face {{ font-family:'{family}'; src:url({uri}) format('truetype'); "
+                f"font-weight:{weight}; font-style:{style}; }}"
+            )
+    return "\n  ".join(rules)
+
+
 def _data_uri_from_bytes(data, mimetype):
     encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mimetype};base64,{encoded}"
@@ -471,6 +512,7 @@ def _build_invoice_html(invoice, items):
         _icol("company_postcode"), _icol("company_state"),
     ) or ""
 
+    font_faces = poppins_font_face_css()
     logo_uri = _logo_data_uri()
     brand = "#0c45a6"
     accent = "#fbaf17"
@@ -530,7 +572,10 @@ def _build_invoice_html(invoice, items):
 <html><head><meta charset="utf-8">
 <style>
   html, body {{ height: 100%; margin: 0; }}
-  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; }}
+  {font_faces}
+  /* Poppins is Modoku's brand face; Arial/Helvetica remain as the fallback
+     for the (unlikely) case the embedded font files are missing. */
+  body {{ font-family: 'Poppins', Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; }}
   /* min-height fills the full A4 content area (297mm page minus the 10mm
      top/bottom/left/right margins passed to wkhtmltopdf below) so the gold
      frame reaches the bottom of the page like a real letterhead, instead of
@@ -547,7 +592,8 @@ def _build_invoice_html(invoice, items):
   th {{ font-size: 11px; text-transform: uppercase; color: {brand}; font-weight: 700;
        border-bottom: 2px solid {brand}; }}
   .muted {{ color: #666; }}
-  img.logo {{ width: 90px; height: auto; }}
+  /* +20% from 90px. */
+  img.logo {{ width: 108px; height: auto; }}
   .brand {{ color: {brand}; }}
   tr {{ page-break-inside: avoid; }}
 </style></head>

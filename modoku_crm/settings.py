@@ -56,15 +56,34 @@ def get_invoice_number_suffix():
     return db.get_setting(INVOICE_SUFFIX_KEY, "") or ""
 
 
-def _consume_override(key):
+def _peek_override(key):
+    """The pending override as an int, WITHOUT clearing it. For anywhere that
+    only needs to show what the next number will be (e.g. the preview on the
+    New Invoice form) — see _consume_override for why that distinction
+    matters."""
     raw = db.get_setting(key, "")
     if not raw:
         return None
-    db.set_setting(key, "")
     try:
         return int(raw)
     except ValueError:
         return None
+
+
+def _consume_override(key):
+    """The pending override as an int, clearing it as a side effect so it
+    only ever applies once.
+
+    Only call this at the moment a number is actually being assigned to a
+    saved record. Calling it to render a preview silently burns the override:
+    the preview gets the right number, and the save that follows falls back to
+    the running sequence — which is exactly the bug where an admin set 'next
+    invoice number = 297', opened the form, and got INV-2026-0001."""
+    value = _peek_override(key)
+    if value is None:
+        return None
+    db.set_setting(key, "")
+    return value
 
 
 def consume_po_number_override():
@@ -73,9 +92,19 @@ def consume_po_number_override():
     return _consume_override(PO_OVERRIDE_KEY)
 
 
+def peek_po_number_override():
+    """The pending PO override without consuming it (preview only)."""
+    return _peek_override(PO_OVERRIDE_KEY)
+
+
 def consume_invoice_number_override():
     """Same as consume_po_number_override, for Invoices."""
     return _consume_override(INVOICE_OVERRIDE_KEY)
+
+
+def peek_invoice_number_override():
+    """The pending invoice override without consuming it (preview only)."""
+    return _peek_override(INVOICE_OVERRIDE_KEY)
 
 
 def _setting_key(module_key):
