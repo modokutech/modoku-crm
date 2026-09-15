@@ -9,20 +9,29 @@
 </div>
 
 <div class="row g-3 mb-3">
-  <div class="col-md-4">
+  <div class="col-md-3">
     <div class="stat-card" style="background:#0c45a6;">
       <div class="small text-white-50">Total Cost</div>
       <div class="stat-value" id="stat_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="stat-card" style="background:#7622D7;">
-      <div class="small text-white-50">Net Profit</div>
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#0891b2;">
+      <div class="small text-white-50">Total Taxes &amp; Fees</div>
+      <div class="stat-value" id="stat_total_deductions">RM {{ computed.total_deductions|fmtmoney }}</div>
+      <div class="small text-white-50" id="stat_deduction_note">
+        {% if computed.total_deductions %}{{ computed.deduction_rate_pct }}% of revenue{% else %}None applied{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
+      <div class="small">Net Profit</div>
       <div class="stat-value" id="stat_net_profit">RM {{ computed.net_profit|fmtmoney }}</div>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="stat-card" style="background:#0891b2;">
+  <div class="col-md-3">
+    <div class="stat-card" style="background:#7622D7;">
       <div class="small text-white-50">Net Profit %</div>
       <div class="stat-value" id="stat_net_profit_pct">{{ computed.net_profit_pct }}%</div>
     </div>
@@ -286,6 +295,13 @@
       (Math.round(deductionRate * 1000) / 10).toString();
     setPlain('summary_total_deductions', totalDeductions);
     setRM('summary_net_revenue', netRevenue);
+    setRM('stat_total_deductions', totalDeductions);
+    var note = document.getElementById('stat_deduction_note');
+    if (note) {
+      note.textContent = showDeductions
+        ? (Math.round(deductionRate * 1000) / 10) + '% of revenue'
+        : 'None applied';
+    }
 
     setPreview('preview_lunch', lunch);
     setPreview('preview_tea_break', tea);
