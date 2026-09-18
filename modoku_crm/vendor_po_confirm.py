@@ -43,7 +43,7 @@ def respond(token):
 
     decision = request.form.get("decision")
     if decision not in ("confirm", "reject"):
-        flash("Invalid response — please try again.", "danger")
+        flash("Invalid response. Please try again.", "danger")
         return redirect(url_for("vendor_po_confirm.details", token=token))
 
     new_status = "Confirmed" if decision == "confirm" else "Cancelled"
@@ -54,7 +54,7 @@ def respond(token):
     activity.log(
         "update", "vendor_purchase_order", po["id"],
         f"Vendor {'confirmed' if decision == 'confirm' else 'rejected'} {po['po_no']} via public "
-        f"link — status set to {new_status}",
+        f"link, status set to {new_status}",
     )
 
     try:

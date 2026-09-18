@@ -8,7 +8,7 @@
     <div class="mb-2"><i class="bi bi-award-fill text-success" style="font-size:2.5rem"></i></div>
     <h5 class="fw-semibold mb-2">Your Certificate Is Ready!</h5>
     <p class="small text-muted mb-3">
-      Congratulations, <strong>{{ p.name }}</strong> — your Certificate of Participation for
+      Congratulations, <strong>{{ p.name }}</strong>. Your Certificate of Participation for
       <strong>{{ p.course_title }}</strong> ({{ date_range }}) is ready to download.
     </p>
     <form method="post" action="{{ url_for('certificates.download') }}">

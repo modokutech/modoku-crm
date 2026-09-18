@@ -42,8 +42,8 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-muted small mb-0">No trainers marked as qualified for this course yet —
-        <a href="{{ url_for('courses.edit', course_id=course.id) }}">add some on Edit</a>.</p>
+      <p class="text-muted small mb-0">No trainers marked as qualified for this course yet.
+        <a href="{{ url_for('courses.edit', course_id=course.id) }}">Add some on Edit</a>.</p>
       {% endif %}
     </div>
   </div>

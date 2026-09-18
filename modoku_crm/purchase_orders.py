@@ -58,7 +58,7 @@ def _payment_receipt_upload_dir(po_id):
 
 
 def _default_payment_receipt_email_subject(po):
-    return f"Payment Receipt — {po['po_no']} — {po['course_title']}"
+    return f"Payment Receipt - {po['po_no']} - {po['course_title']}"
 
 
 def _default_payment_receipt_email_body(po):
@@ -100,7 +100,7 @@ def _build_ics_invite(po, uid_suffix=""):
     training_time = po["training_time"] if "training_time" in po.keys() else None
     dtstart_line, dtend_line = _sessions.ics_datetime_lines(po["start_date"], po["end_date"], training_time)
     now_stamp = date.today().strftime("%Y%m%d") + "T000000Z"
-    summary = f"{po['course_title']} — Training".replace("\n", " ")
+    summary = f"Training: {po['course_title']}".replace("\n", " ")
     location = (po["venue"] or "").replace("\n", " ")
     uid = f"po-{po['id']}{uid_suffix}@modoku.tech"
     return (
@@ -137,7 +137,7 @@ def _email_attachment_names(po, documents):
 
 def _default_po_email_subject(po):
     client_name = po["client_name"] or "Client"
-    return f"{po['po_no']} — {po['course_title']} — {client_name}"
+    return f"{po['po_no']} - {po['course_title']} - {client_name}"
 
 
 def _ensure_confirm_token(po_id):
@@ -187,7 +187,7 @@ def _default_po_email_body(po, confirm_url=None):
         f"Venue: {venue}\n"
         f"{meeting_link_line}\n"
         f"{attachments_line}"
-        "Kindly review the attached PO — please read through the terms & conditions and your "
+        "Kindly review the attached PO. Please read through the terms & conditions and your "
         "responsibilities as the trainer, set out in the PO document, and acknowledge receipt.\n\n"
         f"{confirm_para}"
         f"{tutorial_para}"
@@ -337,8 +337,8 @@ def new():
         else:
             conflicts = _conflicts_for(int(trainer_id), int(session_id))
             if conflicts and not request.form.get("confirm_despite_conflict"):
-                flash("This trainer already has a confirmed/sent PO overlapping these dates — "
-                      "review below, then tick the box to proceed anyway if that's intended.", "danger")
+                flash("This trainer already has a confirmed/sent PO overlapping these dates. "
+                      "Review below, then tick the box to proceed anyway if that's intended.", "danger")
             else:
                 po_no = _next_po_no()
                 po_id = db.execute(
@@ -451,7 +451,7 @@ def download(po_id):
         pdf_bytes = pdfgen.generate_po_pdf(po, items, grand_total)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate PO PDF for %s", po["po_no"])
-        flash("Couldn't generate the PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("purchase_orders.view", po_id=po_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",
@@ -567,7 +567,7 @@ def send_payment_receipt_email(po_id):
 
     to_email = (request.form.get("to_email") or po["trainer_email"] or "").strip()
     if not to_email:
-        flash("No trainer email on file — add one, or type an address to send to.", "danger")
+        flash("No trainer email on file. Add one, or type an address to send to.", "danger")
         return redirect(url_for("purchase_orders.view", po_id=po_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_payment_receipt_email_subject(po)
@@ -599,7 +599,7 @@ def send_payment_receipt_email(po_id):
         (to_email, po_id),
     )
     activity.log("send_email", "purchase_order", po_id, f"Emailed payment receipt for {po['po_no']} to {to_email}")
-    flash(f"Payment receipt emailed to {to_email} — marked as Paid.", "success")
+    flash(f"Payment receipt emailed to {to_email}, marked as Paid.", "success")
     return redirect(url_for("purchase_orders.view", po_id=po_id))
 
 
@@ -611,7 +611,7 @@ def update_status(po_id):
         db.execute("UPDATE purchase_orders SET status = ? WHERE id = ?", (status, po_id))
         flash(f"Purchase order marked as {status}.", "success")
         if status == "Confirmed":
-            flash("Date blocked — this trainer will now show a conflict warning if another PO "
+            flash("Date blocked. This trainer will now show a conflict warning if another PO "
                   "is created for overlapping dates.", "success")
     return redirect(url_for("purchase_orders.view", po_id=po_id))
 
@@ -641,12 +641,12 @@ def send_email(po_id):
 
     to_email = request.form.get("to_email") or po["trainer_email"]
     if not to_email:
-        flash("This trainer has no email on file — add one on their profile, or type an address to send to.", "danger")
+        flash("This trainer has no email on file. Add one on their profile, or type an address to send to.", "danger")
         return redirect(url_for("purchase_orders.view", po_id=po_id))
 
     if not po["evaluation_qr_poster_file"] and not request.form.get("skip_evaluation_reminder"):
         flash(
-            "This class doesn't have a Training Evaluation QR poster generated yet — generate one from the "
+            "This class doesn't have a Training Evaluation QR poster generated yet. Generate one from the "
             "class page first so it can go out with the PO, or send anyway if you'll handle it separately.",
             "warning",
         )
@@ -654,7 +654,7 @@ def send_email(po_id):
 
     if not po["training_banner_file"] and not request.form.get("skip_banner_reminder"):
         flash(
-            "This class doesn't have a Training Banner generated yet — generate one from the "
+            "This class doesn't have a Training Banner generated yet. Generate one from the "
             "class page first so it can go out with the PO, or send anyway if you'll handle it separately.",
             "warning",
         )

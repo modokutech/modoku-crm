@@ -66,4 +66,4 @@ def get_training_news(limit=5):
         _logger.warning("Training news fetch failed: %s: %s", type(exc).__name__, exc)
         if _CACHE["items"]:
             return _CACHE["items"], None
-        return [], "Couldn't load news right now — this needs internet access from the server."
+        return [], "Couldn't load news right now. This needs internet access from the server."

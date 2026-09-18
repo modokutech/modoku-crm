@@ -184,7 +184,7 @@ def scan_namecard():
             pass
 
     if not any(fields.get(key) for key in ("name", "role", "company", "email", "phone")):
-        return jsonify({"error": "Couldn't read anything usable off that image — try a sharper, "
+        return jsonify({"error": "Couldn't read anything usable off that image, try a sharper, "
                                   "straight-on photo, or type the details in."})
     return jsonify({"fields": fields})
 

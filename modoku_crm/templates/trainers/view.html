@@ -51,7 +51,7 @@
         Averaged from participant evaluations across
         {{ scorecard.rated_classes }} class{{ 'es' if scorecard.rated_classes != 1 }}
         ({{ scorecard.responses }} response{{ 's' if scorecard.responses != 1 }}), weighted by how many
-        people responded.{% if scorecard.thin %} Only a couple of classes so far — read it as an early
+        people responded.{% if scorecard.thin %} Only a couple of classes so far. Read it as an early
         signal, not a track record.{% endif %}
       </p>
       <ul class="list-unstyled mb-0">
@@ -75,12 +75,12 @@
       {% if scorecard.unscored_classes %}
       <p class="small text-muted mb-0 mt-2">
         {{ scorecard.unscored_classes }} other class{{ 'es' if scorecard.unscored_classes != 1 }} with responses
-        {{ 'have' if scorecard.unscored_classes != 1 else 'has' }} no rating on a declared scale — open the class's
+        {{ 'have' if scorecard.unscored_classes != 1 else 'has' }} no rating on a declared scale. Open the class's
         Training Report and hit Refresh to include {{ 'them' if scorecard.unscored_classes != 1 else 'it' }}.
       </p>
       {% endif %}
       {% else %}
-      <p class="text-muted small mb-0 mt-2">No evaluation scores yet — a class scores here once its
+      <p class="text-muted small mb-0 mt-2">No evaluation scores yet. A class scores here once its
         Evaluation Form has responses and its <a href="{{ url_for('training_reports.index') }}">Training
         Report</a> has been generated.</p>
       {% endif %}
@@ -122,8 +122,8 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-muted small mb-0">Not marked as qualified for any course yet —
-        <a href="{{ url_for('courses.index') }}">add this trainer on a course's Edit page</a>.</p>
+      <p class="text-muted small mb-0">Not marked as qualified for any course yet.
+        <a href="{{ url_for('courses.index') }}">Add this trainer on a course's Edit page</a>.</p>
       {% endif %}
     </div>
     <div class="card p-3">

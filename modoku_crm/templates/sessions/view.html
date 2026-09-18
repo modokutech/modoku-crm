@@ -39,7 +39,7 @@
 <style>
 /* Class page's two-column split. Started at the Bootstrap default 33.33/66.67,
    then +10pp to the left (43.33/56.67), then -5pp back off the left
-   (38.33/61.67) — at the lg breakpoint and up. IDs so this reliably beats the
+   (38.33/61.67), at the lg breakpoint and up. IDs so this reliably beats the
    .col-lg-4/.col-lg-8 rules they still carry for the stacked mobile layout. */
 @media (min-width: 992px) {
   #classDetailsColLeft { flex: 0 0 38.3333%; max-width: 38.3333%; }
@@ -65,15 +65,16 @@
         <tr><td class="text-muted">Room Setup</td><td>{{ s.room_setup or '-' }}</td></tr>
         <tr><td class="text-muted">Price</td><td>RM {{ s.course_price|fmtmoney }}
           <span class="text-muted small">({{ 'Public' if s.training_type == 'Public Training' else 'In-house' }} rate)</span></td></tr>
-        {# Only rendered when a quotation is actually linked to this class — the
+        {# Only rendered when a quotation is actually linked to this class, the
            course's own list price above is always there, but a quoted figure
            only exists once something has been sent to the client. #}
         {% if quoted_price and modules.quotations %}
         <tr><td class="text-muted">Quoted Price</td><td>
-          <span class="fw-semibold">RM {{ quoted_price.grand_total|fmtmoney }}</span>
+          <span class="fw-semibold">RM {{ quoted_price.subtotal|fmtmoney }}</span>
+          <span class="text-muted small">(excl. SST)</span>
           <div class="small text-muted">
             <a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">{{ quoted_price.quote_no }}</a>
-            · {{ quoted_price.status }}{% if quoted_price.sst_rate %} · incl. SST{% endif %}
+            · {{ quoted_price.status }}
           </div>
         </td></tr>
         {% endif %}
@@ -106,7 +107,7 @@
           <a href="{{ url_for('courses.download_outline', course_id=s.course_id) }}" target="_blank">Course Outline</a>
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
-          <span class="text-muted">Course Outline — not on file (upload it on the course)</span>
+          <span class="text-muted">Course Outline, not on file (upload it on the course)</span>
           {% endif %}
         </li>
         <li class="mb-1">
@@ -115,7 +116,7 @@
           <a href="{{ url_for('trainers.download_document', trainer_id=s.trainer_id, field='profile_file') }}" target="_blank">Trainer Profile</a>
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
-          <span class="text-muted">Trainer Profile — not on file{% if not s.trainer_id %} (no trainer assigned){% endif %}</span>
+          <span class="text-muted">Trainer Profile, not on file{% if not s.trainer_id %} (no trainer assigned){% endif %}</span>
           {% endif %}
         </li>
         <li class="mb-1">
@@ -124,7 +125,7 @@
           <a href="{{ url_for('trainers.download_document', trainer_id=s.trainer_id, field='accredited_cert_file') }}" target="_blank">Accredited Certificate</a>
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
-          <span class="text-muted">Accredited Certificate — not on file{% if not s.trainer_id %} (no trainer assigned){% endif %}</span>
+          <span class="text-muted">Accredited Certificate, not on file{% if not s.trainer_id %} (no trainer assigned){% endif %}</span>
           {% endif %}
         </li>
         <li class="mb-1">
@@ -133,7 +134,7 @@
           <a href="{{ url_for('sessions.download_grant_quotation', session_id=s.id) }}" target="_blank">Quotation</a>
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
-          <span class="text-muted">Quotation — not uploaded yet</span>
+          <span class="text-muted">Quotation, not uploaded yet</span>
           {% endif %}
         </li>
       </ul>
@@ -147,7 +148,7 @@
       {% if s.hrdcorp_grant_id %}
       <div class="alert alert-success small py-2 mb-3">
         <i class="bi bi-check-circle-fill me-1"></i>Grant ID on file: <strong>{{ s.hrdcorp_grant_id }}</strong>
-        {% if s.hrdcorp_grant_id_updated_at %}<span class="text-muted">— submitted {{ s.hrdcorp_grant_id_updated_at|fmtdatetime }}</span>{% endif %}
+        {% if s.hrdcorp_grant_id_updated_at %}<span class="text-muted">, submitted {{ s.hrdcorp_grant_id_updated_at|fmtdatetime }}</span>{% endif %}
       </div>
       {% endif %}
 
@@ -156,7 +157,7 @@
       {% if s.grant_docs_sent_at %}
       <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.grant_docs_sent_to }} on {{ s.grant_docs_sent_at|fmtdatetime }}.</p>
       {% endif %}
-      <p class="small text-muted mb-2">Sending is always manual — this never fires on its own.</p>
+      <p class="small text-muted mb-2">Sending is always manual. This never fires on its own.</p>
       {% if s.grant_docs_sent_at %}
       <button class="btn btn-sm btn-outline-secondary w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#grantDocsEmailForm">
         <i class="bi bi-envelope me-1"></i>Resend / Edit Email
@@ -164,7 +165,7 @@
       {% endif %}
       <div class="{{ 'collapse' if s.grant_docs_sent_at }}" id="grantDocsEmailForm">
         {% if not all_grant_docs_present %}
-        <p class="small text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>All 4 documents above are required before this can be sent — see which are missing in the checklist above.</p>
+        <p class="small text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>All 4 documents above are required before this can be sent. See which are missing in the checklist above.</p>
         {% endif %}
         <form method="post" action="{{ url_for('sessions.send_grant_documents_email', session_id=s.id) }}">
           {{ csrf_field()|safe }}
@@ -199,7 +200,7 @@
       </p>
       <p class="small text-muted mb-2">Attached to this trainer's Purchase Order email.</p>
       {% else %}
-      <p class="small text-muted mb-2">Generate a banner from the class title, time, date and venue below — upload the client's logo first if this is an in-house/co-branded class.</p>
+      <p class="small text-muted mb-2">Generate a banner from the class title, time, date and venue below. Upload the client's logo first if this is an in-house/co-branded class.</p>
       {% endif %}
 
       <div class="d-flex align-items-center gap-2 mb-2">
@@ -222,7 +223,7 @@
           <i class="bi bi-image me-1"></i>{{ 'Regenerate' if s.training_banner_file else 'Generate' }} Banner
         </button>
       </form>
-      <p class="small text-muted mt-2 mb-0">Generated from this class's own details — upload the client's
+      <p class="small text-muted mt-2 mb-0">Generated from this class's own details. Upload the client's
         logo above first if it should be co-branded.</p>
     </div>
     <div class="card p-3 mt-3">
@@ -245,7 +246,7 @@
       </form>
       <p class="small text-muted mb-2">
         {% if s.evaluation_form_generated_at %}
-        Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }} — the QR poster above was
+        Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }}. The QR poster above was
         built automatically at the same time.
         {% else %}
         Publishes the Form and builds the QR poster in one click.
@@ -293,7 +294,7 @@
         <hr>
         <div class="border rounded p-2 mb-3">
           <p class="small fw-semibold mb-1">Send Return Link to Client</p>
-          <p class="small text-muted mb-2">A link where the client can upload their signed JD14 copy directly — single file only, no login needed. This is also sent automatically the moment you upload the JD14 form above (if a client email is on file) — use this to resend or CC someone else.</p>
+          <p class="small text-muted mb-2">A link where the client can upload their signed JD14 copy directly (single file only, no login needed. This is also sent automatically the moment you upload the JD14 form above (if a client email is on file)) use this to resend or CC someone else.</p>
           {% if s.jd14_received_at %}
           <p class="small text-muted mb-2"><i class="bi bi-check-circle me-1"></i>A signed copy was received via this link on {{ s.jd14_received_at|fmtdatetime }}.</p>
           {% endif %}
@@ -314,7 +315,7 @@
             <div class="mb-2">
               <label class="form-label small">Message</label>
               <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_jd14_return_email_body }}</textarea>
-              <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+              <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
             </div>
             <button class="btn btn-sm btn-success w-100" type="submit" {{ 'disabled' if not mail_configured }}>
               <i class="bi bi-envelope me-1"></i>Send Return Link
@@ -342,7 +343,7 @@
           <div class="mb-2">
             <label class="form-label small">Message</label>
             <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_jd14_email_body }}</textarea>
-            <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+            <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
           </div>
           <button class="btn btn-sm btn-outline-success w-100" type="submit" {{ 'disabled' if not mail_configured }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.jd14_sent_at else 'Send' }} JD14 Form</button>
         </form>
@@ -358,8 +359,8 @@
         </p>
         {% else %}
         <p class="small text-muted mb-2">
-          <i class="bi bi-robot me-1"></i>A Generate Full Report draft is in progress —
-          <a href="{{ url_for('full_reports.edit', session_id=s.id) }}">continue editing</a>.
+          <i class="bi bi-robot me-1"></i>A Generate Full Report draft is in progress.
+          <a href="{{ url_for('full_reports.edit', session_id=s.id) }}">Continue editing</a>.
         </p>
         {% endif %}
         <p class="small text-muted mb-2">Or upload a manually-prepared report below instead/as well.</p>
@@ -402,7 +403,7 @@
           <div class="mb-2">
             <label class="form-label small">Message</label>
             <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_evaluation_email_body }}</textarea>
-            <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+            <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
           </div>
           <button class="btn btn-sm btn-outline-success w-100" type="submit"><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.evaluation_sent_at else 'Send' }} Evaluation Report to Client</button>
         </form>
@@ -469,7 +470,7 @@
 
     <div class="card p-3 mt-3">
       <h6>T3 Attendance Form</h6>
-      <p class="small text-muted mb-2">Its own participant list for this training day only — separate from Enrolled Participants below, so it won't affect enrollment counts or claims. Add names, print, get it signed, then upload the signed copy here as your claim record.</p>
+      <p class="small text-muted mb-2">Its own participant list for this training day only, separate from Enrolled Participants below, so it won't affect enrollment counts or claims. Add names, print, get it signed, then upload the signed copy here as your claim record.</p>
       <a href="{{ url_for('t3.manage', session_id=s.id) }}" class="btn btn-sm btn-success w-100 mb-2">
         <i class="bi bi-people me-1"></i>Manage Attendance List
       </a>
@@ -478,7 +479,7 @@
       </a>
 
       <p class="small fw-semibold mb-1">Online Attendance Form Link</p>
-      <p class="small text-muted mb-2">The one link for this class — the client uses it to add/edit participants, and (once e-Signature is turned on) participants also sign their own row here on training day.</p>
+      <p class="small text-muted mb-2">The one link for this class. The client uses it to add/edit participants, and (once e-Signature is turned on) participants also sign their own row here on training day.</p>
       <div class="input-group input-group-sm mb-3">
         <input type="text" class="form-control" value="{{ t3_url }}" readonly id="t3LinkInput">
         <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('t3LinkInput').value)">Copy Link</button>
@@ -486,15 +487,15 @@
 
       <div class="border rounded p-2 mb-3">
         <p class="small fw-semibold mb-1">Send Online Attendance Form Link</p>
-        <p class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Sent automatically once the client returns the signed quotation — you only need this to resend it, or to send it to someone else.</p>
+        <p class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Sent automatically once the client returns the signed quotation. You only need this to resend it, or to send it to someone else.</p>
         <button class="btn btn-sm btn-outline-secondary w-100" type="button" data-bs-toggle="collapse"
                 data-bs-target="#sendT3LinkForm" aria-expanded="false" aria-controls="sendT3LinkForm">
           <i class="bi bi-envelope me-1"></i>Send / Resend Email
         </button>
         <div class="collapse mt-2" id="sendT3LinkForm">
-        <p class="small text-muted mb-2">A public, always-editable link (add/edit/remove participants anytime up until training day) — defaults to the class's PIC email, but you can send it to anyone.</p>
+        <p class="small text-muted mb-2">A public, always-editable link (add/edit/remove participants anytime up until training day). Defaults to the class's PIC email, but you can send it to anyone.</p>
         {% if not s.pic_email %}
-        <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>No PIC selected for this class — <a href="{{ url_for('sessions.edit', session_id=s.id) }}">select one on Edit</a> so this defaults correctly next time.</p>
+        <p class="small text-warning-emphasis mb-2"><i class="bi bi-exclamation-triangle me-1"></i>No PIC selected for this class. <a href="{{ url_for('sessions.edit', session_id=s.id) }}">Select one on Edit</a> so this defaults correctly next time.</p>
         {% endif %}
         <form method="post" action="{{ url_for('sessions.send_t3_form', session_id=s.id) }}">
           {{ csrf_field()|safe }}
@@ -513,7 +514,7 @@
           <div class="mb-2">
             <label class="form-label small">Message</label>
             <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_t3_email_body }}</textarea>
-            <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+            <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
           </div>
           <button class="btn btn-sm btn-success w-100" type="submit" {{ 'disabled' if not mail_configured }}>
             <i class="bi bi-envelope me-1"></i>Send Attendance Form Link
@@ -524,9 +525,9 @@
 
       <p class="small text-muted mb-3">
         Class code <span class="fw-semibold" style="letter-spacing:0.08em">{{ s.session_code }}</span> is stamped on
-        the printed form — trainers use it on the
+        the printed form. Trainers use it on the
         <a href="{{ url_for('attendance_return.lookup') }}" target="_blank">Return Attendance Form</a> page to send back photos of the signed sheet.
-        {% if ai_configured %}Attendance is then read and marked automatically — no manual cross-check needed.{% endif %}
+        {% if ai_configured %}Attendance is then read and marked automatically, no manual cross-check needed.{% endif %}
       </p>
       {% if attendance_returns %}
       <div class="d-flex justify-content-between align-items-center mb-1">
@@ -544,9 +545,9 @@
           <i class="bi bi-camera text-success me-1"></i>
           {% endif %}
           <a href="{{ url_for('sessions.download_return', session_id=s.id, return_id=r.id) }}" target="_blank">{{ r.created_at|fmtdatetime }}</a>
-          {% if r.training_date %}<span class="text-muted">— {{ r.training_date|fmtdate }}</span>{% endif %}
-          {% if r.submitted_by_note %}<span class="text-muted">— {{ r.submitted_by_note }}</span>{% endif %}
-          {% if r.ai_mismatch %}<span class="text-warning">— flagged, check AI Match Attendance</span>{% endif %}
+          {% if r.training_date %}<span class="text-muted">· {{ r.training_date|fmtdate }}</span>{% endif %}
+          {% if r.submitted_by_note %}<span class="text-muted">· {{ r.submitted_by_note }}</span>{% endif %}
+          {% if r.ai_mismatch %}<span class="text-warning">(flagged, check AI Match Attendance)</span>{% endif %}
         </li>
         {% endfor %}
       </ul>
@@ -558,7 +559,7 @@
       </p>
       <p class="small text-muted mb-2">Uploading a new file below will replace this one.</p>
       {% else %}
-      <p class="small text-muted mb-2">No signed copy uploaded yet — add one once the training has run, or wait for the trainer to submit it above.</p>
+      <p class="small text-muted mb-2">No signed copy uploaded yet. Add one once the training has run, or wait for the trainer to submit it above.</p>
       {% endif %}
       <form method="post" action="{{ url_for('sessions.upload_attendance', session_id=s.id) }}" enctype="multipart/form-data" class="d-flex gap-2">
         {{ csrf_field()|safe }}

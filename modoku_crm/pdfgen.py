@@ -420,7 +420,7 @@ def _build_quotation_html(q, items, subtotal, title):
      match the on-screen quotation (.quote-doc-logo in style.css). */
   img.logo {{ width: 120px; height: auto; display: block; margin-bottom: 10px; }}
   /* 25.5px is 1.7rem at this app's 15px root (see html{{font-size}} in
-     style.css — NOT the usual 16px). Written in px so the PDF engine can't
+     style.css - NOT the usual 16px). Written in px so the PDF engine can't
      resolve rem against a different root and drift from the web view. */
   h2.doc-title {{ margin: 0; font-size: 25.5px; line-height: 1.15; }}
 </style></head>
@@ -580,7 +580,7 @@ def _build_invoice_html(invoice, items):
      top/bottom/left/right margins passed to wkhtmltopdf below) so the gold
      frame reaches the bottom of the page like a real letterhead, instead of
      shrink-wrapping to just the content and leaving the rest of the page a
-     blank void underneath a floating box — that mismatch was the "distorted"
+     blank void underneath a floating box - that mismatch was the "distorted"
      look reported against the print/browser version, which doesn't have
      this visible border to expose the same shrink-wrapped whitespace. */
   .frame {{ border: 8px solid {accent}; padding: 20px 30px 16px; min-height: 277mm;
@@ -1092,8 +1092,12 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
                         f"style='max-height:62px;max-width:100%'>") if sig_file else ""
             participant_rows += (
                 f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
-                f"<td>{escape(p['employer_name'] or '')}</td><td>{escape(p['ic_no'] or '')}</td>"
-                f"<td>{escape(p['citizenship'] or 'Malaysian')}</td>"
+                # Employer, NRIC and Citizenship are centred; only the
+                # trainee's own name stays left-aligned, since that is the
+                # column that actually wraps to a second line.
+                f"<td style='text-align:center'>{escape(p['employer_name'] or '')}</td>"
+                f"<td style='text-align:center'>{escape(p['ic_no'] or '')}</td>"
+                f"<td style='text-align:center'>{escape(p['citizenship'] or 'Malaysian')}</td>"
                 f"<td style='text-align:center'>{escape((p['gender'] or '')[:1])}</td>"
                 f"<td style='text-align:center'>{sig_cell}</td></tr>"
             )
@@ -1159,7 +1163,11 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
      browser-default 16px, so spacing lines up with the real screen/print version. */
   body {{ font-family: Arial, Helvetica, sans-serif; font-size: 13.8px; color: #1a1a1a; margin: 0; padding: 0; }}
   table {{ border-collapse: collapse; width: 100%; }}
-  .t3-page {{ position: relative; padding: 16px 14px; }}
+  /* No bottom padding: a multi-day form separates its days with
+     page-break-before, so trailing space at the foot of a page buys nothing
+     and was pushing a full 25-pax sheet just past the page boundary, which
+     produced an entirely blank second page when printed. */
+  .t3-page {{ position: relative; padding: 16px 14px 0; }}
 
   /* .t3-header-row: flexbox row of three boxes, matching the on-screen
      d-flex .t3-header-row markup (gap-3 = 15px, mb-4 = 22px). */
@@ -1184,7 +1192,7 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
 
   /* Certification block (NAME/DESIGNATION/STAMP + SIGNATURE/DATE): two
      side-by-side tables with a real gap between them, rather than one wide
-     table, so the two column groups read as clearly separate — and each
+     table, so the two column groups read as clearly separate - and each
      row gets extra top padding so consecutive underlines don't crowd into
      what looks like one merged line. */
   .cert-block {{ table-layout: fixed; margin-bottom: 20px; }}
@@ -1198,14 +1206,18 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
   /* Attendance table: bordered #333 throughout (not the lighter #999 the
      earlier version used), uppercase muted header text with no shaded
      background (the real .table thead th rule has none), 33px-tall rows. */
-  .attendance-table {{ margin-bottom: 22px; }}
-  .attendance-table th, .attendance-table td {{ border: 1px solid #333; padding: 4px 6px;
+  .attendance-table {{ margin-bottom: 14px; }}
+  /* Compact rows: a 25-pax list should not spill onto extra pages. Padding
+     trimmed from 4px/6px and the row height from 33px, but kept well clear
+     of the point where a handwritten signature or a wrapped two-line name
+     has nowhere to sit. */
+  .attendance-table th, .attendance-table td {{ border: 1px solid #333; padding: 2px 5px;
                                                   text-align: center; vertical-align: middle; }}
   .attendance-table th {{ font-size: 11.7px; font-weight: 700; text-transform: uppercase;
-                           letter-spacing: 0.03em; color: #6b7280; }}
-  .attendance-table td {{ height: 33px; text-align: left; }}
+                           letter-spacing: 0.03em; color: #6b7280; padding: 3px 5px; }}
+  .attendance-table td {{ height: 23px; text-align: left; }}
   /* No./Sex columns override to centered via their own inline style, which
-     wins over this class rule — matching the two text-center cells in the
+     wins over this class rule - matching the two text-center cells in the
      real template. */
 
   .note {{ font-size: 11px; font-style: italic; margin: 0 0 3px; }}
@@ -1456,8 +1468,8 @@ def _build_petty_cash_html(voucher):
       <td style="width:33%"></td>
     </tr>
     <tr>
-      <td class="sig-line">Prepared By{f" — {voucher['requested_by_name']}" if voucher['requested_by_name'] else ""}</td>
-      <td class="sig-line">Approved By{f" — {voucher['approved_by_name']}" if voucher['approved_by_name'] else ""}</td>
+      <td class="sig-line">Prepared By{f": {voucher['requested_by_name']}" if voucher['requested_by_name'] else ""}</td>
+      <td class="sig-line">Approved By{f": {voucher['approved_by_name']}" if voucher['approved_by_name'] else ""}</td>
       <td class="sig-line">Received By</td>
     </tr>
   </table>

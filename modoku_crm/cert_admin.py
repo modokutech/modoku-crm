@@ -10,11 +10,18 @@ missing (e.g. very old data marked attended before this tab existed).
 import io
 import zipfile
 
-from flask import Blueprint, Response, current_app, flash, redirect, render_template, url_for
+from flask import (Blueprint, Response, current_app, flash, redirect, render_template,
+                   request, url_for)
 
-from . import db
+from . import db, fmtdate, fmtdaterange
 from .auth import login_required
 from .certificates import certificate_filename, get_or_create_certificate_bytes, safe_slug
+from .pdfgen import generate_certificate_pdf
+
+# A hand-typed batch is for filling gaps (a walk-in, a corrected spelling, a
+# reprint), not for bulk issuing, so the list is capped at something a person
+# would plausibly type.
+MANUAL_NAME_LIMIT = 50
 
 bp = Blueprint("cert_admin", __name__, url_prefix="/certificates")
 
@@ -33,7 +40,89 @@ def index():
            GROUP BY cs.id
            ORDER BY cs.start_date DESC"""
     )
-    return render_template("cert_admin/index.html", sessions=sessions)
+    # Every class is offered for manual issuing, not just those with an
+    # attendance list — the whole point is to cover people the T3 flow never
+    # captured.
+    classes = db.query(
+        """SELECT cs.id, cs.start_date, cs.end_date, c.title AS course_title
+           FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
+           ORDER BY cs.start_date DESC"""
+    )
+    return render_template("cert_admin/index.html", sessions=sessions, classes=classes,
+                            manual_name_limit=MANUAL_NAME_LIMIT)
+
+
+@bp.route("/manual", methods=("POST",))
+@login_required
+def manual():
+    """Issues certificates for names typed in by hand, taking the course
+    title and training dates from the chosen class exactly as the automatic
+    path does.
+
+    Deliberately does NOT write to t3_participants or the certificates
+    table. The T3 attendance list is the signed document behind an HRDCorp
+    claim, so adding names to it for people who never signed would corrupt a
+    record the business has to stand behind; and `certificates` rows are
+    keyed to a participant row that doesn't exist here. These come back as a
+    direct download instead: one PDF for a single name, a zip for several.
+    """
+    session_id = request.form.get("session_id", type=int)
+    raw_names = request.form.get("names") or ""
+    names = [n.strip() for n in raw_names.splitlines() if n.strip()]
+
+    session_row = db.query(
+        """SELECT cs.id, cs.start_date, cs.end_date, c.title AS course_title
+           FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
+           WHERE cs.id = ?""",
+        (session_id,), one=True,
+    ) if session_id else None
+
+    if session_row is None:
+        flash("Choose which class the certificate is for.", "danger")
+        return redirect(url_for("cert_admin.index"))
+    if not names:
+        flash("Type at least one participant name, one per line.", "danger")
+        return redirect(url_for("cert_admin.index"))
+    if len(names) > MANUAL_NAME_LIMIT:
+        flash(f"That is {len(names)} names. Manual issuing handles up to {MANUAL_NAME_LIMIT} at a "
+              f"time; for a whole cohort, mark them attended on the T3 Attendance List instead.",
+              "danger")
+        return redirect(url_for("cert_admin.index"))
+
+    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    course_title = session_row["course_title"]
+    try:
+        start_date = session_row["start_date"]
+        if len(names) == 1:
+            pdf_bytes = generate_certificate_pdf(names[0], course_title, date_range)
+            filename = certificate_filename(names[0], course_title, start_date)
+            return Response(
+                pdf_bytes, mimetype="application/pdf",
+                headers={"Content-Disposition": f'inline; filename="{filename}.pdf"'},
+            )
+
+        buffer = io.BytesIO()
+        seen_names = {}
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name in names:
+                base_name = certificate_filename(name, course_title, start_date)
+                # Two people with the same name would otherwise overwrite each
+                # other inside the zip — same disambiguation the bulk download uses.
+                count = seen_names.get(base_name, 0)
+                seen_names[base_name] = count + 1
+                entry_name = f"{base_name}.pdf" if count == 0 else f"{base_name}_{count + 1}.pdf"
+                archive.writestr(entry_name, generate_certificate_pdf(name, course_title, date_range))
+        buffer.seek(0)
+        zip_name = f"Certificates_{safe_slug(course_title)}_{safe_slug(fmtdate(start_date))}.zip"
+        return Response(
+            buffer.read(), mimetype="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+        )
+    except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
+        current_app.logger.exception("Manual certificate generation failed for class %s", session_id)
+        flash("Could not generate the certificate. Check that PDF generation is set up on the server.",
+              "danger")
+        return redirect(url_for("cert_admin.index"))
 
 
 @bp.route("/sessions/<int:session_id>")
@@ -78,7 +167,7 @@ def download_one(participant_id):
         current_app.logger.exception("Failed to generate certificate for participant %s", participant_id)
         pdf_bytes = None
     if not pdf_bytes:
-        flash("Couldn't generate this certificate — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate this certificate. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("cert_admin.by_session", session_id=participant["session_id"]))
     filename = certificate_filename(participant["name"], participant["course_title"], participant["start_date"])
     return Response(
@@ -127,7 +216,7 @@ def download_zip(session_id):
             included += 1
 
     if not included:
-        flash("Couldn't generate any certificates for this class — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate any certificates for this class. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("cert_admin.by_session", session_id=session_id))
 
     buf.seek(0)

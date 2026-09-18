@@ -39,9 +39,9 @@
         <tr><td class="text-muted">Category</td><td>{{ voucher.category or '-' }}</td></tr>
         <tr><td class="text-muted">Amount</td><td class="fw-semibold">RM {{ voucher.amount|fmtmoney }}</td></tr>
         {% if voucher.course_title %}
-        <tr><td class="text-muted">Class</td><td>{{ voucher.course_title }} — {{ voucher.start_date|fmtdate }}{% if voucher.end_date and voucher.end_date != voucher.start_date %} – {{ voucher.end_date|fmtdate }}{% endif %}{% if voucher.venue %} · {{ voucher.venue }}{% endif %}</td></tr>
+        <tr><td class="text-muted">Class</td><td>{{ voucher.course_title }} · {{ voucher.start_date|fmtdate }}{% if voucher.end_date and voucher.end_date != voucher.start_date %} – {{ voucher.end_date|fmtdate }}{% endif %}{% if voucher.venue %} · {{ voucher.venue }}{% endif %}</td></tr>
         {% endif %}
-        <tr><td class="text-muted">Raised by</td><td>{{ voucher.requested_by_name or '—' }}</td></tr>
+        <tr><td class="text-muted">Raised by</td><td>{{ voucher.requested_by_name or ', ' }}</td></tr>
         <tr><td class="text-muted">Date Submitted</td><td>{{ voucher.created_at|fmtdatetime }}</td></tr>
         {% if voucher.approved_by_name %}
         <tr><td class="text-muted">{{ 'Approved' if voucher.status == 'Approved' else 'Rejected' }} by</td><td>{{ voucher.approved_by_name }} on {{ voucher.approved_at|fmtdatetime }}</td></tr>
@@ -67,7 +67,7 @@
         {% endif %}
       </div>
       {% else %}
-      <p class="small text-muted mb-0">No receipt attached — this voucher is standalone.</p>
+      <p class="small text-muted mb-0">No receipt attached. This voucher is standalone.</p>
       {% endif %}
     </div>
   </div>

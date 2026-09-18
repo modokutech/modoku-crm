@@ -22,7 +22,7 @@
       <div class="mb-3">
         <label class="form-label">Photo(s) of the signed attendance form</label>
         <input type="file" name="photos" class="form-control" accept="image/*,.pdf" capture="environment" multiple required>
-        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet — you can select several at once. Max 2 MB per photo.</small>
+        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet. You can select several at once. Max 2 MB per photo.</small>
         <small class="text-warning-emphasis d-block mt-1">
           <i class="bi bi-camera me-1"></i>Please take a clear photo in good lighting. The system reads
           it automatically, so a blurry or dark photo may not work.
@@ -37,7 +37,7 @@
     </form>
     {% else %}
     <div class="alert alert-warning small mb-3">
-      This class hasn't started yet — the attendance form can only be submitted once training is underway or finished.
+      This class hasn't started yet. The attendance form can only be submitted once training is underway or finished.
     </div>
     <a href="{{ url_for('attendance_return.lookup') }}" class="btn btn-outline-secondary w-100">Wrong class? Enter a different code</a>
     {% endif %}

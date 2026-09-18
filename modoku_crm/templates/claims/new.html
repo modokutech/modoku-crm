@@ -23,7 +23,7 @@
   {% if selected_date and not sessions_on_date %}
   <div class="alert alert-warning mb-0">
     <i class="bi bi-exclamation-triangle me-1"></i>
-    No classes found on {{ selected_date|fmtdate }} — please check the date and try again.
+    No classes found on {{ selected_date|fmtdate }}. Please check the date and try again.
     Only classes with a Scheduled, Ongoing or Completed status can be claimed against.
   </div>
   {% endif %}
@@ -69,7 +69,7 @@
         <input type="text" name="bank_account_no" class="form-control" required>
       </div>
     </div>
-    <p class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>The bank account must be under your own name — claims paid to a different account holder's name won't be processed.</p>
+    <p class="small text-muted mb-3"><i class="bi bi-info-circle me-1"></i>The bank account must be under your own name. Claims paid to a different account holder's name won't be processed.</p>
 
     <div class="row g-3 mb-3">
       <div class="col-md-6">
@@ -84,7 +84,7 @@
     <div class="mb-3">
       <label class="form-label small">Upload photos/files</label>
       <input type="file" name="files" class="form-control" multiple>
-      <small class="text-muted">e.g. receipts, invoices — multiple files allowed. Max 2 MB per file.</small>
+      <small class="text-muted">e.g. receipts, invoices, multiple files allowed. Max 2 MB per file.</small>
     </div>
 
     <button class="btn btn-success w-100" type="submit"><i class="bi bi-send me-1"></i>Submit Claim</button>
@@ -93,7 +93,7 @@
 </div>
 {% endblock %}
 {% block guest_content %}
-{# This page works without a login (see claims.py) — a visitor who isn't
+{# This page works without a login (see claims.py). A visitor who isn't
    signed in lands here instead of the sidebar layout above, so re-render
    the same content block inside a plain, padded container. #}
 <div class="container-fluid p-4" style="max-width:1100px;margin:0 auto;">

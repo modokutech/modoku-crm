@@ -39,7 +39,7 @@
           <td>{{ i.invoice_date|fmtdate }}</td>
           <td>{{ i.due_date|fmtdate }}</td>
           <td class="text-end">{{ i.total|fmtmoney }}</td>
-          <td>{{ i.created_by_name or '—' }}</td>
+          <td>{{ i.created_by_name or ', ' }}</td>
           <td>
             <span class="badge badge-status
               {% if i.status == 'Paid' %}bg-success

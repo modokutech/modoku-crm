@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h4 class="mb-0">{{ s.course_title }} — Training Report</h4>
+    <h4 class="mb-0">Training Report: {{ s.course_title }}</h4>
     <small class="text-muted">
       {{ s.trainer_name or 'No trainer assigned' }} · {{ s.start_date|fmtdaterange(s.end_date) }}
     </small>
@@ -45,7 +45,7 @@
 
 {% if not report %}
 <div class="card p-4 text-center">
-  <p class="text-muted mb-0">No report generated yet — click <strong>Generate Report</strong> above to pull in
+  <p class="text-muted mb-0">No report generated yet. Click <strong>Generate Report</strong> above to pull in
     this class's evaluation responses.</p>
 </div>
 {% else %}
@@ -53,12 +53,12 @@
 <p class="small text-muted mb-3">
   Based on {{ report.response_count }} response{{ '' if report.response_count == 1 else 's' }},
   as of {{ report.generated_at|fmtdatetime }}. Numbers below are recalculated fresh each time you click
-  Refresh — they're never stale between refreshes, but also never live-updating on their own.
+  Refresh. They're never stale between refreshes, but also never live-updating on their own.
 </p>
 
 {% if report.response_count == 0 %}
 <div class="card p-4 text-center">
-  <p class="text-muted mb-0">No responses received yet — check back once participants have submitted the
+  <p class="text-muted mb-0">No responses received yet. Check back once participants have submitted the
     evaluation form, then click Refresh Report.</p>
 </div>
 {% else %}
@@ -71,10 +71,10 @@
       {% if report.ai_summary and report.ai_summary.ratings_summary %}
       <p class="mb-3">{{ report.ai_summary.ratings_summary }}</p>
       <p class="small text-muted mb-3"><i class="bi bi-stars me-1"></i>AI-generated from the exact numbers
-        below — it doesn't change or invent any of them.</p>
+        below. It doesn't change or invent any of them.</p>
       {% elif report.numeric_summary and not ai_configured %}
-      <p class="small text-muted mb-3">AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured) —
-        showing the exact numbers only.</p>
+      <p class="small text-muted mb-3">AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured), so
+        only the exact numbers are shown.</p>
       {% endif %}
 
       {% if report.combined_ratings %}
@@ -130,14 +130,14 @@
         <div class="small text-muted">{{ q.summary }}</div>
       </div>
       {% endfor %}
-      <p class="small text-muted mt-3 mb-0"><i class="bi bi-stars me-1"></i>AI-generated — read alongside the
+      <p class="small text-muted mt-3 mb-0"><i class="bi bi-stars me-1"></i>AI-generated. Read alongside the
         actual answers below before treating it as the final word.</p>
       {% elif report.text_summary %}
       <p class="small text-muted">
         {% if ai_configured %}
-        The AI summary couldn't be generated this time — showing raw answers instead. Try Refresh again.
+        The AI summary couldn't be generated this time, showing raw answers instead. Try Refresh again.
         {% else %}
-        AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured) — showing raw answers instead.
+        AI summarization isn't set up (ANTHROPIC_API_KEY isn't configured), showing raw answers instead.
         {% endif %}
       </p>
       {% else %}

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}T3 Attendance List — {{ s.course_title }}{% endblock %}
+{% block title %}T3 Attendance List · {{ s.course_title }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -30,7 +30,7 @@
 </div>
 
 <p class="text-muted small">
-  This list is just for the printed HRDCorp T3 attendance sheet for this training day — it's kept
+  This list is just for the printed HRDCorp T3 attendance sheet for this training day, it's kept
   separate from your Enrolled Participants list, so names here don't affect enrollment counts,
   invoicing, or HRDF claim tracking.
 </p>
@@ -40,7 +40,7 @@
     {% if remaining is not none and remaining <= 0 %}
     <div class="alert alert-warning small">
       <i class="bi bi-exclamation-triangle me-1"></i>This class's attendance list is full
-      ({{ participants|length }}/{{ s.capacity }} pax) — remove a participant below to add another.
+      ({{ participants|length }}/{{ s.capacity }} pax). Remove a participant below to add another.
     </div>
     {% else %}
     <div class="card p-3 mb-3">
@@ -84,19 +84,19 @@
     </div>
 
     <div class="card p-3 mb-3">
-      <h6>Bulk Add — Paste</h6>
+      <h6>Bulk Add. Paste</h6>
       <form method="post" action="{{ url_for('t3.bulk_add', session_id=s.id) }}">
         {{ csrf_field()|safe }}
         <textarea name="bulk_text" class="form-control mb-2" rows="6" placeholder="Ahmad bin Ali, 900101-14-5566, Nusantara Sdn Bhd, M
 Siti binti Hassan, 920315-08-1122, Nusantara Sdn Bhd, F
 Ravi Kumar" required></textarea>
-        <small class="text-muted d-block mb-2">One per line: <strong>Name, IC No., Employer, Gender</strong> — only Name is required.</small>
+        <small class="text-muted d-block mb-2">One per line: <strong>Name, IC No., Employer, Gender</strong>, only Name is required.</small>
         <button class="btn btn-outline-success btn-sm w-100" type="submit">Add Pasted Names</button>
       </form>
     </div>
 
     <div class="card p-3">
-      <h6>Bulk Add — Upload CSV</h6>
+      <h6>Bulk Add. Upload CSV</h6>
       <form method="post" action="{{ url_for('t3.csv_upload', session_id=s.id) }}" enctype="multipart/form-data">
         {{ csrf_field()|safe }}
         <input type="file" name="csv_file" class="form-control form-control-sm mb-2" accept=".csv" required>
@@ -132,7 +132,7 @@ Ravi Kumar" required></textarea>
         <p class="small text-muted">
           Cross-check against the returned/signed attendance form, then tick and mark who actually attended.
           {% if total_days > 1 %}
-          This class runs {{ total_days }} days — a participant needs every day covered (shown as
+          This class runs {{ total_days }} days. A participant needs every day covered (shown as
           "X/{{ total_days }} Days" below) before they're certificate-eligible; ticking
           <strong>Mark Attended</strong> here certifies all {{ total_days }} days at once.
           {% endif %}
@@ -172,7 +172,7 @@ Ravi Kumar" required></textarea>
                 {% set sig = signatures_by_participant.get(p.id, {}).get(day) %}
                 {% if sig %}
                 <a href="{{ url_for('t3.view_signature', participant_id=p.id, training_date=day) }}" target="_blank"
-                   class="text-success me-1" title="Signed for {{ day }} — view">
+                   class="text-success me-1" title="Signed for {{ day }}, view">
                   <i class="bi bi-pen-fill"></i>
                 </a>
                 {% else %}
@@ -193,7 +193,7 @@ Ravi Kumar" required></textarea>
           </table>
         </div>
       </form>
-      {% else %}<p class="text-muted mb-0 small">No participants on the attendance list yet — add them individually, paste a list, or upload a CSV.</p>{% endif %}
+      {% else %}<p class="text-muted mb-0 small">No participants on the attendance list yet. Add them individually, paste a list, or upload a CSV.</p>{% endif %}
     </div>
   </div>
 </div>

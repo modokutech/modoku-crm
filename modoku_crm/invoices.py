@@ -42,7 +42,7 @@ def _auto_mark_overdue_invoices():
         notifications.notify(
             row["created_by"], "invoice_overdue",
             f"Invoice {row['invoice_no']} is now overdue",
-            body="Payment is past its due date — chase the client for payment.",
+            body="Payment is past its due date, chase the client for payment.",
             link=url_for("invoices.view", invoice_id=row["id"]),
             dedupe_key=f"invoice:{row['id']}:overdue",
         )
@@ -57,16 +57,24 @@ def _sync_invoice_statuses():
 
 
 def _next_invoice_no(consume=True):
-    """INV-<year>-<0001> by default — prefix/suffix are admin-configurable
-    under Settings, as is a one-time 'reset next number to' override. The
-    <year> segment always reflects the CURRENT calendar year, but the
-    running sequence number keeps counting up across the year boundary —
-    it does NOT reset to 0001 in January. (So INV-2026-0057 is followed by
-    INV-2027-0058, not INV-2027-0001.) The lookup below deliberately
-    matches on prefix only, across all years, to find that running total."""
+    """INV-<yy>-<00001> by default, e.g. INV-26-00297. Prefix/suffix are
+    admin-configurable under Settings, as is a one-time 'reset next number
+    to' override.
+
+    The <yy> segment is the CURRENT calendar year, two digits. The running
+    sequence keeps counting up across the year boundary rather than
+    resetting in January, so INV-26-00057 is followed by INV-27-00058, not
+    INV-27-00001. The lookup below matches on prefix only, across all
+    years, to find that running total.
+
+    Numbers issued before this format change (INV-2026-0297, four-digit
+    sequence and a four-digit year) still parse correctly here: the
+    sequence is read from the last dash-separated segment either way, so
+    counting continues from wherever it had reached rather than restarting.
+    Existing invoice records keep the number they were issued with."""
     prefix = settings_module.get_invoice_number_prefix()
     suffix = settings_module.get_invoice_number_suffix()
-    year = date.today().year
+    year = date.today().strftime("%y")
     # consume=False is for previews (the New Invoice form shows the number it
     # is *about* to use). Consuming there would clear the admin's one-time
     # override before the invoice is ever saved, so the save would fall back
@@ -89,7 +97,7 @@ def _next_invoice_no(consume=True):
                 last_seq = int(core.split("-")[-1])
             except ValueError:
                 last_seq = 0
-    return f"{prefix}-{year}-{last_seq + 1:04d}{suffix}"
+    return f"{prefix}-{year}-{last_seq + 1:05d}{suffix}"
 
 
 def _default_invoice_email_subject(invoice):
@@ -325,7 +333,7 @@ def send_email(invoice_id):
 
     to_email = (request.form.get("to_email") or invoice["company_email"] or "").strip()
     if not to_email:
-        flash("No client email on file for this invoice — add one, or type an address to send to.", "danger")
+        flash("No client email on file for this invoice. Add one, or type an address to send to.", "danger")
         return redirect(url_for("invoices.view", invoice_id=invoice_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_invoice_email_subject(invoice)
@@ -381,7 +389,7 @@ def download(invoice_id):
         pdf_bytes = pdfgen.generate_invoice_pdf(invoice, items)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate invoice PDF for %s", invoice["invoice_no"])
-        flash("Couldn't generate the PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("invoices.view", invoice_id=invoice_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",

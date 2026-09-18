@@ -212,7 +212,7 @@ def bulk_add(session_id):
     if request.method == "POST":
         participants = _parse_bulk_lines(request.form.get("bulk_text", ""))
         if not participants:
-            flash("Paste at least one participant — one per line.", "danger")
+            flash("Paste at least one participant. One name per line.", "danger")
             return render_template("enrollments/bulk_add.html", session=session_row, companies=companies)
 
         company_id = request.form.get("company_id") or None

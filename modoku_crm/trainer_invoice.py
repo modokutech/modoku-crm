@@ -96,7 +96,7 @@ def submit(token):
             sanity_warnings.append((file_storage.filename, warning))
 
     if saved:
-        flash(f"Uploaded {saved} document(s) — thank you!", "success")
+        flash(f"Uploaded {saved} document(s), thank you!", "success")
         # Every submission (the first one, and any later change/addition)
         # tells the office — by email and in the notifications inbox — so
         # nobody has to keep checking the class page to notice new
@@ -114,7 +114,7 @@ def submit(token):
             if notify_to:
                 mailer.send_email(
                     notify_to,
-                    f"Trainer invoice documents submitted — {session_row['course_title']}",
+                    f"Trainer invoice documents submitted - {session_row['course_title']}",
                     f"A trainer has submitted {saved} invoice/claim document(s) for "
                     f"{session_row['course_title']}.\n\nReview them here:\n{session_url}" + sanity_line,
                     related_type="course_session", related_id=session_row["id"],
@@ -124,8 +124,8 @@ def submit(token):
                 "Failed to send office email for trainer invoice upload on session %s", session_row["id"])
         notifications.notify_admins(
             "trainer_invoice_submitted",
-            f"Invoice documents submitted — {session_row['course_title']}",
-            body=f"{saved} document(s) uploaded." + (" AI sanity-check flagged a possible issue — see email." if sanity_warnings else ""),
+            f"Invoice documents submitted - {session_row['course_title']}",
+            body=f"{saved} document(s) uploaded." + (" AI sanity-check flagged a possible issue. See email." if sanity_warnings else ""),
             link=url_for("sessions.view", session_id=session_row["id"]),
         )
     elif not files or not files[0].filename:

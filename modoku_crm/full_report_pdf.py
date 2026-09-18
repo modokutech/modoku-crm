@@ -241,7 +241,7 @@ def svg_pie_chart(categories, counts, width=420, size=150):
         color = CATEGORICAL_PALETTE[i % len(CATEGORICAL_PALETTE)]
         legend.append(f'<rect x="0" y="{ly}" width="11" height="11" fill="{color}" rx="2"/>'
                        f'<text x="17" y="{ly + 10}" font-size="11" fill="{INK}" '
-                       f'font-family="Poppins,Arial,sans-serif">{escape(cat)} — {count} ({pct}%)</text>')
+                       f'font-family="Poppins,Arial,sans-serif">{escape(cat)} - {count} ({pct}%)</text>')
     height = max(size, 10 + n * 20)
     return (f'<svg width="{width}" height="{height}" viewBox="0 0 {width} {height}" '
             f'xmlns="http://www.w3.org/2000/svg">'
@@ -584,7 +584,7 @@ def _build_content_html(ctx):
         + '<div style="page-break-before:always">' + _section_heading("Objective") + _paragraphs_html(ctx["objective_text"]) + '</div>'
         + '<div style="page-break-before:always">' + participant_section + '</div>'
         + '<div style="page-break-before:always">'
-        + _section_heading("Training Performance Details — Overall Evaluation")
+        + _section_heading("Training Performance Details, Overall Evaluation")
         + f'<table class="plain performance">{performance_table}</table>'
         + "".join(chart_sections)
         + "</div>"
@@ -606,7 +606,7 @@ table.plain {{ width:100%; border-collapse:collapse; margin-bottom:14px; page-br
 table.plain th, table.plain td {{ border:1px solid #cfcdc6; padding:6px 10px; text-align:left; font-size:11.5px; }}
 table.plain thead th {{ background:#333; color:#fff; font-weight:600; }}
 table.performance th {{ width:35%; background:#fff; color:{INK}; font-weight:700; }}
-/* Extra room below the performance table specifically — it's immediately
+/* Extra room below the performance table specifically - it's immediately
    followed by the first rating chart's own section heading (often named
    "Overall Evaluation" by the Form itself), which otherwise sat right
    against the table above it. */

@@ -35,7 +35,7 @@
             <span class="badge {% if e.status == 'sent' %}bg-success{% elif e.status == 'failed' %}bg-danger{% else %}bg-secondary{% endif %}">{{ e.status|replace('_', ' ') }}</span>
           </td>
           <td>{{ e.related_type or '' }}{% if e.related_id %} #{{ e.related_id }}{% endif %}</td>
-          <td>{{ e.sent_by_name or '—' }}</td>
+          <td>{{ e.sent_by_name or ', ' }}</td>
           <td class="small text-danger">{{ e.error or '' }}</td>
         </tr>
         {% else %}

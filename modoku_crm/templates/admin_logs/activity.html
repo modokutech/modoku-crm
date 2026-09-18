@@ -33,7 +33,7 @@
         {% for e in entries %}
         <tr>
           <td class="text-nowrap">{{ e.created_at|fmtdatetime }}</td>
-          <td>{{ e.user_name or '—' }}</td>
+          <td>{{ e.user_name or ', ' }}</td>
           <td>
             <span class="badge
               {% if e.action == 'create' %}bg-success

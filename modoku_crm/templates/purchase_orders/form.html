@@ -5,11 +5,11 @@
 
 {% if conflicts %}
 <div class="alert alert-danger">
-  <strong>Heads up — possible double-booking.</strong> This trainer already has a Sent/Confirmed
+  <strong>Heads up. Possible double-booking.</strong> This trainer already has a Sent/Confirmed
   purchase order overlapping these dates:
   <ul class="mb-0 mt-1">
     {% for c in conflicts %}
-    <li>{{ c.po_no }} — {{ c.course_title }} ({{ c.start_date|fmtdate }}{% if c.end_date and c.end_date != c.start_date %} to {{ c.end_date|fmtdate }}{% endif %}) — {{ c.status }}</li>
+    <li>{{ c.po_no }} · {{ c.course_title }} ({{ c.start_date|fmtdate }}{% if c.end_date and c.end_date != c.start_date %} to {{ c.end_date|fmtdate }}{% endif %}) · {{ c.status }}</li>
     {% endfor %}
   </ul>
 </div>
@@ -33,7 +33,7 @@
         <select name="session_id" id="session_select" class="form-select" required>
           <option value="">Select session</option>
           {% for s in sessions %}
-          <option value="{{ s.id }}" data-duration="{{ s.duration_days or 1 }}" {{ 'selected' if preselect_session == s.id }}>{{ s.title }} — {{ s.start_date|fmtdate }}</option>
+          <option value="{{ s.id }}" data-duration="{{ s.duration_days or 1 }}" {{ 'selected' if preselect_session == s.id }}>{{ s.title }} · {{ s.start_date|fmtdate }}</option>
           {% endfor %}
         </select>
         <small class="text-muted">Only create a PO once the client has confirmed the date.</small>
@@ -41,7 +41,7 @@
       <div class="col-md-4">
         <label class="form-label">Fee Amount</label>
         <input type="number" step="0.01" min="0" name="fee_amount" id="fee_amount" class="form-control" value="0">
-        <small class="text-muted">Auto-prefilled from the trainer's rate per day × course duration — feel free to override.</small>
+        <small class="text-muted">Auto-prefilled from the trainer's rate per day × course duration, feel free to override.</small>
       </div>
       <div class="col-md-4">
         <label class="form-label">Currency</label>
@@ -77,13 +77,13 @@
       {% if conflicts %}
       <div class="col-12 form-check">
         <input type="checkbox" name="confirm_despite_conflict" class="form-check-input" id="confirm_conflict" value="1">
-        <label class="form-check-label" for="confirm_conflict">I understand there's a date conflict — create this PO anyway.</label>
+        <label class="form-check-label" for="confirm_conflict">I understand there's a date conflict, create this PO anyway.</label>
       </div>
       {% endif %}
     </div>
 
     <hr>
-    <h6>Additional Items <span class="text-muted small fw-normal">(optional — materials, transport, per-diem, etc., on top of the trainer fee above)</span></h6>
+    <h6>Additional Items <span class="text-muted small fw-normal">(optional, materials, transport, per-diem, etc., on top of the trainer fee above)</span></h6>
     <div class="table-responsive">
       <table class="table table-sm" id="items-table">
         <thead><tr><th style="width:50%">Description</th><th>Qty</th><th>Unit price (RM)</th><th></th></tr></thead>
@@ -124,7 +124,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 });
 
 // Auto-prefill the fee amount from the selected trainer's Rate Per Day x the
-// selected session's course duration (days) — e.g. RM 1,000/day x 2 days = RM 2,000.
+// selected session's course duration (days), e.g. RM 1,000/day x 2 days = RM 2,000.
 (function () {
   const trainerSelect = document.getElementById('trainer_select');
   const sessionSelect = document.getElementById('session_select');

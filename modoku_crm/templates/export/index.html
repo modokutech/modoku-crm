@@ -10,7 +10,7 @@
 
 <div class="card p-4" style="max-width:700px;">
   <p class="text-muted">
-    Download everything from a given year as a single zip file — one folder per Class, each with its
+    Download everything from a given year as a single zip file, one folder per Class, each with its
     attendance sheets/photos, evaluation report, training banner, JD14, client logo, trainer invoice
     documents and Purchase Order documents, plus a CSV summary of the whole year.
   </p>
@@ -24,17 +24,17 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-muted mb-0">No classes scheduled yet — nothing to export.</p>
+  <p class="text-muted mb-0">No classes scheduled yet. Nothing to export.</p>
   {% endif %}
 </div>
 
 <div class="card p-4 mt-3" style="max-width:700px;">
   <h6 class="mb-2">Database Backup</h6>
   <p class="text-muted small mb-3">
-    Download a complete snapshot of the database as it is right now — every table, not just Classes.
+    Download a complete snapshot of the database as it is right now. Every table, not just Classes.
     This is a manual, on-demand copy for peace of mind before a risky change, or just to keep a copy
     yourself. For real day-to-day protection, ask whoever manages the server to set up an automated
-    nightly backup there — this button is a supplement to that, not a replacement for it.
+    nightly backup there. This button is a supplement to that, not a replacement for it.
   </p>
   <a href="{{ url_for('export.db_backup') }}" class="btn btn-outline-secondary align-self-start">
     <i class="bi bi-download me-1"></i>Download Database Backup

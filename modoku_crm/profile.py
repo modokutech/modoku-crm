@@ -67,7 +67,7 @@ def edit():
         if not name:
             flash("Name is required.", "danger")
         elif new_password and not check_password_hash(g.user["password_hash"], current_password):
-            flash("Current password is incorrect — new password not changed.", "danger")
+            flash("Current password is incorrect, new password not changed.", "danger")
         else:
             if new_password:
                 db.execute(

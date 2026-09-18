@@ -11,9 +11,9 @@
     <h5 class="fw-semibold mb-2">{{ 'Thank you!' if decision == 'confirm' else 'Response Recorded' }}</h5>
     <p class="small text-muted mb-0">
       {% if decision == 'confirm' %}
-      You've confirmed <strong>{{ po.po_no }}</strong> — {{ po.course_title }}. The office has been notified.
+      You've confirmed <strong>{{ po.po_no }}</strong> for {{ po.course_title }}. The office has been notified.
       {% else %}
-      You've rejected <strong>{{ po.po_no }}</strong> — {{ po.course_title }}. The office has been notified
+      You've rejected <strong>{{ po.po_no }}</strong> for {{ po.course_title }}. The office has been notified
       and will follow up.
       {% endif %}
     </p>

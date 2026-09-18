@@ -26,7 +26,7 @@
           <td>{{ po.course_title }}</td>
           <td>{{ po.start_date|fmtdaterange(po.end_date) }}</td>
           <td class="text-end">{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
-          <td>{{ po.created_by_name or '—' }}</td>
+          <td>{{ po.created_by_name or ', ' }}</td>
           <td>
             <span class="badge badge-status
               {% if po.status == 'Confirmed' %}bg-success

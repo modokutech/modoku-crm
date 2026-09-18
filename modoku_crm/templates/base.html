@@ -16,7 +16,7 @@
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
     /* Command palette (press "/" anywhere, or click Search pages… in the
-       sidebar) — jumps straight to any page in the sidebar nav without
+       sidebar), jumps straight to any page in the sidebar nav without
        hunting through the (now fairly long) list of tabs by eye. */
     .cmd-palette-trigger {
       display: flex; align-items: center; width: 100%; border: 1px solid rgba(255,255,255,.18);
@@ -182,7 +182,7 @@
 <script>
 // Every click in the sidebar does a full page reload (this isn't a SPA), so
 // without help the nav list snaps back to its scrolled-to-top starting
-// position on every navigation — annoying for anything near the bottom
+// position on every navigation, annoying for anything near the bottom
 // (Settings, Data Export, etc). Remember the scroll position per browser
 // tab, and otherwise fall back to auto-scrolling the active item into view.
 (function () {
@@ -210,8 +210,8 @@
 })();
 
 // Any table not already wrapped by a template author in .table-responsive
-// gets one added automatically, so every data table — including ones added
-// later — scrolls horizontally on narrow screens instead of blowing out
+// gets one added automatically, so every data table, including ones added
+// later, scrolls horizontally on narrow screens instead of blowing out
 // the page width.
 (function () {
   document.querySelectorAll('table').forEach(function (table) {
@@ -224,11 +224,11 @@
 })();
 
 // A service worker may still be registered on a returning visitor's device
-// from a previous release (see static/sw.js) — it self-unregisters and
+// from a previous release (see static/sw.js). It self-unregisters and
 // clears its caches on next activation, but until that happens we don't
 // register a new one here.
 
-// Command palette — press Cmd+/ (Mac) or Ctrl+/ (Windows/Linux), or click
+// Command palette, press Cmd+/ (Mac) or Ctrl+/ (Windows/Linux), or click
 // "Search pages…" in the sidebar, to jump straight to any page in the
 // sidebar nav. The searchable list is read straight off the rendered
 // sidebar itself, not a separately maintained list, so it automatically

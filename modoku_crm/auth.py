@@ -116,7 +116,7 @@ def _start_password_step(user):
         # Email isn't set up on this deployment yet — don't lock staff out of
         # the app over it, just skip straight to a normal login and let an
         # admin know via the flash message so it gets fixed.
-        current_app.logger.warning("Skipping login OTP for user %s — email not available", user["id"])
+        current_app.logger.warning("Skipping login OTP for user %s, email not available", user["id"])
         _finish_login(user)
         flash("Signed in. (Email verification was skipped because outgoing email isn't configured yet.)", "warning")
         return None

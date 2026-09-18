@@ -10,7 +10,7 @@
     </div>
 
     <div class="card bg-light border-0 p-3 mb-3">
-      <div class="fw-semibold">{{ po.po_no }} — {{ po.course_title }}</div>
+      <div class="fw-semibold">{{ po.po_no }} · {{ po.course_title }}</div>
       <div class="small text-muted">{{ po.start_date|fmtdaterange(po.end_date) }}</div>
       {% if po.venue %}<div class="small text-muted">{{ po.venue }}</div>{% endif %}
       <div class="small text-muted">Trainer: {{ po.trainer_name }}</div>

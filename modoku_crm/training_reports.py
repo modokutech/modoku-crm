@@ -188,7 +188,7 @@ def _describe_combined_ratings(scale, titles, values):
     # call out specific strongest/weakest criteria by name, in prose.
     summary_text = (
         f"Combined across {len(titles)} rating criteria: average {average}/{n} "
-        f"from {len(scores)} ratings — " + ", ".join(parts) + "."
+        f"from {len(scores)} ratings: " + ", ".join(parts) + "."
     )
     return {
         "scale": list(scale),
@@ -253,7 +253,7 @@ def _summarize_open_text(session_row, text_summary, combined_ratings=None):
     try:
         lines = [f"Class: {session_row['course_title']} (Trainer: {session_row['trainer_name'] or 'TBC'})", ""]
         if combined_ratings:
-            lines.append("Already-computed rating summaries (exact, not your job to recompute — just use "
+            lines.append("Already-computed rating summaries (exact, not your job to recompute, just use "
                          "them as context if relevant to the overall takeaway):")
             for combined in combined_ratings:
                 lines.append(f"  - {combined['summary_text']}")
@@ -266,10 +266,10 @@ def _summarize_open_text(session_row, text_summary, combined_ratings=None):
         transcript = "\n".join(lines)
         prompt = (
             "Below are open-ended post-training evaluation answers from participants of a corporate "
-            "training class, grouped by question. Summarize them honestly and specifically — group "
+            "training class, grouped by question. Summarize them honestly and specifically, group "
             "recurring themes, note both praise and criticism, and don't invent anything not actually "
             "said. If a question has few or contradictory answers, say so plainly rather than "
-            "overstating a pattern. Reply with ONLY a JSON object, nothing else — no markdown, no "
+            "overstating a pattern. Reply with ONLY a JSON object, nothing else, no markdown, no "
             "explanation. Shape: {\"overall\": \"2-4 sentence overall takeaway across all questions\", "
             "\"by_question\": [{\"question\": \"<question text>\", \"summary\": \"2-4 sentence summary "
             "of themes for this question specifically\"}, ...]}\n\n" + transcript
@@ -302,7 +302,7 @@ def _summarize_ratings(session_row, numeric_summary, combined_ratings):
     try:
         lines = [f"Class: {session_row['course_title']} (Trainer: {session_row['trainer_name'] or 'TBC'})", ""]
         if combined_ratings:
-            lines.append("Combined rating groups (already computed exactly — every criterion sharing one "
+            lines.append("Combined rating groups (already computed exactly. Every criterion sharing one "
                          "rating scale, pooled together):")
             for combined in combined_ratings:
                 lines.append(f"  - {', '.join(combined['criteria'])}: {combined['summary_text']}")
@@ -313,12 +313,12 @@ def _summarize_ratings(session_row, numeric_summary, combined_ratings):
             lines.append(f"  - {q['question']}: average {q['average']}/{scale_max} ({q['count']} responses)")
         transcript = "\n".join(lines)
         prompt = (
-            "Below is exact, already-computed rating data from a post-training evaluation — averages and "
+            "Below is exact, already-computed rating data from a post-training evaluation, averages and "
             "response counts. Do not recompute or alter any of these numbers, and never invent a number "
             "not given below. Write a clear, honest 3-5 sentence narrative summary a training manager "
             "could read at a glance: name the specific criteria that scored strongest and weakest, and "
             "say plainly how positive the overall picture is. Reply with ONLY a JSON object, nothing "
-            "else — no markdown, no explanation. Shape: {\"summary\": \"...\"}\n\n" + transcript
+            "else - no markdown, no explanation. Shape: {\"summary\": \"...\"}\n\n" + transcript
         )
         parsed = _call_claude_json(prompt, max_tokens=500)
         if not isinstance(parsed, dict) or not parsed.get("summary"):
@@ -375,13 +375,13 @@ def build_report(session_id, user_id=None):
     form_id = session_row["evaluation_form_id"]
     if not form_id:
         raise TrainingReportError(
-            "No Evaluation Form has been generated for this class yet — generate one from the class "
+            "No Evaluation Form has been generated for this class yet. Generate one from the class "
             "page first."
         )
     access_token = evaluation_forms.get_valid_access_token()
     if not access_token:
         raise TrainingReportError(
-            "Couldn't get a valid Google access token — the connection under Settings may need to be "
+            "Couldn't get a valid Google access token. The connection under Settings may need to be "
             "reconnected."
         )
 

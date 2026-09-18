@@ -90,13 +90,13 @@ def check_and_record_sign_attempt(participant, entered_ic):
     if locked_until:
         try:
             if datetime.fromisoformat(locked_until) > now:
-                return False, ("Too many incorrect attempts for this name — signing is locked for a few "
+                return False, ("Too many incorrect attempts for this name. Signing is locked for a few "
                                 "minutes. Ask a staff member for help if you need to sign right now.")
         except ValueError:
             pass
 
     if not (participant["ic_no"] or "").strip():
-        return False, "No IC number is on file for this participant yet — ask staff to add one before signing."
+        return False, "No IC number is on file for this participant yet. Ask staff to add one before signing."
 
     if _normalize_ic(entered_ic) != _normalize_ic(participant["ic_no"]):
         fail_count = (participant["sign_fail_count"] or 0) + 1
@@ -107,7 +107,7 @@ def check_and_record_sign_attempt(participant, entered_ic):
         else:
             db.execute("UPDATE t3_participants SET sign_fail_count = ? WHERE id = ?",
                        (fail_count, participant["id"]))
-        return False, "That IC number doesn't match our records for this name — please try again."
+        return False, "That IC number doesn't match our records for this name. Please try again."
 
     db.execute("UPDATE t3_participants SET sign_fail_count = 0, sign_locked_until = NULL WHERE id = ?",
                (participant["id"],))
@@ -199,7 +199,7 @@ def _bulk_result_flash(added, skipped_dup, skipped_capacity, capacity, verb="Add
     if skipped_dup:
         parts.append(f"Skipped {skipped_dup} with a duplicate IC number already on this list.")
     if skipped_capacity:
-        parts.append(f"Skipped {skipped_capacity} — this class's attendance list is capped at {capacity} pax.")
+        parts.append(f"Skipped {skipped_capacity}. This class's attendance list is capped at {capacity} pax.")
     if not parts:
         return "Nothing to add.", "danger"
     category = "success" if added and not skipped_dup and not skipped_capacity else ("warning" if added else "danger")
@@ -327,7 +327,7 @@ def add(session_id):
     if not name:
         flash("Name is required.", "danger")
     elif remaining is not None and remaining <= 0:
-        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity) — "
+        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity) - "
               f"remove a participant to add another.", "danger")
     elif _ic_taken(session_id, ic_no):
         flash(f"IC number {ic_no} is already on this class's attendance list.", "danger")
@@ -393,7 +393,7 @@ def bulk_add(session_id):
     raw_text = request.form.get("bulk_text", "")
     parsed = _parse_bulk_lines(raw_text)
     if not parsed:
-        flash("Nothing to add — enter at least one name.", "danger")
+        flash("Nothing to add. Enter at least one name.", "danger")
         return redirect(url_for("t3.manage", session_id=session_id))
 
     participants = [(name, ic_no, employer, gender, "Malaysian") for name, ic_no, employer, gender in parsed]
@@ -421,7 +421,7 @@ def csv_upload(session_id):
     try:
         participants = _parse_csv(file_storage)
     except Exception:
-        flash("Couldn't read that CSV file — check the format and try again.", "danger")
+        flash("Couldn't read that CSV file. Check the format and try again.", "danger")
         return redirect(url_for("t3.manage", session_id=session_id))
 
     if not participants:
@@ -557,7 +557,7 @@ def ai_match_run(session_id):
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
     if not ai_match.is_configured():
-        flash("AI attendance matching isn't set up yet — see README \"Setting up AI attendance "
+        flash("AI attendance matching isn't set up yet - see README \"Setting up AI attendance "
               "matching\" to enable it.", "danger")
         return redirect(url_for("t3.ai_match_review", session_id=session_id))
     count = ai_match.analyze_unprocessed_returns(session_id)
@@ -565,10 +565,10 @@ def ai_match_run(session_id):
         summary = ai_match.auto_mark_attendance(session_id)
         msg = f"Read {count} photo(s), auto-marked {summary['marked']} attended."
         if summary["mismatches"]:
-            msg += f" {len(summary['mismatches'])} photo(s) flagged below — check they're the right sheet."
+            msg += f" {len(summary['mismatches'])} photo(s) flagged below. Check they're the right sheet."
         flash(msg, "success")
     else:
-        flash("Nothing new to analyze — every submitted photo has already been read.", "info")
+        flash("Nothing new to analyze. Every submitted photo has already been read.", "info")
     return redirect(url_for("t3.ai_match_review", session_id=session_id))
 
 

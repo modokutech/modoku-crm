@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Activity Heatmap — {{ year }}{% endblock %}
+{% block title %}Activity Heatmap · {{ year }}{% endblock %}
 {% block content %}
 <style>
   .heatmap-cell {
@@ -24,7 +24,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Activity Heatmap</h4>
-    <small class="text-muted">How busy the year has been — Classes running per day, and training days delivered per trainer.</small>
+    <small class="text-muted">How busy the year has been, Classes running per day, and training days delivered per trainer.</small>
   </div>
   <div class="d-flex gap-2">
     <form class="d-flex gap-2" method="get">
@@ -66,7 +66,7 @@
 
 <div class="card p-3">
   <h6 class="mb-1">Trainers</h6>
-  <p class="text-muted small mb-3">Training days delivered per trainer per month, for {{ year }} — based on Confirmed Purchase Orders (same figure as the Trainer Log).</p>
+  <p class="text-muted small mb-3">Training days delivered per trainer per month, for {{ year }}, based on Confirmed Purchase Orders (same figure as the Trainer Log).</p>
   {% if trainer_pivot %}
   <div class="table-responsive">
     <table class="table table-sm align-middle" style="font-size:.8rem">

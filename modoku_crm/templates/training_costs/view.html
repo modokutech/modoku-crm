@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Training Costs — {{ s.course_title }}{% endblock %}
+{% block title %}Training Costs · {{ s.course_title }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -40,7 +40,7 @@
 
 <form method="post" class="card p-4" id="costs-form">
   {{ csrf_field()|safe }}
-  <p class="small text-muted">Training days for this class: <strong>{{ training_days }}</strong> — Lunch, Tea Break, Meeting Package, and Laptop Rental are billed per participant per day and multiply by this automatically. Totals below update live as you type.</p>
+  <p class="small text-muted">Training days for this class: <strong>{{ training_days }}</strong>. Lunch, Tea Break, Meeting Package, and Laptop Rental are billed per participant per day and multiply by this automatically. Totals below update live as you type.</p>
   <div class="row g-4">
     <div class="col-lg-6">
       <div class="row g-2 align-items-end mb-2">
@@ -178,7 +178,7 @@
                  {{ 'checked' if costs.deduct_sst }}>
           <label class="form-check-label" for="deduct_sst">8% SST</label>
         </div>
-        <small class="text-muted">Tick whichever this class carries — they come off the Training Revenue
+        <small class="text-muted">Tick whichever this class carries. They come off the Training Revenue
           below before profit is worked out. Both together take 12% off.</small>
       </div>
       <div class="row g-2 align-items-center mb-2">
@@ -323,7 +323,7 @@
 
   var form = document.getElementById('costs-form');
   form.addEventListener('input', recalc);
-  // Checkboxes and selects report through 'change' too — listening for both
+  // Checkboxes and selects report through 'change' too, listening for both
   // keeps the deduction toggles instant regardless of how the browser fires.
   form.addEventListener('change', recalc);
 

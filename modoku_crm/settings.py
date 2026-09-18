@@ -191,7 +191,7 @@ def reset_numbering():
     if invoice_next:
         db.set_setting(INVOICE_OVERRIDE_KEY, invoice_next)
     if po_next or invoice_next:
-        flash("Numbering reset — the next document(s) generated will use the number you set.", "success")
+        flash("Numbering reset. The next document(s) generated will use the number you set.", "success")
     else:
         flash("Enter a number to reset to.", "danger")
     return redirect(url_for("settings.index"))
@@ -209,7 +209,7 @@ def test_email():
     try:
         mailer.send_email(
             to_email,
-            "Modoku Hub — test email",
+            "Modoku Hub, test email",
             "This is a test email from Modoku Hub. If you're reading this, your "
             "outgoing email settings are working correctly.",
         )
@@ -218,5 +218,5 @@ def test_email():
     except mailer.MailSendError as exc:
         flash(f"Test email failed to send: {exc}", "danger")
     else:
-        flash(f"Test email sent to {to_email} — check the inbox (and spam folder).", "success")
+        flash(f"Test email sent to {to_email}. Check the inbox (and spam folder).", "success")
     return redirect(url_for("settings.index"))

@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS courses (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Which trainers are qualified/able to teach a given course — a catalog-level
+-- Which trainers are qualified/able to teach a given course - a catalog-level
 -- reference relationship, separate from session_trainers below (which is the
 -- roster actually assigned to one specific scheduled class).
 CREATE TABLE IF NOT EXISTS course_trainers (
@@ -177,7 +177,7 @@ CREATE TABLE IF NOT EXISTS course_sessions (
     notes TEXT,
     grant_quotation_file TEXT,       -- quotation copy manually uploaded for the HRDCorp Grant Documents pack
                                       -- (the other 3 grant docs are auto-derived: course outline, trainer
-                                      -- profile, accredited cert — see courses.outline_file / trainers.*)
+                                      -- profile, accredited cert - see courses.outline_file / trainers.*)
     grant_docs_token TEXT,           -- public link token for the client's HRDCorp Grant ID entry page
     grant_docs_sent_at TEXT,         -- when the Grant Documents email was last sent
     grant_docs_sent_to TEXT,
@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS course_sessions (
 
 -- Photos of the signed attendance form the trainer snaps/scans and submits
 -- through the public "Return Attendance Form" page (no login) after
--- training ends — matched to the class by session_code. Kept separate from
+-- training ends - matched to the class by session_code. Kept separate from
 -- the single attendance_file the office can also upload directly, since a
 -- multi-day training may come back as several photos over several days.
 CREATE TABLE IF NOT EXISTS attendance_returns (
@@ -203,7 +203,7 @@ CREATE TABLE IF NOT EXISTS attendance_returns (
     ai_detected_date TEXT,            -- training date Claude read off the sheet, normalized YYYY-MM-DD
     training_date TEXT,               -- the training day this photo was resolved to (once matched to
                                        -- one of the class's actual training dates); NULL until resolved
-    ai_mismatch INTEGER NOT NULL DEFAULT 0,   -- 1 if the detected title/date didn't check out — see ai_match.py
+    ai_mismatch INTEGER NOT NULL DEFAULT 0,   -- 1 if the detected title/date didn't check out - see ai_match.py
     ai_mismatch_reason TEXT,
     ai_action TEXT,                   -- 'auto_marked' / 'mismatch' once auto_mark_attendance has
                                        -- processed this photo, so it's never re-processed (and never
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS attendance_returns (
 -- Per-day T3 attendance for multi-day trainings. t3_participants.attended
 -- stays the single "certificate eligible" flag every other part of the app
 -- already checks, but for a training spanning more than one calendar day it
--- is no longer set by hand for each day — attendance_days.py is the only
+-- is no longer set by hand for each day - attendance_days.py is the only
 -- writer, and only flips it to 1 once a participant has a row here for
 -- *every* one of the session's scheduled training days (HRDCorp's own rule:
 -- missing a day of a multi-day programme means not fully attended).
@@ -238,7 +238,7 @@ CREATE TABLE IF NOT EXISTS session_trainers (
     UNIQUE(session_id, trainer_id)
 );
 
--- Participants on the printed T3 attendance list — deliberately separate from
+-- Participants on the printed T3 attendance list - deliberately separate from
 -- `enrollments` (which drives invoicing/HRDF-claim tracking). Attendance-list
 -- names are specific to that one training day and shouldn't affect enrollment
 -- counts, capacity, or claims.
@@ -253,7 +253,7 @@ CREATE TABLE IF NOT EXISTS t3_participants (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- One row per generated e-Certificate — created (and kept in sync) the
+-- One row per generated e-Certificate - created (and kept in sync) the
 -- moment staff mark a t3_participants row attended, so certificates are
 -- ready and browsable ahead of time under the Certificates tab, grouped by
 -- Class, rather than only ever being built on demand when a participant
@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     quantity REAL NOT NULL DEFAULT 1,
     unit_price REAL NOT NULL DEFAULT 0,
     amount REAL NOT NULL DEFAULT 0,
-    duration TEXT,      -- optional, e.g. "2 Days" — shown in the item's sub-detail block
+    duration TEXT,      -- optional, e.g. "2 Days" - shown in the item's sub-detail block
     venue TEXT,          -- optional
     item_date TEXT,       -- optional
     item_date_end TEXT     -- optional: set only for items spanning more than one day
@@ -380,7 +380,7 @@ CREATE TABLE IF NOT EXISTS training_costs (
     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Per-user notification inbox — system-generated reminders (quotation
+-- Per-user notification inbox - system-generated reminders (quotation
 -- follow-up due, invoice overdue, evaluation report overdue, etc.) land here
 -- for the relevant staff member rather than only as an email. dedupe_key
 -- lets a background check avoid re-notifying the same person about the same
@@ -444,7 +444,7 @@ CREATE TABLE IF NOT EXISTS quotations (
     course_title TEXT,                      -- used to build the default document title
     is_hrdcorp INTEGER NOT NULL DEFAULT 0,   -- SBL-Khas naming/title variant
     title_override TEXT,                    -- optional custom document title
-    training_mode TEXT,                     -- Physical, Virtual, Hybrid — used in Terms & Conditions
+    training_mode TEXT,                     -- Physical, Virtual, Hybrid - used in Terms & Conditions
     venue TEXT,
     valid_until TEXT,
     terms TEXT,
@@ -469,7 +469,7 @@ CREATE TABLE IF NOT EXISTS quotation_items (
     investment_fee REAL NOT NULL DEFAULT 0
 );
 
--- Staff activity trail (admin-only view) — who did what, when.
+-- Staff activity trail (admin-only view) - who did what, when.
 CREATE TABLE IF NOT EXISTS activity_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -480,7 +480,7 @@ CREATE TABLE IF NOT EXISTS activity_log (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Every outgoing email attempt, success or failure — admin-only view.
+-- Every outgoing email attempt, success or failure - admin-only view.
 CREATE TABLE IF NOT EXISTS mail_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     to_email TEXT NOT NULL,
@@ -498,7 +498,7 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT
 );
 
--- One row per staff member per connected calendar provider — each user
+-- One row per staff member per connected calendar provider - each user
 -- connects their OWN Google or Outlook account (OAuth), independent of
 -- what anyone else on the team uses. access_token is short-lived and
 -- refreshed on demand via refresh_token; token_expiry is a UTC ISO
@@ -516,7 +516,7 @@ CREATE TABLE IF NOT EXISTS calendar_connections (
     UNIQUE(user_id, provider)
 );
 
--- Hotel/venue database — a simple directory of hotels Modoku can book for
+-- Hotel/venue database - a simple directory of hotels Modoku can book for
 -- in-house/public training, with their meeting-package rates and room
 -- capacities, kept separate from `companies` (clients) since a hotel is a
 -- venue supplier, not a training client.
@@ -538,7 +538,7 @@ CREATE TABLE IF NOT EXISTS hotels (
 );
 
 -- A hotel can have several bookable rooms/halls, each with its own pax
--- capacity (e.g. "Ballroom 1 — 200 pax", "Ballroom 2 — 50 pax") — kept as
+-- capacity (e.g. "Ballroom 1 - 200 pax", "Ballroom 2 - 50 pax") - kept as
 -- separate rows, entered line by line, rather than one free-text field.
 CREATE TABLE IF NOT EXISTS hotel_capacities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -547,7 +547,7 @@ CREATE TABLE IF NOT EXISTS hotel_capacities (
     pax_capacity INTEGER
 );
 
--- Vendor directory — non-training suppliers (photographers, caterers,
+-- Vendor directory - non-training suppliers (photographers, caterers,
 -- printers, transport, etc.), separate from Trainers (who deliver training)
 -- and Hotels (venues). Freelancer vs Company just for staff's own record.
 CREATE TABLE IF NOT EXISTS vendors (
@@ -564,7 +564,7 @@ CREATE TABLE IF NOT EXISTS vendors (
 );
 
 -- A vendor can offer several priced services, each optionally billed
--- per-day rather than a flat one-off amount — entered line by line like a
+-- per-day rather than a flat one-off amount - entered line by line like a
 -- hotel's room capacities.
 CREATE TABLE IF NOT EXISTS vendor_rates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -574,7 +574,7 @@ CREATE TABLE IF NOT EXISTS vendor_rates (
     per_day INTEGER NOT NULL DEFAULT 0
 );
 
--- Vendor Purchase Orders — same shape/lifecycle as the existing (trainer)
+-- Vendor Purchase Orders - same shape/lifecycle as the existing (trainer)
 -- purchase_orders table, but for a Vendor instead of a Trainer, and
 -- session_id is optional since a vendor PO can stand alone (not tied to
 -- any one class), e.g. a bulk printing order. Kept as its own table
@@ -633,7 +633,7 @@ CREATE TABLE IF NOT EXISTS vendor_po_documents (
 );
 
 -- Payment Receipt(s) finance uploads once a trainer/vendor's invoice has
--- been processed and paid — separate from the invoice/claim documents the
+-- been processed and paid - separate from the invoice/claim documents the
 -- trainer/vendor themselves submitted (po_documents / trainer_invoice_documents
 -- and vendor_po_documents / vendor_invoice_documents above).
 CREATE TABLE IF NOT EXISTS po_payment_receipts (
@@ -652,7 +652,7 @@ CREATE TABLE IF NOT EXISTS vendor_po_payment_receipts (
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Staff expense claims (/claims, /claim) — a staff member submits a claim
+-- Staff expense claims (/claims, /claim) - a staff member submits a claim
 -- tied to a class they worked on; finance later approves/pays it and emails
 -- the payment receipt back, which flips the claim to Paid.
 CREATE TABLE IF NOT EXISTS staff_claims (
@@ -689,7 +689,7 @@ CREATE TABLE IF NOT EXISTS staff_claim_receipts (
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Petty Cash Vouchers (/petty-cash) — a simple log of small cash-out
+-- Petty Cash Vouchers (/petty-cash) - a simple log of small cash-out
 -- payments (no float/imprest balance tracked, just a running list), each
 -- one going through a lightweight Pending -> Approved/Rejected approval
 -- step before it counts as final. Works fully standalone (free-text payee
@@ -725,13 +725,13 @@ CREATE TABLE IF NOT EXISTS company_files (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- One row per class holding the last-generated Training Report — a cached
+-- One row per class holding the last-generated Training Report - a cached
 -- rollup of that class's Google Forms evaluation responses (see
 -- training_reports.py). Deliberately a cache the "Refresh Report" button
 -- rebuilds on demand, not something recomputed on every page view, since
 -- building it re-reads every response from Google and re-runs the AI
 -- summary. Only ever populated for classes with an auto-generated Form
--- (course_sessions.evaluation_form_id) — that's the only case where
+-- (course_sessions.evaluation_form_id) - that's the only case where
 -- Modoku Hub controls a form ID it can call the Forms API against.
 CREATE TABLE IF NOT EXISTS training_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -739,22 +739,22 @@ CREATE TABLE IF NOT EXISTS training_reports (
     response_count INTEGER NOT NULL DEFAULT 0,
     numeric_summary_json TEXT,   -- JSON list of {question, kind, ...aggregates} for rating/choice questions
     text_summary_json TEXT,      -- JSON list of {question, answers: [...]} for open-text questions (AI fallback/evidence)
-    ai_summary_json TEXT,        -- JSON {overall, by_question: [{question, summary}]} — null if AI unavailable/failed
+    ai_summary_json TEXT,        -- JSON {overall, by_question: [{question, summary}]} - null if AI unavailable/failed
     generated_at TEXT NOT NULL DEFAULT (datetime('now')),
     generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
--- The branded, client-facing PDF report (full_reports.py) — distinct from
+-- The branded, client-facing PDF report (full_reports.py) - distinct from
 -- training_reports above, which is just the numeric/AI rollup those PDFs
 -- are partly built from. One row per class: while approved_at is NULL the
 -- three prose sections below are an editable AI-prefilled draft (see
--- full_reports.py's "keep edits" rule — regenerating never overwrites text
+-- full_reports.py's "keep edits" rule - regenerating never overwrites text
 -- already sitting in these columns, only ever fills in a still-empty one);
 -- once "Approve & Send" succeeds, approved_at/approved_by/sent_to are
 -- stamped, the finalized PDF is saved into course_sessions.
 -- evaluation_report_file (the same slot a manually-uploaded report uses,
 -- so the class page's Training Report section shows either one the same
--- way), and this row locks — regenerating is refused once approved_at is
+-- way), and this row locks - regenerating is refused once approved_at is
 -- set, by design (a document a client already received is never silently
 -- replaced by clicking a button again; a real correction goes through the
 -- manual-upload fallback instead).

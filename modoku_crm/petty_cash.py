@@ -133,7 +133,7 @@ def new():
                 _handle_receipt_upload(voucher_id)
                 activity.log("create", "petty_cash_voucher", voucher_id,
                              f"Raised petty cash voucher {voucher_no} for {payee_name}")
-                flash(f"Voucher {voucher_no} submitted — pending approval.", "success")
+                flash(f"Voucher {voucher_no} submitted, pending approval.", "success")
                 return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
 
     return render_template(
@@ -181,7 +181,7 @@ def edit(voucher_id):
         flash("Voucher not found.", "danger")
         return redirect(url_for("petty_cash.index"))
     if voucher["status"] != "Pending":
-        flash("Only a Pending voucher can be edited — it's already been processed.", "danger")
+        flash("Only a Pending voucher can be edited. This one has already been processed.", "danger")
         return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
 
     if request.method == "POST":
@@ -242,7 +242,7 @@ def delete_receipt(voucher_id):
         flash("Voucher not found.", "danger")
         return redirect(url_for("petty_cash.index"))
     if voucher["status"] != "Pending":
-        flash("Only a Pending voucher can be edited — it's already been processed.", "danger")
+        flash("Only a Pending voucher can be edited. This one has already been processed.", "danger")
         return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
     db.execute(
         "UPDATE petty_cash_vouchers SET receipt_filename = NULL, receipt_original_name = NULL WHERE id = ?",
@@ -311,7 +311,7 @@ def download(voucher_id):
         pdf_bytes = pdfgen.generate_petty_cash_pdf(voucher)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate Petty Cash Voucher PDF for %s", voucher["voucher_no"])
-        flash("Couldn't generate the PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",

@@ -118,7 +118,7 @@ def _ensure_confirm_token(po_id):
 
 
 def _default_email_subject(po):
-    return f"{po['po_no']} — {po['description'] or po['course_title'] or 'Purchase Order'} — {po['vendor_name']}"
+    return f"{po['po_no']} - {po['description'] or po['course_title'] or 'Purchase Order'} - {po['vendor_name']}"
 
 
 def _default_email_body(po, confirm_url=None):
@@ -139,7 +139,7 @@ def _default_email_body(po, confirm_url=None):
 
 
 def _default_payment_receipt_email_subject(po):
-    return f"Payment Receipt — {po['po_no']} — {po['description'] or po['course_title'] or 'Purchase Order'}"
+    return f"Payment Receipt - {po['po_no']} - {po['description'] or po['course_title'] or 'Purchase Order'}"
 
 
 def _default_payment_receipt_email_body(po):
@@ -199,10 +199,10 @@ def _notify_vendor_invoice_due(po_id):
         token = ensure_token(po_id)
         link = url_for("vendor_invoice.form", token=token, _external=True)
         what = po["course_title"] or po["description"] or "your job"
-        subject = f"Please submit your invoice — {po['po_no']}"
+        subject = f"Please submit your invoice - {po['po_no']}"
         body = (
             f"Dear {po['vendor_name']},\n\n"
-            f"The job below has now finished — please submit your invoice (and any claims) using the "
+            f"The job below has now finished. Please submit your invoice (and any claims) using the "
             f"link below. You can upload PDF, Word, or Excel files, and more than one file if you have "
             f"separate invoice/claim documents.\n\n"
             f"PO: {po['po_no']}\n"
@@ -442,7 +442,7 @@ def download(po_id):
         pdf_bytes = pdfgen.generate_vendor_po_pdf(po, items, grand_total)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate vendor PO PDF for %s", po["po_no"])
-        flash("Couldn't generate the PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("vendor_purchase_orders.view", po_id=po_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",
@@ -563,7 +563,7 @@ def send_payment_receipt_email(po_id):
 
     to_email = (request.form.get("to_email") or po["vendor_email"] or "").strip()
     if not to_email:
-        flash("No vendor email on file — add one, or type an address to send to.", "danger")
+        flash("No vendor email on file. Add one, or type an address to send to.", "danger")
         return redirect(url_for("vendor_purchase_orders.view", po_id=po_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_payment_receipt_email_subject(po)
@@ -595,7 +595,7 @@ def send_payment_receipt_email(po_id):
         (to_email, po_id),
     )
     activity.log("send_email", "vendor_purchase_order", po_id, f"Emailed payment receipt for {po['po_no']} to {to_email}")
-    flash(f"Payment receipt emailed to {to_email} — marked as Paid.", "success")
+    flash(f"Payment receipt emailed to {to_email}, marked as Paid.", "success")
     return redirect(url_for("vendor_purchase_orders.view", po_id=po_id))
 
 
@@ -619,7 +619,7 @@ def send_email(po_id):
 
     to_email = request.form.get("to_email") or po["vendor_email"]
     if not to_email:
-        flash("This vendor has no email on file — add one on their profile, or type an address to send to.", "danger")
+        flash("This vendor has no email on file. Add one on their profile, or type an address to send to.", "danger")
         return redirect(url_for("vendor_purchase_orders.view", po_id=po_id))
 
     items = db.query("SELECT * FROM vendor_po_items WHERE po_id = ? ORDER BY id", (po_id,))

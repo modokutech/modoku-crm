@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Petty Cash Vouchers</h4>
-    <small class="text-muted">A simple log of small cash-out payments — each voucher is approved before it's final.</small>
+    <small class="text-muted">A simple log of small cash-out payments. Each voucher is approved before it's final.</small>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('petty_cash.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Voucher</a>
@@ -32,7 +32,7 @@
           <td>{{ v.purpose }}</td>
           <td>{{ v.category or '-' }}</td>
           <td class="text-end">RM {{ v.amount|fmtmoney }}</td>
-          <td>{{ v.requested_by_name or '—' }}</td>
+          <td>{{ v.requested_by_name or ', ' }}</td>
           <td>
             <span class="badge badge-status
               {% if v.status == 'Approved' %}bg-success

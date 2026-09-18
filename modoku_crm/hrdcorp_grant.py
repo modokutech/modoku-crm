@@ -50,9 +50,9 @@ def submit(token):
     if session_row["owner_user_id"]:
         notifications.notify(
             session_row["owner_user_id"], "hrdcorp_grant_id_submitted",
-            f"HRDCorp Grant ID submitted — {session_row['course_title']}",
+            f"HRDCorp Grant ID submitted - {session_row['course_title']}",
             body=f"The client submitted their HRDCorp Grant ID ({grant_id}) for this class.",
             link=url_for("sessions.view", session_id=session_row["id"]),
         )
-    flash("Thank you — your HRDCorp Grant ID has been recorded.", "success")
+    flash("Thank you. Your HRDCorp Grant ID has been recorded.", "success")
     return redirect(url_for("hrdcorp_grant.form", token=token))

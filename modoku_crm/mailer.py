@@ -115,7 +115,7 @@ def send_email(to_email, subject, body_text, attachments=None, related_type=None
     if total_attachment_bytes > MAX_TOTAL_ATTACHMENT_BYTES:
         error = (
             f"These attachments total {total_attachment_bytes / (1024 * 1024):.1f} MB, which is too "
-            f"large to email reliably (over {MAX_TOTAL_ATTACHMENT_BYTES // (1024 * 1024)} MB) — most mail "
+            f"large to email reliably (over {MAX_TOTAL_ATTACHMENT_BYTES // (1024 * 1024)} MB), most mail "
             "servers will refuse or drop it. Try a smaller file, or share a link instead of attaching."
         )
         _log_attempt(to_email, subject, "failed", error, related_type, related_id, cc_email)

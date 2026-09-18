@@ -24,19 +24,19 @@ from .ai_match import ANTHROPIC_API_URL, ANTHROPIC_API_VERSION
 IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 _GENERIC_INSTRUCTIONS = (
-    "Reply with ONLY a JSON object, nothing else — no markdown, no "
+    "Reply with ONLY a JSON object, nothing else, no markdown, no "
     "explanation. Format: {\"looks_right\": true|false, \"reason\": \"<one "
     "short sentence, only when looks_right is false>\"}. Only set "
     "looks_right to false if you're fairly confident this is the wrong kind "
     "of document. If it's unclear, low quality, an unusual template, or "
-    "you're simply not sure, set looks_right to true — this check should "
+    "you're simply not sure, set looks_right to true. This check should "
     "only catch obvious mistakes, never second-guess a real document."
 )
 
 _PROMPTS = {
     "jd14": (
         "This file was uploaded as a signed HRDCorp Joint Declaration Form "
-        "(PSMB/SBL-KHAS/JD/14) — a short government form declaring that "
+        "(PSMB/SBL-KHAS/JD/14). A short government form declaring that "
         "training was conducted, normally bearing signatures and/or company "
         "stamps from both the training provider and the client. Look at the "
         "file and decide whether it plausibly IS such a signed declaration "
@@ -46,7 +46,7 @@ _PROMPTS = {
     ),
     "grant_quotation": (
         "This file was uploaded as a training quotation for an HRDCorp "
-        "grant claim pack — normally a document showing a company "
+        "grant claim pack, normally a document showing a company "
         "letterhead, a quotation/invoice number, itemized fees, and a total "
         "amount. Look at the file and decide whether it plausibly IS a "
         "quotation document (e.g. it would be wrong if this were instead an "
@@ -55,7 +55,7 @@ _PROMPTS = {
     ),
     "signed_quotation": (
         "This file was uploaded as a client's SIGNED copy of a training "
-        "quotation — expect to see quotation content (a course/programme "
+        "quotation. Expect to see quotation content (a course/programme "
         "name, itemized fees, a total amount) together with some sign of "
         "acceptance such as a signature, initials, or a company stamp. Look "
         "at the file and decide whether it plausibly IS a signed quotation "
@@ -65,8 +65,8 @@ _PROMPTS = {
     ),
     "t3_attendance": (
         "This file was uploaded as a photo or scan of a signed HRDCorp "
-        "training attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01) — "
-        "expect to see a course title, training date(s), and a list of "
+        "training attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01). "
+        "Expect to see a course title, training date(s), and a list of "
         "participant names with signatures or initials next to them. Look "
         "at the file and decide whether it plausibly IS such an attendance "
         "sheet (e.g. it would be wrong if this were instead a completely "
@@ -74,7 +74,7 @@ _PROMPTS = {
         "sheet with no one signed in). " + _GENERIC_INSTRUCTIONS
     ),
     "evaluation_report": (
-        "This file was uploaded as a training evaluation report — expect to "
+        "This file was uploaded as a training evaluation report. Expect to "
         "see a summary or compilation of participant feedback/ratings for a "
         "completed training. Look at the file and decide whether it "
         "plausibly IS such a report (e.g. it would be wrong if this were "
@@ -83,7 +83,7 @@ _PROMPTS = {
     ),
     "trainer_credential": (
         "This file was uploaded as a trainer's profile document or "
-        "accreditation/certification certificate — expect to see either a "
+        "accreditation/certification certificate. Expect to see either a "
         "trainer's professional profile/résumé content, or a certificate "
         "bearing a name, an issuing body, and typically a certificate "
         "number or date. Look at the file and decide whether it plausibly "
@@ -92,9 +92,9 @@ _PROMPTS = {
         "blank page). " + _GENERIC_INSTRUCTIONS
     ),
     "financial_document": (
-        "This file was uploaded as a financial document — an invoice, "
+        "This file was uploaded as a financial document, an invoice, "
         "purchase order, payment receipt, or similar claim/expense "
-        "supporting document — expect to see a company/vendor name, an "
+        "supporting document. Expect to see a company/vendor name, an "
         "amount, and typically a date and/or reference number. Look at the "
         "file and decide whether it plausibly IS such a financial document "
         "(e.g. it would be wrong if this were instead an unrelated photo, a "
@@ -178,7 +178,7 @@ def check_document(file_path, kind):
             return None
         reason = parsed.get("reason")
         reason = reason.strip() if isinstance(reason, str) and reason.strip() else None
-        base_msg = "The uploaded file doesn't look like the expected document — please double-check it's correct."
+        base_msg = "The uploaded file doesn't look like the expected document. Please double-check it's correct."
         return f"{base_msg} ({reason})" if reason else base_msg
     except Exception:  # noqa: BLE001 - a bad file/response must never break the upload
         current_app.logger.exception("AI document sanity-check failed for %s (kind=%s)", file_path, kind)

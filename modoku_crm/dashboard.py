@@ -50,7 +50,7 @@ def _attention_items():
         sections.append({
             "label": "Quotations gone quiet", "icon": "bi-file-earmark-ruled", "tone": "warning",
             "entries": [{
-                "text": f"{q['quote_no']} — sent {_days_between(q['sent_at'], today_iso)} day(s) ago, no response yet",
+                "text": f"{q['quote_no']}, sent {_days_between(q['sent_at'], today_iso)} day(s) ago, no response yet",
                 "link": url_for("quotations.view", quotation_id=q["id"]),
             } for q in followups],
         })
@@ -63,7 +63,7 @@ def _attention_items():
         sections.append({
             "label": "Overdue invoices", "icon": "bi-receipt", "tone": "danger",
             "entries": [{
-                "text": (f"{inv['invoice_no']} — RM {fmtmoney(inv['total'])}, "
+                "text": (f"{inv['invoice_no']}, RM {fmtmoney(inv['total'])}, "
                          f"{_days_between(inv['due_date'], today_iso)} day(s) overdue"),
                 "link": url_for("invoices.view", invoice_id=inv["id"]),
             } for inv in overdue_invoices],
@@ -83,7 +83,7 @@ def _attention_items():
         sections.append({
             "label": "Classes starting tomorrow", "icon": "bi-alarm", "tone": "danger",
             "entries": [{
-                "text": f"{row['course_title']}" + (f" — {row['venue']}" if row["venue"] else "") + " starts tomorrow",
+                "text": f"{row['course_title']}" + (f" - {row['venue']}" if row["venue"] else "") + " starts tomorrow",
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in starting_soon_rows],
         })
@@ -104,8 +104,8 @@ def _attention_items():
             "label": "Grant Documents not sent", "icon": "bi-award", "tone": "danger",
             "entries": [{
                 "text": (lambda days_left: (
-                    f"{row['course_title']} — training in {days_left} day(s)" if days_left >= 0
-                    else f"{row['course_title']} — training already started, still not sent"
+                    f"{row['course_title']}: training in {days_left} day(s)" if days_left >= 0
+                    else f"{row['course_title']}: training already started, still not sent"
                 ))(_days_between(today_iso, row["start_date"])),
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in grant_docs_rows],
@@ -127,7 +127,7 @@ def _attention_items():
         sections.append({
             "label": "T3 Attendance Form not filled", "icon": "bi-clipboard-x", "tone": "warning",
             "entries": [{
-                "text": (f"{row['course_title']} — training in {_days_between(today_iso, row['start_date'])} "
+                "text": (f"{row['course_title']}: training in {_days_between(today_iso, row['start_date'])} "
                          f"day(s), no participants added yet"),
                 "link": url_for("t3.manage", session_id=row["id"]),
             } for row in t3_empty_rows],
@@ -147,7 +147,7 @@ def _attention_items():
         sections.append({
             "label": "Evaluation reports overdue", "icon": "bi-patch-check", "tone": "warning",
             "entries": [{
-                "text": (f"{row['course_title']} — completed {_days_between(row['done_date'], today_iso)} "
+                "text": (f"{row['course_title']}, completed {_days_between(row['done_date'], today_iso)} "
                          f"day(s) ago, report still missing"),
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in eval_rows],

@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Vendor Purchase Orders</h4>
-    <small class="text-muted">Purchase orders issued to vendors — class-linked or standalone.</small>
+    <small class="text-muted">Purchase orders issued to vendors, class-linked or standalone.</small>
   </div>
   <div class="d-flex gap-2">
     {% if g.user.role == 'admin' %}
@@ -25,7 +25,7 @@
           <td>{{ po.vendor_name or 'Vendor removed' }}</td>
           <td>{{ po.course_title or po.description or '-' }}</td>
           <td class="text-end">{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
-          <td>{{ po.created_by_name or '—' }}</td>
+          <td>{{ po.created_by_name or ', ' }}</td>
           <td>
             <span class="badge badge-status
               {% if po.status == 'Confirmed' %}bg-success

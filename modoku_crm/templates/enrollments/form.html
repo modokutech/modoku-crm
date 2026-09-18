@@ -13,7 +13,7 @@
           {% for s in sessions %}
           <option value="{{ s.id }}"
             {{ 'selected' if (enrollment and enrollment.session_id == s.id) or (not enrollment and preselect_session == s.id) }}>
-            {{ s.title }} — {{ s.start_date|fmtdate }}
+            {{ s.title }} · {{ s.start_date|fmtdate }}
           </option>
           {% endfor %}
         </select>

@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Training Report</h4>
-    <small class="text-muted">Evaluation feedback rolled up per class — numeric ratings averaged automatically, open-text answers summarized by AI.</small>
+    <small class="text-muted">Evaluation feedback rolled up per class, numeric ratings averaged automatically, open-text answers summarized by AI.</small>
   </div>
 </div>
 
@@ -19,9 +19,9 @@
         {% for s in rows %}
         <tr onclick="window.location='{{ url_for('training_reports.view', session_id=s.id) }}'" style="cursor:pointer">
           <td class="fw-semibold">{{ s.course_title }}</td>
-          <td>{{ s.trainer_name or '—' }}</td>
+          <td>{{ s.trainer_name or ', ' }}</td>
           <td class="text-nowrap">{{ s.start_date|fmtdaterange(s.end_date) }}</td>
-          <td>{{ s.response_count if s.response_count is not none else '—' }}</td>
+          <td>{{ s.response_count if s.response_count is not none else ', ' }}</td>
           <td>
             {% if s.generated_at %}
             <span class="badge bg-success">Generated {{ s.generated_at|fmtdatetime }}</span>
@@ -38,7 +38,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-muted mb-0">No classes with an auto-generated Evaluation Form yet — use "Generate Evaluation
+  <p class="text-muted mb-0">No classes with an auto-generated Evaluation Form yet. Use "Generate Evaluation
     Form" on a class page first (see Settings → Evaluation Forms to connect Google Forms automation).</p>
   {% endif %}
 </div>

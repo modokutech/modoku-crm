@@ -126,7 +126,7 @@ def sign(token, participant_id):
 
     raw_png = decode_signature_png(request.form.get("signature_data", ""))
     if raw_png is None:
-        flash("We couldn't capture that signature — please sign again and submit.", "danger")
+        flash("We couldn't capture that signature. Please sign again and submit.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
     stored_name = f"{participant_id}-{today_iso}-{uuid.uuid4().hex[:8]}.png"
@@ -140,7 +140,7 @@ def sign(token, participant_id):
     if newly_fully_attended:
         _certificates.generate_and_store_certificate(participant_id)
 
-    flash(f"Thanks, {participant['name']} — your attendance is signed for today.", "success")
+    flash(f"Thanks, {participant['name']}. Your attendance is signed for today.", "success")
     return redirect(url_for("t3_public.form", token=token))
 
 
@@ -150,7 +150,7 @@ def add(token):
     if session_row is None:
         return render_template("t3_public/not_found.html")
     if not t3_form_is_editable(session_row):
-        flash("This attendance list is now locked — training has already started. Contact us if you need "
+        flash("This attendance list is now locked. Training has already started. Contact us if you need "
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
@@ -161,8 +161,8 @@ def add(token):
         return redirect(url_for("t3_public.form", token=token))
     remaining = t3_remaining_capacity(session_row)
     if remaining is not None and remaining <= 0:
-        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity) — "
-              f"contact us if you need to add someone else.", "danger")
+        flash(f"This class's attendance list is already full ({session_row['capacity']} pax capacity). "
+              f"Contact us if you need to add someone else.", "danger")
         return redirect(url_for("t3_public.form", token=token))
     if _ic_taken(session_row["id"], ic_no):
         flash(f"IC number {ic_no} is already on this attendance list.", "danger")
@@ -184,7 +184,7 @@ def csv_upload(token):
     if session_row is None:
         return render_template("t3_public/not_found.html")
     if not t3_form_is_editable(session_row):
-        flash("This attendance list is now locked — training has already started. Contact us if you need "
+        flash("This attendance list is now locked. Training has already started. Contact us if you need "
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
@@ -200,7 +200,7 @@ def csv_upload(token):
     try:
         participants = _parse_csv(file_storage)
     except Exception:
-        flash("Couldn't read that CSV file — check the format and try again.", "danger")
+        flash("Couldn't read that CSV file. Check the format and try again.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
     if not participants:
@@ -225,7 +225,7 @@ def edit(token, participant_id):
         flash("Participant not found.", "danger")
         return redirect(url_for("t3_public.form", token=token))
     if not t3_form_is_editable(session_row):
-        flash("This attendance list is now locked — training has already started. Contact us if you need "
+        flash("This attendance list is now locked. Training has already started. Contact us if you need "
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
@@ -254,7 +254,7 @@ def delete(token, participant_id):
     if session_row is None:
         return render_template("t3_public/not_found.html")
     if not t3_form_is_editable(session_row):
-        flash("This attendance list is now locked — training has already started. Contact us if you need "
+        flash("This attendance list is now locked. Training has already started. Contact us if you need "
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 

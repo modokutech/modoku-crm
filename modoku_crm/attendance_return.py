@@ -53,7 +53,7 @@ def lookup():
         code = request.form.get("code", "").strip()
         session_row = _find_session(code)
         if session_row is None:
-            flash("That code wasn't found — double check the code printed on the attendance form.", "danger")
+            flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
             return redirect(url_for("attendance_return.lookup"))
         return redirect(url_for("attendance_return.details", code=code.strip().upper()))
     return render_template("attendance_return/lookup.html")
@@ -63,7 +63,7 @@ def lookup():
 def details(code):
     session_row = _find_session(code)
     if session_row is None:
-        flash("That code wasn't found — double check the code printed on the attendance form.", "danger")
+        flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
         return redirect(url_for("attendance_return.lookup"))
     return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper())
 
@@ -72,12 +72,12 @@ def details(code):
 def submit(code):
     session_row = _find_session(code)
     if session_row is None:
-        flash("That code wasn't found — double check the code printed on the attendance form.", "danger")
+        flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
         return redirect(url_for("attendance_return.lookup"))
 
     if session_row["status"] not in ("Ongoing", "Completed"):
         flash(
-            "This class hasn't started yet — the attendance form can only be submitted once "
+            "This class hasn't started yet. The attendance form can only be submitted once "
             "training is underway or finished.", "danger",
         )
         return redirect(url_for("attendance_return.details", code=code))
@@ -109,7 +109,7 @@ def submit(code):
             sanity_warnings.append((file_storage.filename, warning))
 
     if not saved_count:
-        flash("Those files couldn't be saved — use a photo (PNG/JPG) or a PDF.", "danger")
+        flash("Those files couldn't be saved. Use a photo (PNG/JPG) or a PDF.", "danger")
         return redirect(url_for("attendance_return.details", code=code))
 
     # AI auto-attendance: read the just-submitted photo(s) and mark whoever
@@ -131,11 +131,11 @@ def submit(code):
     if ai_summary is not None:
         ai_line = f"\nAI auto-marked {ai_summary['marked']} of {ai_summary['total_read']} participant(s) attended from the photo."
         if ai_summary["unmatched"]:
-            ai_line += (f" {len(ai_summary['unmatched'])} name(s) couldn't be confidently matched — "
-                        f"check the AI Match Attendance page on this class.")
+            ai_line += (f" {len(ai_summary['unmatched'])} name(s) couldn't be confidently matched. "
+                        f"Check the AI Match Attendance page on this class.")
         if ai_summary["mismatches"]:
             ai_line += (f" {len(ai_summary['mismatches'])} photo(s) looked like the wrong sheet "
-                        f"(wrong class or date) and were NOT auto-marked — check the AI Match "
+                        f"(wrong class or date) and were NOT auto-marked. Check the AI Match "
                         f"Attendance page.")
     sanity_line = ""
     if sanity_warnings:
@@ -143,7 +143,7 @@ def submit(code):
             f"- {name}: {warning}" for name, warning in sanity_warnings
         )
     try:
-        subject = f"Attendance form returned — {session_row['course_title']} ({date_range})"
+        subject = f"Attendance form returned - {session_row['course_title']} ({date_range})"
         body = (
             f"The trainer has submitted {saved_count} photo(s) of the signed attendance form for:\n\n"
             f"Class: {session_row['course_title']}\n"
@@ -162,12 +162,12 @@ def submit(code):
         current_app.logger.exception("Failed to send attendance-return notification for session %s", session_row["id"])
 
     if ai_summary is not None:
-        title = f"AI marked {ai_summary['marked']} attended — {session_row['course_title']}"
+        title = f"AI marked {ai_summary['marked']} attended - {session_row['course_title']}"
         notif_body = f"From the photo just returned by the trainer."
         if ai_summary["unmatched"]:
             notif_body += f" {len(ai_summary['unmatched'])} name(s) need a quick manual look."
         if ai_summary["mismatches"]:
-            notif_body += f" {len(ai_summary['mismatches'])} photo(s) may be the wrong sheet — check them."
+            notif_body += f" {len(ai_summary['mismatches'])} photo(s) may be the wrong sheet. Check them."
         notifications.notify_admins(
             "ai_attendance_matched", title, body=notif_body,
             link=url_for("sessions.view", session_id=session_row["id"]),

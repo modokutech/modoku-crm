@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Certificates — {{ s.course_title }}{% endblock %}
+{% block title %}Certificates · {{ s.course_title }}{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -45,7 +45,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-muted mb-0 small">No participants marked attended yet — cross-check and mark attendance on
+  <p class="text-muted mb-0 small">No participants marked attended yet, cross-check and mark attendance on
     the <a href="{{ url_for('t3.manage', session_id=s.id) }}">T3 Attendance List</a> first.</p>
   {% endif %}
 </div>

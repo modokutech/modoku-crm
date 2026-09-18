@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">How to Use Modoku Hub</h4>
-    <small class="text-muted">4 tracks, 25 modules — jump to a section or click straight through.</small>
+    <small class="text-muted">4 tracks, 25 modules, jump to a section or click straight through.</small>
   </div>
 </div>
 
@@ -23,7 +23,7 @@
 </div>
 
 <div class="card p-3 mt-3 text-center small text-muted">
-  <i class="bi bi-flag me-1"></i>Once a Class exists, its own page is home base — attendance, evaluation,
+  <i class="bi bi-flag me-1"></i>Once a Class exists, its own page is home base: attendance, evaluation,
   certificates, grant ID, JD14 and training costs all launch from there.
 </div>
 
@@ -63,7 +63,7 @@
 </style>
 <script>
 (function () {
-  // Deliberately short per step — this is meant to be skimmed in a few
+  // Deliberately short per step. This is meant to be skimmed in a few
   // clicks, not read like a manual. Anything the system does by itself is
   // called out as an "auto" chip so staff can spot at a glance what they
   // don't have to do by hand. "Next" walks through every track in order;
@@ -73,25 +73,25 @@
       key: 'core', label: 'Core Flow', icon: 'bi-signpost-2',
       steps: [
         { icon: 'bi-buildings', title: 'Client & Lead',
-          bullets: ['Add the Company under Clients', 'Add a Lead under it — becomes the class PIC'] },
+          bullets: ['Add the Company under Clients', 'Add a Lead under it, becomes the class PIC'] },
         { icon: 'bi-person-badge', title: 'Trainer',
           bullets: ['Add the Trainer', 'Upload Profile + Accredited Cert now'],
           auto: 'Reused later for the Grant Documents pack and the PO' },
         { icon: 'bi-mortarboard', title: 'Course',
-          bullets: ['Check Courses — add the topic once if new'],
+          bullets: ['Check Courses. Add the topic once if new'],
           auto: 'Reused for every future run of this training' },
         { icon: 'bi-calendar-event', title: 'Class',
           bullets: ['New Class → status "Proposed"', 'Create it before anything is signed'],
-          tip: 'Key move: create it early — everything below plugs into this one record.' },
+          tip: 'Key move: create it early. Everything below plugs into this one record.' },
         { icon: 'bi-person-check', title: 'Enrolled Participants',
           bullets: ['Add participants right on the Class page', 'Tracks each person’s HRDF claim status'],
-          auto: 'Separate from the printed T3 list — doesn’t affect that count' },
+          auto: 'Separate from the printed T3 list, doesn’t affect that count' },
         { icon: 'bi-file-earmark-ruled', title: 'Quotation',
           bullets: ['Send it, linked to the Proposed class'],
           auto: 'Signed copy in → Class flips to Scheduled, attendance form + calendar invite auto-emailed' },
         { icon: 'bi-file-earmark-text', title: 'Purchase Order',
           bullets: ['Assign the trainer(s), send the PO'],
-          auto: 'Trainer confirms/rejects via their own link — you get notified either way' },
+          auto: 'Trainer confirms/rejects via their own link. You get notified either way' },
         { icon: 'bi-receipt', title: 'Invoice',
           bullets: ['Send it, linked to the Class'] },
       ],
@@ -100,16 +100,16 @@
       key: 'training', label: 'Training', icon: 'bi-calendar2-week',
       steps: [
         { icon: 'bi-award', title: 'HRDCorp Grant Documents',
-          bullets: ['Send the grant-docs pack 14 days before the training date — HRDC’s own rule', 'Client submits their Grant ID back via a link — no login needed'],
+          bullets: ['Send the grant-docs pack 14 days before the training date (HRDC’s own rule', 'Client submits their Grant ID back via a link) no login needed'],
           auto: 'Saved straight onto the class record and you’re notified' },
         { icon: 'bi-clipboard-check', title: 'T3 Attendance Form',
           bullets: ['Best: get the client to fill it online before training, then chase 1 day before for peace of mind', 'Fallback: print the hardcopy on the day and get participants to sign it', 'Trainer-only class: trainer distributes the form, gets every participant to sign, then returns it via their own coded link', 'Multi-day class: each day gets its own sheet, and a participant needs every day covered before they’re certificate-eligible'],
-          auto: 'Once a photo is returned, AI reads it, checks the class/date printed on the sheet actually match, then reads the signatures and marks that day attended by itself — no manual cross-check. A wrong-looking sheet (wrong class, wrong date) is flagged instead of guessed, and anything it can’t confidently read still shows up on AI Match Attendance for a quick look.' },
+          auto: 'Once a photo is returned, AI reads it, checks the class/date printed on the sheet actually match, then reads the signatures and marks that day attended by itself, no manual cross-check. A wrong-looking sheet (wrong class, wrong date) is flagged instead of guessed, and anything it can’t confidently read still shows up on AI Match Attendance for a quick look.' },
         { icon: 'bi-patch-check', title: 'Evaluation & e-Certificates',
           bullets: ['Evaluation Form + QR poster for the end of class', 'Participants self-serve their certificate afterwards, no login needed'],
           auto: 'Every certificate stays browsable under the Certificates tab' },
         { icon: 'bi-file-earmark-check', title: 'JD14 Form',
-          bullets: ['HRDCorp’s Joint Declaration Form (PSMB/SBL-KHAS/JD/14) — needs both parties’ signatures', 'Upload it once signed on your end, and the system emails the client a link to upload their signed copy back'] },
+          bullets: ['HRDCorp’s Joint Declaration Form (PSMB/SBL-KHAS/JD/14): needs both parties’ signatures', 'Upload it once signed on your end, and the system emails the client a link to upload their signed copy back'] },
         { icon: 'bi-calculator', title: 'Training Costs',
           bullets: ['Optional per-class profit & loss worksheet', 'Button lives right on the Class page'] },
       ],
@@ -118,13 +118,13 @@
       key: 'money', label: 'Money', icon: 'bi-cash-stack',
       steps: [
         { icon: 'bi-truck', title: 'Vendor Purchase Orders',
-          bullets: ['Same Draft → Sent → Confirmed flow as trainer POs', 'For vendors instead — printing, transport, etc. — doesn’t need a class'] },
+          bullets: ['Same Draft → Sent → Confirmed flow as trainer POs', 'For vendors instead (printing, transport, etc.) doesn’t need a class'] },
         { icon: 'bi-receipt-cutoff', title: 'Invoice Uploads',
           bullets: ['Trainer/vendor uploads their own invoice via the link on their PO', 'Shows on the PO page as "Invoice Submitted by Trainer/Vendor"'] },
         { icon: 'bi-wallet2', title: 'Payment Receipts',
-          bullets: ['One combined list of every PO awaiting payment', 'Upload the receipt + amount on the PO page — flips it to Paid'] },
+          bullets: ['One combined list of every PO awaiting payment', 'Upload the receipt + amount on the PO page, flips it to Paid'] },
         { icon: 'bi-cash-coin', title: 'Claims',
-          bullets: ['Anyone submits an expense claim by link — no login needed', 'Finance reviews, uploads the receipt, it auto-emails the claimant'] },
+          bullets: ['Anyone submits an expense claim by link, no login needed', 'Finance reviews, uploads the receipt, it auto-emails the claimant'] },
       ],
     },
     {
@@ -142,11 +142,11 @@
         { icon: 'bi-bell', title: 'Notifications',
           bullets: ['Your in-app inbox for things needing action', 'A quiet quotation, an overdue invoice, an overdue evaluation, etc.'] },
         { icon: 'bi-toggles', title: 'Settings',
-          bullets: ['Admins can switch off modules the business isn’t using yet', 'Nothing is deleted — just hidden until switched back on'] },
+          bullets: ['Admins can switch off modules the business isn’t using yet', 'Nothing is deleted, just hidden until switched back on'] },
         { icon: 'bi-people', title: 'Staff Users & Logs',
           bullets: ['Manage staff accounts (admin only)', 'Activity Log and Mail Log show who did what, and every email sent'] },
         { icon: 'bi-file-earmark-zip', title: 'Data Export',
-          bullets: ['One click, one year → a zip organized by Class (admin only)', 'A local download — no cloud backup involved'] },
+          bullets: ['One click, one year → a zip organized by Class (admin only)', 'A local download, no cloud backup involved'] },
       ],
     },
   ];

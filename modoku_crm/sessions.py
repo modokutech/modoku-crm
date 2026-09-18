@@ -194,7 +194,7 @@ def build_session_ics(session_row, description_extra=""):
         session_row["start_date"], session_row["end_date"], session_row["training_time"]
     )
     now_stamp = date.today().strftime("%Y%m%d") + "T000000Z"
-    summary = f"{session_row['course_title']} — Training".replace("\n", " ")
+    summary = f"Training: {session_row['course_title']}".replace("\n", " ")
     location = (session_row["venue"] or "").replace("\n", " ")
     description = f"Training: {session_row['course_title']}"
     if session_row["training_time"]:
@@ -223,7 +223,7 @@ def build_session_ics(session_row, description_extra=""):
 
 def _default_t3_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"T3 Attendance Form — {session_row['course_title']} ({date_range})"
+    return f"T3 Attendance Form - {session_row['course_title']} ({date_range})"
 
 
 def _default_t3_email_body(session_row, t3_url):
@@ -234,7 +234,7 @@ def _default_t3_email_body(session_row, t3_url):
         meeting_link_line = f"Meeting Link: {session_row['meeting_link']}\n"
     return (
         f"Hi {greeting_name or 'there'},\n\n"
-        "Here's the link to the T3 Attendance Form for this training — participants can be added, "
+        "Here's the link to the T3 Attendance Form for this training. Participants can be added, "
         "edited, or removed anytime up until the day of training:\n\n"
         f"{t3_url}\n\n"
         f"Training: {session_row['course_title']}\n"
@@ -249,7 +249,7 @@ def _default_t3_email_body(session_row, t3_url):
 
 def _default_jd14_return_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"JD14 Form — please return the signed copy — {session_row['course_title']} ({date_range})"
+    return f"JD14 Form - please return the signed copy - {session_row['course_title']} ({date_range})"
 
 
 def _default_jd14_return_email_body(session_row, return_url):
@@ -269,7 +269,7 @@ def _default_jd14_return_email_body(session_row, return_url):
 
 def _default_jd14_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"JD14 Form — {session_row['course_title']} ({date_range})"
+    return f"JD14 Form - {session_row['course_title']} ({date_range})"
 
 
 def _default_jd14_email_body(session_row):
@@ -287,7 +287,7 @@ def _default_jd14_email_body(session_row):
 
 def _default_evaluation_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"Training Evaluation Report — {session_row['course_title']} ({date_range})"
+    return f"Training Evaluation Report - {session_row['course_title']} ({date_range})"
 
 
 def _default_evaluation_email_body(session_row):
@@ -305,7 +305,7 @@ def _default_evaluation_email_body(session_row):
 
 def _default_grant_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"HRDCorp Grant Documents — {session_row['course_title']} ({date_range})"
+    return f"HRDCorp Grant Documents - {session_row['course_title']} ({date_range})"
 
 
 def _default_grant_email_body(session_row, grant_url):
@@ -322,7 +322,7 @@ def _default_grant_email_body(session_row, grant_url):
         "Please find attached the documents needed for your HRDCorp grant application: the Course "
         "Outline, Trainer Profile, Accredited Certificate, and Quotation.\n\n"
         f"{info_block}\n\n"
-        "Once HRDCorp has approved the grant and issued a Grant ID, please submit it to us here — no "
+        "Once HRDCorp has approved the grant and issued a Grant ID, please submit it to us here, no "
         f"need to email it separately:\n{grant_url}\n\n"
         "Should you have any questions, please feel free to contact us.\n\n"
         "Cheers!"
@@ -331,7 +331,7 @@ def _default_grant_email_body(session_row, grant_url):
 
 def _default_t3_form_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"T3 Attendance Form (printable) — {session_row['course_title']} ({date_range})"
+    return f"T3 Attendance Form (printable) - {session_row['course_title']} ({date_range})"
 
 
 def _default_t3_form_email_body(session_row):
@@ -350,9 +350,9 @@ def _default_t3_form_email_body(session_row):
         return_url = url_for("attendance_return.lookup", _external=True)
     return (
         f"Hi {greeting_name or 'there'},\n\n"
-        "Attached is the printable T3 Attendance Form for this training — in case the client "
+        "Attached is the printable T3 Attendance Form for this training, in case the client "
         "isn't able to fill in the online version, please print this out, get it signed by "
-        "participants on the day, and send the signed copy back to us — you can upload via "
+        "participants on the day, and send the signed copy back to us. You can upload via "
         f"this link, no need to email it separately:\n{return_url}\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
@@ -389,7 +389,7 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
         if session_row is None:
             return
         date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-        subject = f"{doc_label} ready — {session_row['course_title']} ({date_range})"
+        subject = f"{doc_label} ready - {session_row['course_title']} ({date_range})"
         body = (
             f"{doc_label} has just been uploaded for:\n\n"
             f"Class: {session_row['course_title']}\n"
@@ -462,11 +462,11 @@ def _notify_trainers_invoice_due(session_id):
         token = ensure_token(session_id)
         link = url_for("trainer_invoice.form", token=token, _external=True)
         date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-        subject = f"Please submit your invoice — {session_row['course_title']} ({date_range})"
+        subject = f"Please submit your invoice - {session_row['course_title']} ({date_range})"
         for trainer in recipients:
             body = (
                 f"Hi {trainer['name']},\n\n"
-                f"The class below has now been marked Completed — please submit your invoice "
+                f"The class below has now been marked Completed. Please submit your invoice "
                 f"(and any claims) using the link below. You can upload PDF, Word, or Excel files, "
                 f"and more than one file if you have separate invoice/claim documents.\n\n"
                 f"Class: {session_row['course_title']}\n"
@@ -671,7 +671,7 @@ def _notify_overdue_evaluation_reports():
     for row in overdue_rows:
         notifications.notify(
             row["owner_user_id"], "evaluation_report_overdue",
-            f"Evaluation report still missing — {row['course_title']}",
+            f"Evaluation report still missing - {row['course_title']}",
             body=f"This class was completed over {EVALUATION_REPORT_REMINDER_AFTER_DAYS} days ago and its "
                  "evaluation report hasn't been uploaded yet.",
             link=url_for("sessions.view", session_id=row["id"]),
@@ -716,27 +716,27 @@ def _notify_pending_grant_docs():
         if days_left > GRANT_DOCS_URGENT_DAYS:
             tier, title, body = (
                 "21",
-                f"Send Grant Documents soon — {row['course_title']}",
+                f"Send Grant Documents soon - {row['course_title']}",
                 f"HRDC recommends sending the Grant Documents pack well before training so the client has "
                 f"time to apply. {days_left} day(s) left and it hasn't been sent yet.",
             )
         elif days_left > GRANT_DOCS_CRITICAL_DAYS:
             tier, title, body = (
                 "7",
-                f"Grant Documents still not sent — {row['course_title']}",
+                f"Grant Documents still not sent - {row['course_title']}",
                 f"Only {days_left} day(s) left until training and the Grant Documents pack still hasn't gone out.",
             )
         elif days_left >= 0:
             tier, title, body = (
                 "1",
-                f"Urgent: Grant Documents not sent — {row['course_title']}",
+                f"Urgent: Grant Documents not sent - {row['course_title']}",
                 f"Training starts in {days_left} day(s) and the Grant Documents pack still hasn't been sent.",
             )
         else:
             tier, title, body = (
                 "missed",
-                f"Grant Documents were never sent — {row['course_title']}",
-                "Training has already started and this class's Grant Documents pack was never sent — "
+                f"Grant Documents were never sent - {row['course_title']}",
+                "Training has already started and this class's Grant Documents pack was never sent - "
                 "check with the client directly if their grant is affected.",
             )
         notifications.notify(
@@ -1116,7 +1116,7 @@ def email_t3_form(session_id):
 
     to_email = (request.form.get("to_email") or session_row["trainer_email"] or "").strip()
     if not to_email:
-        flash("No trainer email on file for this class — assign a trainer on the class's Edit page, "
+        flash("No trainer email on file for this class, assign a trainer on the class's Edit page, "
               "or type an address to send to.", "danger")
         return redirect(url_for("sessions.t3_attendance_form", session_id=session_id))
 
@@ -1140,7 +1140,7 @@ def email_t3_form(session_id):
         return redirect(url_for("sessions.t3_attendance_form", session_id=session_id))
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate/send T3 form PDF for session %s", session_id)
-        flash("Couldn't generate the T3 form PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the T3 form PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("sessions.t3_attendance_form", session_id=session_id))
 
     activity.log("send_email", "session", session_id, f"Emailed printable T3 Attendance Form to {to_email}")
@@ -1170,7 +1170,7 @@ def send_t3_form(session_id):
 
     to_email = (request.form.get("to_email") or session_row["pic_email"] or "").strip()
     if not to_email:
-        flash("No PIC email on file for this class — select a PIC on the class's Edit page, "
+        flash("No PIC email on file for this class. Select a PIC on the class's Edit page, "
               "or type an address to send to.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
 
@@ -1420,7 +1420,7 @@ def send_grant_documents_email(session_id):
 
     to_email = (request.form.get("to_email") or session_row["pic_email"] or session_row["client_email"] or "").strip()
     if not to_email:
-        flash("No client email on file for this class — add one, or type an address to send to.", "danger")
+        flash("No client email on file for this class. Add one, or type an address to send to.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
 
     grant_docs_token = ensure_grant_docs_token(session_id)
@@ -1459,7 +1459,7 @@ def send_grant_documents_email(session_id):
     # send and say exactly what's still missing (and where to add it).
     if missing:
         flash(
-            "Can't send yet — these HRDCorp Grant Documents aren't on file: " + ", ".join(missing) + ". "
+            "Can't send yet. These HRDCorp Grant Documents aren't on file: " + ", ".join(missing) + ". "
             "Course Outline is uploaded on the Course's Edit page; Trainer Profile and Accredited "
             "Certificate on the Trainer's Edit page; Quotation right here on this class.", "danger",
         )
@@ -1542,7 +1542,7 @@ def send_evaluation_email(session_id):
 
     to_email = (request.form.get("to_email") or session_row["pic_email"] or session_row["client_email"] or "").strip()
     if not to_email:
-        flash("No client email on file for this class — add one, or type an address to send to.", "danger")
+        flash("No client email on file for this class. Add one, or type an address to send to.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_evaluation_email_subject(session_row)
@@ -1625,7 +1625,7 @@ def _auto_send_jd14_return_link(session_row):
         )
         flash(f"JD14 form uploaded, and the return link was automatically emailed to {to_email} for their signature.", "success")
     except (mailer.MailNotConfigured, mailer.MailSendError):
-        flash("JD14 form uploaded, but the automatic return-link email couldn't be sent — send it manually below.", "warning")
+        flash("JD14 form uploaded, but the automatic return-link email couldn't be sent. Send it manually below.", "warning")
 
 
 @bp.route("/<int:session_id>/jd14", methods=("POST",))

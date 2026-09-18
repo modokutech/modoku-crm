@@ -38,13 +38,13 @@
 
 <div class="card p-4 mb-3">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 class="mb-0">Preview — {{ range_start|fmtdate }} to {{ range_end|fmtdate }}</h6>
+    <h6 class="mb-0">Preview · {{ range_start|fmtdate }} to {{ range_end|fmtdate }}</h6>
     <a href="{{ url_for('audit_export.download', year=selected_year, start_date=start_date, end_date=end_date) }}"
        class="btn btn-success">
       <i class="bi bi-file-earmark-zip me-1"></i>Download Audit Export (.zip)
     </a>
   </div>
-  <p class="small text-muted">Only finalized records are counted — Confirmed Purchase Orders, Accepted Quotations,
+  <p class="small text-muted">Only finalized records are counted, Confirmed Purchase Orders, Accepted Quotations,
     Paid Invoices, Paid Claims, and Approved Petty Cash Vouchers. Draft, Pending, Cancelled and Rejected records
     are left out.</p>
 
@@ -52,9 +52,9 @@
     <table class="table table-sm">
       <thead><tr><th>Category</th><th class="text-end">Count</th><th class="text-end">Total (RM)</th></tr></thead>
       <tbody>
-        <tr><td>Purchase Orders — Trainer (Confirmed)</td><td class="text-end">{{ summary.trainer_po_count }}</td><td class="text-end">{{ summary.trainer_po_total|fmtmoney }}</td></tr>
-        <tr><td>Purchase Orders — Vendor (Confirmed)</td><td class="text-end">{{ summary.vendor_po_count }}</td><td class="text-end">{{ summary.vendor_po_total|fmtmoney }}</td></tr>
-        <tr><td>Quotations (Accepted) <span class="text-muted small">— reference only</span></td><td class="text-end">{{ summary.quote_count }}</td><td class="text-end">{{ summary.quote_total|fmtmoney }}</td></tr>
+        <tr><td>Purchase Orders, Trainer (Confirmed)</td><td class="text-end">{{ summary.trainer_po_count }}</td><td class="text-end">{{ summary.trainer_po_total|fmtmoney }}</td></tr>
+        <tr><td>Purchase Orders, Vendor (Confirmed)</td><td class="text-end">{{ summary.vendor_po_count }}</td><td class="text-end">{{ summary.vendor_po_total|fmtmoney }}</td></tr>
+        <tr><td>Quotations (Accepted) <span class="text-muted small">, reference only</span></td><td class="text-end">{{ summary.quote_count }}</td><td class="text-end">{{ summary.quote_total|fmtmoney }}</td></tr>
         <tr><td>Invoices (Paid)</td><td class="text-end">{{ summary.invoice_count }}</td><td class="text-end">{{ summary.invoice_total|fmtmoney }}</td></tr>
         <tr><td>Claims (Paid)</td><td class="text-end">{{ summary.claim_count }}</td><td class="text-end">{{ summary.claim_total|fmtmoney }}</td></tr>
         <tr><td>Petty Cash Vouchers (Approved)</td><td class="text-end">{{ summary.voucher_count }}</td><td class="text-end">{{ summary.voucher_total|fmtmoney }}</td></tr>
@@ -65,7 +65,7 @@
     </table>
   </div>
   <p class="small text-muted mb-0">
-    The Grand Total simply adds every category together as a quick reference figure — it mixes income
+    The Grand Total simply adds every category together as a quick reference figure. It mixes income
     (Invoices) with expenses (Purchase Orders, Claims, Petty Cash) and the non-cash Quotations figure, so it's
     <strong>not</strong> a profit/net-revenue number. See the breakdown below for that.
   </p>

@@ -45,7 +45,7 @@ def _find_quotation(token):
 def details(token):
     q = _find_quotation(token)
     if q is None:
-        flash("That link isn't valid — please check the email again, or contact us for a new one.", "danger")
+        flash("That link isn't valid. Please check the email again, or contact us for a new one.", "danger")
         return render_template("quotation_return/not_found.html")
     return render_template("quotation_return/details.html", q=q, token=token)
 
@@ -54,7 +54,7 @@ def details(token):
 def submit(token):
     q = _find_quotation(token)
     if q is None:
-        flash("That link isn't valid — please check the email again, or contact us for a new one.", "danger")
+        flash("That link isn't valid. Please check the email again, or contact us for a new one.", "danger")
         return render_template("quotation_return/not_found.html")
 
     file_storage = request.files.get("signed_file")

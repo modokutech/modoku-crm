@@ -26,7 +26,7 @@
     {{ csrf_field()|safe }}
     <div class="row g-3">
       <div class="col-md-6">
-        <label class="form-label">Class <span class="text-muted small fw-normal">(optional — link a Class to enable the signed-return &amp; T3 form workflow)</span></label>
+        <label class="form-label">Class <span class="text-muted small fw-normal">(optional, link a Class to enable the signed-return &amp; T3 form workflow)</span></label>
         <select name="session_id" id="session_select" class="form-select">
           <option value="">Not linked to a Class</option>
           {% for s in linkable_sessions %}
@@ -39,7 +39,7 @@
             data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
             data-price-inhouse="{{ s.price_inhouse or 0 }}"
             {{ 'selected' if (quotation and quotation.session_id == s.id) or (not quotation and preselect_session == s.id) }}>
-            {{ s.course_title }} — {{ s.start_date|fmtdaterange(s.end_date) }} ({{ s.status }})
+            {{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }} ({{ s.status }})
           </option>
           {% endfor %}
         </select>
@@ -116,11 +116,11 @@
           <label class="form-check-label" for="is_hrdcorp">HRDCorp (SBL-Khas) filename</label>
         </div>
       </div>
-      <!-- Hidden for now per Erik's request — field (and the saved value, if any) is untouched, just not shown. -->
+      <!-- Hidden for now per Erik's request. Field (and the saved value, if any) is untouched, just not shown. -->
       <div class="col-12" style="display:none">
-        <label class="form-label">Filename / Title <span class="text-muted small fw-normal">(override, optional — otherwise auto-generated)</span></label>
+        <label class="form-label">Filename / Title <span class="text-muted small fw-normal">(override, optional, otherwise auto-generated)</span></label>
         <input type="text" name="title_override" class="form-control" value="{{ (quotation.title_override or '') if quotation else '' }}"
-               placeholder="e.g. Modoku x Acme Sdn Bhd Quotation — Leadership Course 30.8.2026">
+               placeholder="e.g. Modoku x Acme Sdn Bhd Quotation, Leadership Course 30.8.2026">
       </div>
     </div>
 
@@ -188,7 +188,7 @@
           <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
         </div>
         <small class="text-muted d-block mb-2">Tick this if the Investment Fees below are all-in prices (SST already
-          included) — the sub-total and SST will be worked backwards from them so the total stays the same as what
+          included). The sub-total and SST will be worked backwards from them so the total stays the same as what
           you typed. Leave unticked to add SST on top instead.</small>
       </div>
       <div class="col-md-3">
@@ -206,7 +206,7 @@
     </div>
 
     <div class="col-12">
-      <label class="form-label">Terms &amp; Conditions <span class="text-muted small fw-normal">(one point per line — auto-numbered)</span></label>
+      <label class="form-label">Terms &amp; Conditions <span class="text-muted small fw-normal">(one point per line, auto-numbered)</span></label>
       <textarea name="terms" id="terms_field" class="form-control" rows="7">{{ default_terms }}</textarea>
     </div>
     <div class="col-12 mt-3">
@@ -250,7 +250,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   }
 });
 
-// Live Sub-total / SST / Total preview — recalculates as the user edits
+// Live Sub-total / SST / Total preview, recalculates as the user edits
 // item fees, the SST rate, or toggles "This amount is SST included".
 // Mirrors the server-side math in quotations.py's _totals() exactly, so
 // what's previewed here is what actually gets saved.
@@ -321,7 +321,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 // Class fills them in automatically. Leaving "Not linked to a Class"
 // selected keeps everything as plain manual fields. "Attention To" is
 // additionally a dropdown of that company's Leads whenever ANY company is
-// set (whether via the Class or picked directly) — falling back to a free
+// set (whether via the Class or picked directly), falling back to a free
 // text box when no company is chosen, since there's nothing to list.
 (function () {
   const LEADS = {{ (leads or [])|tojson }};
@@ -342,7 +342,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 
   // Rebuilds the Attention To control for the given company, keeping
   // `keepName` selected/typed if provided (adds it as an extra option if
-  // it isn't one of that company's leads — e.g. a name typed by hand
+  // it isn't one of that company's leads, e.g. a name typed by hand
   // before a company was chosen, or a class's PIC who isn't in Leads).
   function setAttentionTo(companyId, keepName) {
     const leads = leadsForCompany(companyId);
@@ -369,7 +369,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       attnInput.disabled = true;
       const addLeadUrl = LEADS_NEW_URL + '?company_id=' + encodeURIComponent(companyId);
       document.getElementById('attention_to_help').innerHTML =
-        'Choose from this company\'s Leads — <a href="' + addLeadUrl + '" target="_blank">add a new Lead</a> first if the contact isn\'t listed yet.';
+        'Choose from this company\'s Leads. <a href="' + addLeadUrl + '" target="_blank">Add a new Lead</a> first if the contact isn\'t listed yet.';
     } else {
       attnSelect.style.display = 'none';
       attnSelect.disabled = true;
@@ -388,10 +388,10 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     }
     // No. of Pax, Training Type, Date/End Date, Time, and Investment Fee
     // are all pulled straight from the linked Class onto the first item
-    // row — pax from the class's capacity, training type as set on the
+    // row, pax from the class's capacity, training type as set on the
     // class, date/time as scheduled, and the fee from the course's
     // in-house rate (this is only ever an in-house/on-site engagement, so
-    // the in-house rate — not the public rate — is the right default).
+    // the in-house rate (not the public rate) is the right default).
     // Still fully editable afterwards, same as Venue above.
     if (opt && firstItemRow) {
       const pax = firstItemRow.querySelector('input[name="item_pax"]');
@@ -416,7 +416,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       }
     }
     // Venue is obtained from the linked Class (prefilled, still editable
-    // afterwards) — when nothing is linked, it's simply left as whatever
+    // afterwards). When nothing is linked, it's simply left as whatever
     // the user typed manually. Setting .value in JS doesn't fire an
     // 'input' event on its own, so without the dispatch below the Terms &
     // Conditions text (which listens for that event to swap in the real
@@ -434,7 +434,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
         addressFieldFill(companyOpt);
       }
       setAttentionTo(companyId, opt.dataset.picName || '');
-      document.getElementById('company_help').textContent = "Set from the linked Class — pick a different Class, or unlink it, to change.";
+      document.getElementById('company_help').textContent = "Set from the linked Class. Pick a different Class, or unlink it, to change.";
     } else {
       document.getElementById('company_help').textContent = '';
     }
@@ -456,7 +456,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 
   // Arrived from a class page's "+ Quotation for Client": the dropdown is
   // already on that class server-side, but nothing has filled the rest of the
-  // form from it yet — do exactly what picking it by hand would do. Only on a
+  // form from it yet. Do exactly what picking it by hand would do. Only on a
   // brand-new quotation, so an edit never has its saved values overwritten.
   {% if preselect_session and not quotation %}
   if (sessionSelect.value) {
@@ -476,7 +476,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 // sync with the actual field values, mirroring _default_terms() in
 // quotations.py. We stop auto-regenerating as soon as the user manually
 // edits the textarea (or, when editing an existing quotation, from the
-// start — their saved custom wording is never silently overwritten).
+// start. Their saved custom wording is never silently overwritten).
 (function () {
   const modeField = document.getElementById('training_mode_select');
   const venueField = document.getElementById('venue_field');
@@ -520,7 +520,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   });
 })();
 
-// Pricing assistant — as a Programme name is typed, look up similarly-named
+// Pricing assistant. As a Programme name is typed, look up similarly-named
 // past quotation items and show what they were priced at, so the person
 // filling this in has a real reference point instead of guessing. Purely
 // informational: clicking a suggestion just fills in that item's fee (still
@@ -561,7 +561,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       feeSpan.className = 'fw-semibold';
       feeSpan.appendChild(textNode(fmtMoney(r.investment_fee)));
       row.appendChild(feeSpan);
-      let detail = ' — ' + r.programme;
+      let detail = ', ' + r.programme;
       if (r.client_company_name) detail += ' · ' + r.client_company_name;
       if (r.no_of_pax) detail += ' · ' + r.no_of_pax + ' pax';
       detail += ' · ' + r.quote_no;

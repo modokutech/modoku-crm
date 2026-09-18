@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Sales Call List</h4>
-    <small class="text-muted">Who to call next, sorted by due date — overdue follow-ups float to the top.</small>
+    <small class="text-muted">Who to call next, sorted by due date, overdue follow-ups float to the top.</small>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('leads.call_list', mine=1) if not mine_only else url_for('leads.call_list') }}" class="btn btn-outline-secondary btn-sm">
@@ -54,7 +54,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-muted mb-0">Nothing to call right now — every open lead is either unassigned or all caught up. Nice work.</p>
+  <p class="text-muted mb-0">Nothing to call right now. Every open lead is either unassigned or all caught up. Nice work.</p>
   {% endif %}
 </div>
 {% endblock %}

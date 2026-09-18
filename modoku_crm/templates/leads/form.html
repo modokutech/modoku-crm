@@ -27,7 +27,7 @@
       <div class="col-md-6" id="lost_reason_field" style="display:none;">
         <label class="form-label">Lost Reason</label>
         <input type="text" name="lost_reason" class="form-control" placeholder="e.g. Budget cut, went with a competitor" value="{{ (lead.lost_reason or '') if lead else '' }}">
-        <small class="text-muted">Critical for later analysis — why this lead didn't convert.</small>
+        <small class="text-muted">Critical for later analysis, why this lead didn't convert.</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Email</label>
@@ -60,7 +60,7 @@
         <label class="form-label">Company (if corporate)</label>
         <div class="d-flex gap-2">
           <select name="company_id" id="company_id" class="form-select">
-            <option value="">— Individual / none —</option>
+            <option value="">Individual / none</option>
             {% for c in companies %}
             <option value="{{ c.id }}" {{ 'selected' if (lead and lead.company_id == c.id) or (not lead and preselect_company_id == c.id) }}>{{ c.name }}</option>
             {% endfor %}
@@ -168,7 +168,7 @@ document.getElementById('qc_save').addEventListener('click', function () {
     phone: document.getElementById('qc_phone').value,
     email: document.getElementById('qc_email').value,
   });
-  // The CSRF header is required — every POST is checked app-wide (see
+  // The CSRF header is required. Every POST is checked app-wide (see
   // security.py), and without it this request is rejected with a 400 before
   // it ever reaches the route, which surfaced as a bare "Something went
   // wrong" in the modal.
@@ -198,13 +198,13 @@ document.getElementById('qc_save').addEventListener('click', function () {
       document.getElementById('qc_email').value = '';
     })
     .catch(() => {
-      errorBox.textContent = 'Something went wrong — please try again.';
+      errorBox.textContent = 'Something went wrong. Please try again.';
       errorBox.classList.remove('d-none');
     });
 });
 
 {% if namecard_ai_configured %}
-// Namecard OCR — send the picked card image to the server, which reads it
+// Namecard OCR. Send the picked card image to the server, which reads it
 // with Claude and hands back the contact details (see namecard_ai.py). The
 // card itself still uploads normally when the form is saved; this is only
 // a suggestion into the form, and it deliberately never overwrites a field
@@ -261,7 +261,7 @@ document.getElementById('qc_save').addEventListener('click', function () {
 
         // The company is a dropdown of saved clients, so it only gets
         // preselected when the card's company matched one closely enough
-        // (see namecard_ai.COMPANY_MATCH_THRESHOLD) — otherwise we just
+        // (see namecard_ai.COMPANY_MATCH_THRESHOLD), otherwise we just
         // name what was printed so it can be added with "+ New".
         const companySelect = document.getElementById('company_id');
         let companyNote = '';
@@ -271,11 +271,11 @@ document.getElementById('qc_save').addEventListener('click', function () {
             companyNote = ' Company set to ' + (f.matched_company_name || 'the matched client') + '.';
           }
         } else if (f.company && (!companySelect || !companySelect.value)) {
-          companyNote = ' Card reads “' + f.company + '” — not on file, add it with “+ New” if needed.';
+          companyNote = ' Card reads “' + f.company + '”, not on file, add it with “+ New” if needed.';
         }
 
         if (!filled.length && !companyNote) {
-          say('Nothing new to fill — everything on the card is already typed in.', '');
+          say('Nothing new to fill. Everything on the card is already typed in.', '');
           return;
         }
         let message = filled.length ? 'Filled ' + filled.join(', ') + '.' : '';
@@ -284,7 +284,7 @@ document.getElementById('qc_save').addEventListener('click', function () {
       })
       .catch(() => {
         btn.disabled = false;
-        say('Could not read the card — type the details in instead.', 'error');
+        say('Could not read the card. Type the details in instead.', 'error');
       });
   });
 })();

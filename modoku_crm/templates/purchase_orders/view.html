@@ -25,7 +25,7 @@
 
 {% if not mail_configured %}
 <div class="alert alert-warning d-print-none">
-  Email sending isn't set up yet — an admin needs to configure SMTP settings (see README) before
+  Email sending isn't set up yet. An admin needs to configure SMTP settings (see README) before
   purchase orders can be emailed directly from here.
 </div>
 {% endif %}
@@ -135,14 +135,14 @@
   <div class="col-lg-4 d-print-none">
     <div class="card p-3">
       <h6>Invoice Submitted by Trainer</h6>
-      <p class="small text-muted mb-2">Sent to the trainer automatically once this class is marked Completed — anything they upload (invoices, claims) appears here.</p>
+      <p class="small text-muted mb-2">Sent to the trainer automatically once this class is marked Completed. Anything they upload (invoices, claims) appears here.</p>
       {% if trainer_invoice_documents %}
       <ul class="list-unstyled small mb-0">
         {% for doc in trainer_invoice_documents %}
         <li class="mb-1">
           <i class="bi bi-file-earmark-check text-success me-1"></i>
           <a href="{{ url_for('sessions.download_trainer_invoice_document', session_id=po.session_id, doc_id=doc.id) }}" target="_blank">{{ doc.original_name }}</a>
-          <span class="text-muted">— {{ doc.uploaded_at }}</span>
+          <span class="text-muted">· {{ doc.uploaded_at }}</span>
         </li>
         {% endfor %}
       </ul>
@@ -199,7 +199,7 @@
         <div class="mb-2">
           <label class="form-label small">Message</label>
           <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_payment_receipt_email_body }}</textarea>
-          <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+          <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
         </div>
         <button class="btn btn-success btn-sm w-100" type="submit" {{ 'disabled' if not mail_configured }}>
           <i class="bi bi-envelope me-1"></i>{{ 'Resend' if po.payment_receipt_sent_at else 'Send' }} Payment Receipt
@@ -210,7 +210,7 @@
 
     <div class="card p-3 mt-3">
       <h6>Send to Trainer</h6>
-      <p class="small text-muted">Emails this PO directly — no need to send it separately from Outlook.</p>
+      <p class="small text-muted">Emails this PO directly, no need to send it separately from Outlook.</p>
       <p class="small text-muted mb-2">
         <i class="bi bi-paperclip me-1"></i>Attachments:
         {% for name in email_attachment_names %}<span class="badge bg-light text-dark border">{{ name }}</span>{% endfor %}
@@ -220,14 +220,14 @@
       {% endif %}
       {% if not po.evaluation_qr_poster_file %}
       <p class="small text-warning-emphasis mb-2">
-        <i class="bi bi-exclamation-triangle me-1"></i>No Training Evaluation QR poster generated yet for this class —
-        <a href="{{ url_for('sessions.view', session_id=po.session_id) }}">generate one</a> first so it goes out with the PO.
+        <i class="bi bi-exclamation-triangle me-1"></i>No Training Evaluation QR poster generated yet for this class.
+        <a href="{{ url_for('sessions.view', session_id=po.session_id) }}">Generate one</a> first so it goes out with the PO.
       </p>
       {% endif %}
       {% if not po.training_banner_file %}
       <p class="small text-warning-emphasis mb-2">
-        <i class="bi bi-exclamation-triangle me-1"></i>No Training Banner generated yet for this class —
-        <a href="{{ url_for('sessions.view', session_id=po.session_id) }}">generate one</a> first so it goes out with the PO.
+        <i class="bi bi-exclamation-triangle me-1"></i>No Training Banner generated yet for this class.
+        <a href="{{ url_for('sessions.view', session_id=po.session_id) }}">Generate one</a> first so it goes out with the PO.
       </p>
       {% endif %}
       <form method="post" action="{{ url_for('purchase_orders.send_email', po_id=po.id) }}"
@@ -248,7 +248,7 @@
         <div class="mb-2">
           <label class="form-label small">Message</label>
           <textarea name="body" class="form-control form-control-sm" rows="8">{{ default_email_body }}</textarea>
-          <small class="text-muted">Our standard footer (address &amp; website) is added automatically — no need to include it here.</small>
+          <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
         </div>
         {% if not po.evaluation_qr_poster_file %}
         <div class="form-check mb-2">
@@ -270,7 +270,7 @@
 
     <div class="card p-3 mt-3">
       <h6>Confirm / Reject Link</h6>
-      <p class="small text-muted mb-2">Included automatically in the PO email above — the trainer can confirm
+      <p class="small text-muted mb-2">Included automatically in the PO email above. The trainer can confirm
         or reject straight from there, no login needed. Status updates to Confirmed or Cancelled accordingly.</p>
       {% if po.status in ('Confirmed', 'Cancelled') and po.confirm_responded_at %}
       <p class="small {{ 'text-success' if po.status == 'Confirmed' else 'text-muted' }} mb-2">

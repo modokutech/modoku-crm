@@ -41,12 +41,12 @@ COMPANY_MATCH_THRESHOLD = 0.82
 
 EXTRACTION_PROMPT = (
     "This is a photo of a business card. Read the contact details printed on it and reply with "
-    "ONLY a JSON object, nothing else — no markdown, no explanation. Use these exact keys, with "
+    "ONLY a JSON object, nothing else, no markdown, no explanation. Use these exact keys, with "
     "null for anything not printed on the card or not legible: "
     "\"name\" (the person's full name, without honorifics or qualifications), "
     "\"role\" (their job title), "
     "\"company\" (the organisation name, without the tagline), "
-    "\"email\", \"phone\" (their direct mobile/line — prefer a mobile number over a switchboard, "
+    "\"email\", \"phone\" (their direct mobile/line - prefer a mobile number over a switchboard, "
     "keep the country code if printed), "
     "\"linkedin_url\" (only if a LinkedIn address is actually printed). "
     "Do not invent, complete or correct anything that isn't legibly on the card. "

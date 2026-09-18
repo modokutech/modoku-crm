@@ -129,7 +129,7 @@ def _duration_text(session_row):
 def _generate_foreword(session_row):
     client_name = session_row["client_name"] if "client_name" in session_row.keys() else None
     client_line = (f'Client: {client_name}' if client_name else
-                   'Client: none on file for this class — write generically about "all participants" '
+                   'Client: none on file for this class, write generically about "all participants" '
                    'rather than naming a specific client company.')
     prompt = (
         "You write short \"Foreword\" paragraphs for Modoku Tech Sdn Bhd's post-training evaluation "
@@ -148,7 +148,7 @@ def _generate_foreword(session_row):
         f"Course: {session_row['course_title']}\n"
         f"{client_line}\n"
         f"Duration: {_duration_text(session_row)}\n\n"
-        "Vary your sentence structure and wording naturally — do not reuse the examples' exact sentence "
+        "Vary your sentence structure and wording naturally. Do not reuse the examples' exact sentence "
         "template every time this is generated. Keep it warm, plain, and professional; avoid bombastic, "
         "overly enthusiastic, or obviously AI-generated language (no \"unparalleled\", \"game-changing\", "
         "\"delve\", excessive exclamation marks). One short paragraph, 2-4 sentences. Reply with ONLY a "
@@ -236,9 +236,9 @@ def _generate_objective(session_row):
     even that, the bare course title) when there's no outline file, it's a
     format Claude can't read (e.g. Word), or the outline-based call fails
     for any reason."""
-    description = (session_row["course_description"] or "").strip() if \
+    description = (session_row["course_description"] or "").strip() if\
         "course_description" in session_row.keys() else ""
-    description_line = description or ("(no description on file for this course — write a brief, "
+    description_line = description or ("(no description on file for this course, write a brief, "
                                          "plausible objective from the course title alone, without "
                                          "inventing specific tools/techniques the course may not cover)")
 
@@ -246,14 +246,14 @@ def _generate_objective(session_row):
     if outline_block is not None:
         outline_prompt = (
             "You write the \"Objective\" section of Modoku Tech Sdn Bhd's post-training evaluation "
-            "reports — 2-3 short paragraphs describing what the course equips participants to do. A "
-            "real example, purely as a style/length reference (a different course — do not reuse its "
+            "reports, 2-3 short paragraphs describing what the course equips participants to do. A "
+            "real example, purely as a style/length reference (a different course. Do not reuse its "
             "specific content):\n\n" + _OBJECTIVE_EXAMPLE + "\n\n"
             "Attached is this course's actual outline/syllabus document. Read it and write the "
             "Objective section for this course:\n"
             f"Course: {session_row['course_title']}\n\n"
-            "Base the content on what the attached outline actually covers — its real topics, skills, "
-            "and target audience — never invent a capability, tool, or audience the outline doesn't "
+            "Base the content on what the attached outline actually covers. Its real topics, skills, "
+            "and target audience, never invent a capability, tool, or audience the outline doesn't "
             "actually mention. " + _OBJECTIVE_STYLE_RULES
         )
         try:
@@ -263,18 +263,18 @@ def _generate_objective(session_row):
                 return text
         except Exception:  # noqa: BLE001 - fall back to the plain-text prompt below
             current_app.logger.exception(
-                "Outline-based Objective generation failed for course %s — falling back to description",
+                "Outline-based Objective generation failed for course %s, falling back to description",
                 session_row["course_id"],
             )
 
     prompt = (
-        "You write the \"Objective\" section of Modoku Tech Sdn Bhd's post-training evaluation reports — "
+        "You write the \"Objective\" section of Modoku Tech Sdn Bhd's post-training evaluation reports - "
         "2-3 short paragraphs describing what the course equips participants to do. A real example, "
-        "purely as a style/length reference (a different course — do not reuse its specific content):\n\n"
+        "purely as a style/length reference (a different course. Do not reuse its specific content):\n\n"
         + _OBJECTIVE_EXAMPLE + "\n\n"
         "Now write the Objective section for this course:\n"
         f"Course: {session_row['course_title']}\n"
-        f"Course description (base your content on this — never invent a capability it doesn't "
+        f"Course description (base your content on this, never invent a capability it doesn't "
         f"actually mention): {description_line}\n\n" + _OBJECTIVE_STYLE_RULES
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=700)
@@ -295,7 +295,7 @@ def _generate_conclusion(session_row, report):
     data_block = "\n".join(lines) if lines else "(no evaluation feedback recorded yet for this class)"
     prompt = (
         "You write the \"Conclusion\" section of Modoku Tech Sdn Bhd's post-training evaluation reports "
-        "— a short closing paragraph. Two real examples, purely as a style/tone/length reference (do not "
+        "a short closing paragraph. Two real examples, purely as a style/tone/length reference (do not"
         "reuse their specific wording or facts):\n\n"
         "Example 1: \"In conclusion, we are truly pleased with the significant and positive impact this "
         "training has made on the participants. It is encouraging to see how the program has enhanced "
@@ -309,7 +309,7 @@ def _generate_conclusion(session_row, report):
         "strong engagement and demonstrated substantial learning, while also expressing interest in "
         "further training.\"\n\n"
         f"Course: {session_row['course_title']}\n\n"
-        "Actual computed feedback for THIS training (already exact — reflect it honestly, never invent "
+        "Actual computed feedback for THIS training (already exact, reflect it honestly, never invent "
         "a number or claim not supported here; if it says there's no feedback yet, write a more general "
         "closing paragraph without specific results claims):\n" + data_block + "\n\n"
         "Write a new Conclusion, 3-5 sentences, in a similar warm/professional style to the examples "
@@ -331,7 +331,7 @@ def build_or_refresh_draft(session_id, user_id=None):
     call fails outright. Returns the (possibly updated) row."""
     if not training_reports.is_ai_configured():
         raise FullReportError(
-            "AI drafting isn't set up (ANTHROPIC_API_KEY isn't configured) — an admin needs to set "
+            "AI drafting isn't set up (ANTHROPIC_API_KEY isn't configured). An admin needs to set "
             "that before Full Reports can be generated."
         )
     session_row = _session_context(session_id)
@@ -341,7 +341,7 @@ def build_or_refresh_draft(session_id, user_id=None):
     existing = get_full_report(session_id)
     if is_locked(existing):
         raise FullReportError(
-            "This class's report has already been approved and sent — regenerating it is disabled so a "
+            "This class's report has already been approved and sent. Regenerating it is disabled so a "
             "document the client already received is never silently replaced. Use the manual upload "
             "below if you need to send a corrected one."
         )
@@ -387,7 +387,7 @@ def build_or_refresh_draft(session_id, user_id=None):
     if errors:
         raise FullReportError(
             f"Draft saved, but AI couldn't write the {', '.join(errors)} section"
-            f"{'s' if len(errors) > 1 else ''} just now — edit {'them' if len(errors) > 1 else 'it'} in "
+            f"{'s' if len(errors) > 1 else ''} just now. Edit {'them' if len(errors) > 1 else 'it'} in "
             "by hand below, or try Rewrite with AI again in a moment."
         )
     return get_full_report(session_id)
@@ -407,7 +407,7 @@ def rewrite_section(session_id, section, user_id=None):
         raise FullReportError("Class not found.")
     existing = get_full_report(session_id)
     if is_locked(existing):
-        raise FullReportError("This class's report has already been sent — it can no longer be edited.")
+        raise FullReportError("This class's report has already been sent. It can no longer be edited.")
 
     try:
         if section == "foreword":
@@ -418,9 +418,9 @@ def rewrite_section(session_id, section, user_id=None):
             text = _generate_conclusion(session_row, training_reports.get_report(session_id))
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("AI rewrite (%s) failed for session %s", section, session_id)
-        raise FullReportError("AI couldn't write a new draft just now — try again in a moment.") from exc
+        raise FullReportError("AI couldn't write a new draft just now, try again in a moment.") from exc
     if not text:
-        raise FullReportError("AI couldn't write a new draft just now — try again in a moment.")
+        raise FullReportError("AI couldn't write a new draft just now, try again in a moment.")
 
     column = f"{section}_text"
     db.execute(
@@ -441,9 +441,9 @@ def save_draft(session_id, foreword_text, objective_text, conclusion_text):
     FullReportError if locked or no draft exists yet."""
     existing = get_full_report(session_id)
     if existing is None:
-        raise FullReportError("No draft to save yet — click Generate Full Report first.")
+        raise FullReportError("No draft to save yet. Click Generate Full Report first.")
     if is_locked(existing):
-        raise FullReportError("This class's report has already been sent — it can no longer be edited.")
+        raise FullReportError("This class's report has already been sent. It can no longer be edited.")
     db.execute(
         "UPDATE full_training_reports SET foreword_text = ?, objective_text = ?, conclusion_text = ? "
         "WHERE session_id = ?",
@@ -453,7 +453,7 @@ def save_draft(session_id, foreword_text, objective_text, conclusion_text):
 
 def _default_full_report_email_subject(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
-    return f"Training Evaluation Report — {session_row['course_title']} ({date_range})"
+    return f"Training Evaluation Report - {session_row['course_title']} ({date_range})"
 
 
 def _default_full_report_email_body(session_row):
@@ -462,10 +462,10 @@ def _default_full_report_email_body(session_row):
         f"Hi {greeting_name or 'there'},\n\n"
         f"Thank you for giving us the opportunity to host the {session_row['course_title']} training for "
         "your team.\n\n"
-        "I'd like to share the training evaluation report with you — it includes valuable feedback from "
+        "I'd like to share the training evaluation report with you. It includes valuable feedback from "
         "the participants.\n\n"
         "Feel free to review the report and share it with your team. If you have any questions or need "
-        "further information, please don't hesitate to reach out — we're happy to help.\n\n"
+        "further information, please don't hesitate to reach out. We're happy to help.\n\n"
         "Thank you again for choosing us for your training needs. We look forward to working with you "
         "again in the future."
     )
@@ -486,13 +486,13 @@ def _build_pdf_or_raise(ctx, session_id, action):
         current_app.logger.exception("Full Report PDF %s failed for session %s (missing dependency)",
                                       action, session_id)
         raise FullReportError(
-            f"Couldn't build the report PDF — the server is missing a required Python package "
+            f"Couldn't build the report PDF. The server is missing a required Python package "
             f"({exc.name or 'pypdf'}). An admin needs to run `pip install -r requirements.txt` "
             "(and restart the app) to pick up the newest dependencies, then try again."
         ) from exc
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Full Report PDF %s failed for session %s", action, session_id)
-        raise FullReportError("Couldn't build the report PDF — try again, or contact support if it keeps failing.") from exc
+        raise FullReportError("Couldn't build the report PDF. Try again, or contact support if it keeps failing.") from exc
 
 
 def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id=None):
@@ -503,12 +503,12 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
     case."""
     existing = get_full_report(session_id)
     if existing is None:
-        raise FullReportError("No draft to send yet — click Generate Full Report first.")
+        raise FullReportError("No draft to send yet. Click Generate Full Report first.")
     if is_locked(existing):
         raise FullReportError("This class's report has already been sent.")
     if not to_email:
         raise FullReportError(
-            "No client email on file for this class — add one, or type an address to send to."
+            "No client email on file for this class. Add one, or type an address to send to."
         )
 
     session_row = _session_context(session_id)
@@ -591,7 +591,7 @@ def generate(session_id):
         flash(str(exc), "danger" if get_full_report(session_id) is None else "warning")
         return redirect(url_for("training_reports.view", session_id=session_id))
     activity.log("update", "session", session_id, "Generated Full Report draft")
-    flash("Full Report draft generated — review and edit below before sending.", "success")
+    flash("Full Report draft generated, review and edit below before sending.", "success")
     return redirect(url_for("full_reports.edit", session_id=session_id))
 
 

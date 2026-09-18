@@ -65,7 +65,7 @@
       {% endset %}
 
       {% if sort == 'date' %}
-        {# Grouped by date, like a day-by-day schedule — matches how the list is sorted. #}
+        {# Grouped by date, like a day-by-day schedule. Matches how the list is sorted. #}
         {% set ns = namespace(last_date=None) %}
         {% for s in sessions %}
           {% if s.start_date != ns.last_date %}

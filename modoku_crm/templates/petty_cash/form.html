@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">{{ 'Edit Voucher' if voucher else 'New Petty Cash Voucher' }}</h4>
-    <small class="text-muted">{{ 'Only a Pending voucher can be edited.' if voucher else 'No float/balance to track — just log the cash-out. Class and receipt are both optional.' }}</small>
+    <small class="text-muted">{{ 'Only a Pending voucher can be edited.' if voucher else 'No float/balance to track, just log the cash-out. Class and receipt are both optional.' }}</small>
   </div>
   <a href="{{ url_for('petty_cash.view', voucher_id=voucher.id) if voucher else url_for('petty_cash.index') }}" class="btn btn-outline-secondary">Back</a>
 </div>
@@ -38,10 +38,10 @@
       <div class="col-md-6">
         <label class="form-label small">Link to a Class <span class="text-muted small fw-normal">(optional)</span></label>
         <select name="session_id" class="form-select">
-          <option value="">— None (standalone) —</option>
+          <option value="">None (standalone)</option>
           {% for s in sessions %}
           <option value="{{ s.id }}" {{ 'selected' if voucher and voucher.session_id == s.id }}>
-            {{ s.title }} — {{ s.start_date|fmtdate }}
+            {{ s.title }} · {{ s.start_date|fmtdate }}
           </option>
           {% endfor %}
         </select>
@@ -53,7 +53,7 @@
       <p class="small mb-1">
         <i class="bi bi-paperclip me-1"></i>Currently attached:
         <a href="{{ url_for('petty_cash.download_receipt', voucher_id=voucher.id) }}" target="_blank">{{ voucher.receipt_original_name }}</a>
-        — uploading a new file below will replace it.
+uploading a new file below will replace it.
       </p>
       {% endif %}
       <input type="file" name="receipt" class="form-control">

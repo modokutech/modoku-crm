@@ -7,9 +7,9 @@
     {{ csrf_field()|safe }}
     <div class="row g-3 mb-2">
       <div class="col-12">
-        <label class="form-label">From Class <span class="text-muted small fw-normal">(optional — auto-fills client, description, venue and dates below)</span></label>
+        <label class="form-label">From Class <span class="text-muted small fw-normal">(optional, auto-fills client, description, venue and dates below)</span></label>
         <select id="session_id" class="form-select">
-          <option value="">— Not linked to a class / fill in manually —</option>
+          <option value="">Not linked to a class / fill in manually</option>
           {% for s in classes_for_invoice %}
           <option value="{{ s.id }}" {{ 'selected' if preselect_session_id == s.id }}
             data-company-id="{{ s.client_company_id or '' }}"
@@ -19,7 +19,7 @@
             data-date="{{ s.start_date or '' }}"
             data-date-end="{{ s.end_date or '' }}"
             data-price="{{ s.course_price }}">
-            {{ s.course_title }} — {{ s.start_date|fmtdate }}{% if s.client_name %} ({{ s.client_name }}){% endif %}
+            {{ s.course_title }} · {{ s.start_date|fmtdate }}{% if s.client_name %} ({{ s.client_name }}){% endif %}
           </option>
           {% endfor %}
         </select>
@@ -27,7 +27,7 @@
       <div class="col-md-6">
         <label class="form-label">Client (optional)</label>
         <select id="company_id" name="company_id" class="form-select">
-          <option value="">— Walk-in / individual —</option>
+          <option value="">Walk-in / individual</option>
           <option value="" data-name="Pembangunan Sumber Manusia Berhad"
                   data-address="Wisma HRD Corp, Jalan Beringin Damansara Heights, 50490 Kuala Lumpur"
                   data-sst="" data-tin="">HRDCorp</option>
@@ -104,7 +104,7 @@
               <select name="item_enrollment_id" class="form-select form-select-sm">
                 <option value="">—</option>
                 {% for e in open_enrollments %}
-                <option value="{{ e.id }}" data-desc="{{ e.course_title }} — {{ e.participant_name }}" data-price="{{ e.amount }}">{{ e.course_title }} — {{ e.participant_name }}</option>
+                <option value="{{ e.id }}" data-desc="{{ e.course_title }} · {{ e.participant_name }}" data-price="{{ e.amount }}">{{ e.course_title }} · {{ e.participant_name }}</option>
                 {% endfor %}
               </select>
             </td>
@@ -134,7 +134,7 @@
           <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
         </div>
         <small class="text-muted d-block mb-2">Tick this if the unit prices below are all-in prices (SST already
-          included) — the sub-total and SST will be worked backwards from them so the total stays the same as what
+          included). The sub-total and SST will be worked backwards from them so the total stays the same as what
           you typed. Leave unticked to add SST on top instead.</small>
       </div>
       <div class="col-md-3">
@@ -222,7 +222,7 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
   }
 });
 
-// Live Sub-total / SST / Total preview — recalculates as the user edits
+// Live Sub-total / SST / Total preview, recalculates as the user edits
 // line items, the SST rate, or toggles "This amount is SST included".
 // Mirrors the server-side math in invoices.py's new() route exactly
 // (amount per row = unit price x duration; quantity/pax isn't part of the

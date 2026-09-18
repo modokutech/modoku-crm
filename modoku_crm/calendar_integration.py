@@ -200,7 +200,7 @@ def block_calendar_for_session(session_row):
     if session_row["calendar_blocked_at"]:
         return
     course_title = session_row["course_title"] if "course_title" in session_row.keys() else "Training"
-    summary = f"{course_title} — Training (blocked)"
+    summary = f"{course_title} (Training blocked)"
     description = "Auto-blocked by Modoku Hub once this class was confirmed/scheduled."
     location = session_row["venue"] if "venue" in session_row.keys() else None
     start_dt, end_dt = _event_datetimes(
@@ -243,7 +243,7 @@ def block_calendar_for_session(session_row):
 @login_required
 def connect_google():
     if not is_google_configured():
-        flash("Google Calendar integration isn't set up yet — an admin needs to configure "
+        flash("Google Calendar integration isn't set up yet. An admin needs to configure "
               "GOOGLE_OAUTH_CLIENT_ID/SECRET first (see README).", "danger")
         return redirect(url_for("profile.edit"))
     state = secrets.token_urlsafe(16)
@@ -264,11 +264,11 @@ def connect_google():
 @login_required
 def google_callback():
     if request.args.get("state") != session.pop("calendar_oauth_state", None):
-        flash("Calendar connection failed — the request expired, please try again.", "danger")
+        flash("Calendar connection failed. The request expired, please try again.", "danger")
         return redirect(url_for("profile.edit"))
     code = request.args.get("code")
     if not code:
-        flash("Google didn't grant access — connection cancelled.", "warning")
+        flash("Google didn't grant access. Connection cancelled.", "warning")
         return redirect(url_for("profile.edit"))
     try:
         resp = requests.post(GOOGLE_TOKEN_URL, data={
@@ -293,7 +293,7 @@ def google_callback():
         flash(f"Google Calendar connected{' as ' + email if email else ''}.", "success")
     except requests.RequestException:
         current_app.logger.exception("Google Calendar OAuth exchange failed")
-        flash("Couldn't connect Google Calendar — please try again.", "danger")
+        flash("Couldn't connect Google Calendar. Please try again.", "danger")
     return redirect(url_for("profile.edit"))
 
 
@@ -301,7 +301,7 @@ def google_callback():
 @login_required
 def connect_microsoft():
     if not is_microsoft_configured():
-        flash("Outlook Calendar integration isn't set up yet — an admin needs to configure "
+        flash("Outlook Calendar integration isn't set up yet. An admin needs to configure "
               "MS_OAUTH_CLIENT_ID/SECRET first (see README).", "danger")
         return redirect(url_for("profile.edit"))
     state = secrets.token_urlsafe(16)
@@ -321,11 +321,11 @@ def connect_microsoft():
 @login_required
 def microsoft_callback():
     if request.args.get("state") != session.pop("calendar_oauth_state", None):
-        flash("Calendar connection failed — the request expired, please try again.", "danger")
+        flash("Calendar connection failed. The request expired, please try again.", "danger")
         return redirect(url_for("profile.edit"))
     code = request.args.get("code")
     if not code:
-        flash("Microsoft didn't grant access — connection cancelled.", "warning")
+        flash("Microsoft didn't grant access. Connection cancelled.", "warning")
         return redirect(url_for("profile.edit"))
     try:
         resp = requests.post(f"{_ms_authority()}/oauth2/v2.0/token", data={
@@ -353,7 +353,7 @@ def microsoft_callback():
         flash(f"Outlook Calendar connected{' as ' + email if email else ''}.", "success")
     except requests.RequestException:
         current_app.logger.exception("Microsoft Calendar OAuth exchange failed")
-        flash("Couldn't connect Outlook Calendar — please try again.", "danger")
+        flash("Couldn't connect Outlook Calendar. Please try again.", "danger")
     return redirect(url_for("profile.edit"))
 
 

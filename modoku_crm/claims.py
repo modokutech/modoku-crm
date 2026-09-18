@@ -50,7 +50,7 @@ def _receipt_dir(claim_id):
 
 
 def _default_claim_email_subject(claim):
-    return f"Claim Payment Receipt — {claim['course_title']} — {claim['claimant_name']}"
+    return f"Claim Payment Receipt - {claim['course_title']} - {claim['claimant_name']}"
 
 
 def _default_claim_email_body(claim):
@@ -131,7 +131,7 @@ def new():
         if not selected_date:
             flash("Select a date first.", "danger")
         elif not session_id:
-            flash("No class was selected — check the date and try again.", "danger")
+            flash("No class was selected. Check the date and try again.", "danger")
         elif not claimant_name or not claimant_email or not bank_name or not bank_account_no:
             flash("Name, Email, Bank Name, and Bank Account are all required.", "danger")
         else:
@@ -146,7 +146,7 @@ def new():
                 one=True,
             )
             if session_row is None:
-                flash("That class isn't available on the selected date — check the date and try again.", "danger")
+                flash("That class isn't available on the selected date. Check the date and try again.", "danger")
             else:
                 try:
                     total_amount_f = round(float(total_amount or 0), 2)
@@ -276,7 +276,7 @@ def process(claim_id):
             flash(f"{file_storage.filename}: {warning}", "warning")
 
     activity.log("update", "staff_claim", claim_id, "Recorded approved amount / remark for claim")
-    flash("Claim processed — the email box is ready below." if saved else
+    flash("Claim processed. The email box is ready below." if saved else
           "Approved amount saved. Upload a payment receipt file, then send the email.", "success")
     return redirect(url_for("claims.view", claim_id=claim_id))
 
@@ -315,7 +315,7 @@ def send_email(claim_id):
 
     to_email = (request.form.get("to_email") or claim["claimant_email"] or claim["submitted_by_email"] or "").strip()
     if not to_email:
-        flash("No email on file for this claimant — type an address to send to.", "danger")
+        flash("No email on file for this claimant. Type an address to send to.", "danger")
         return redirect(url_for("claims.view", claim_id=claim_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_claim_email_subject(claim)
@@ -346,5 +346,5 @@ def send_email(claim_id):
         (to_email, claim_id),
     )
     activity.log("send_email", "staff_claim", claim_id, f"Emailed payment receipt for claim to {to_email}")
-    flash(f"Payment receipt emailed to {to_email} — marked as Paid.", "success")
+    flash(f"Payment receipt emailed to {to_email}, marked as Paid.", "success")
     return redirect(url_for("claims.view", claim_id=claim_id))

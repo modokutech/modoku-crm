@@ -59,5 +59,5 @@ def validate_upload(file_storage, allowed_extensions=None, max_bytes=MAX_UPLOAD_
     if size == 0:
         return "That file is empty."
     if size > max_bytes:
-        return f"File is too large ({size / (1024 * 1024):.1f} MB) — the maximum is {max_bytes // (1024 * 1024)} MB."
+        return f"File is too large ({size / (1024 * 1024):.1f} MB). The maximum is {max_bytes // (1024 * 1024)} MB."
     return None

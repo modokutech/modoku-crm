@@ -5,7 +5,7 @@
 
 {% if not user.position or not user.signature_file %}
 <div class="alert alert-warning">
-  Add your <strong>position</strong> and <strong>signature</strong> below — they're required to complete the
+  Add your <strong>position</strong> and <strong>signature</strong> below. They're required to complete the
   "Authorised by" section on Purchase Orders and the sign-off on Quotations.
 </div>
 {% endif %}
@@ -75,7 +75,7 @@
   <h6 class="mb-1"><i class="bi bi-calendar-check me-1"></i>Calendar Integration</h6>
   <p class="small text-muted mb-3">
     Connect your own Google or Outlook calendar. Once connected, every class will automatically get a
-    blocking event on your calendar the moment it's confirmed (Scheduled) — whether set directly or once
+    blocking event on your calendar the moment it's confirmed (Scheduled), whether set directly or once
     a signed quotation comes back.
   </p>
 
@@ -87,7 +87,7 @@
       {% elif google_configured %}
       <div class="small text-muted">Not connected</div>
       {% else %}
-      <div class="small text-muted">Not set up yet — ask an admin to configure it (see README).</div>
+      <div class="small text-muted">Not set up yet. Ask an admin to configure it (see README).</div>
       {% endif %}
     </div>
     {% if google_connection %}
@@ -108,7 +108,7 @@
       {% elif microsoft_configured %}
       <div class="small text-muted">Not connected</div>
       {% else %}
-      <div class="small text-muted">Not set up yet — ask an admin to configure it (see README).</div>
+      <div class="small text-muted">Not set up yet. Ask an admin to configure it (see README).</div>
       {% endif %}
     </div>
     {% if microsoft_connection %}

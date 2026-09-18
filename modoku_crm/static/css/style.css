@@ -354,10 +354,14 @@ body {
 .t3-table td {
   border-color: #333 !important;
   vertical-align: middle;
+  /* Compact rows so a 25-pax list prints on one page, matching the emailed
+     PDF (pdfgen._build_t3_form_html). Tight, but still leaves room to write
+     a signature by hand or wrap a long name onto a second line. */
+  padding: 0.15rem 0.35rem;
 }
 
 .t3-table td {
-  height: 2.2rem;
+  height: 1.55rem;
 }
 
 /* Small class-identifying code stamped in the corner of the printed T3

@@ -182,7 +182,7 @@ def create_app(config_object="config.Config"):
 
     if app.config.get("SECRET_KEY") == "change-this-secret-key-in-production" and not app.testing:
         app.logger.warning(
-            "SECRET_KEY is still the default placeholder — sessions are not secure. "
+            "SECRET_KEY is still the default placeholder. Sessions are not secure. "
             "Set a random SECRET_KEY environment variable before going live."
         )
 
@@ -354,7 +354,7 @@ def create_app(config_object="config.Config"):
     def _handle_500(e):
         app.logger.exception("Unhandled server error")
         return _error_page(500, "Something Went Wrong",
-                            "An unexpected error occurred on our end. It's been logged — please try "
+                            "An unexpected error occurred on our end. It's been logged. Please try "
                             "again, and let us know if it keeps happening.")
 
     @app.route("/")

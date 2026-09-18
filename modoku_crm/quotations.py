@@ -106,7 +106,7 @@ def _document_title(q):
     course_title = q["course_title"] or "Training"
     d = _fmt_ddmyyyy(q["quote_date"])
     quote_no = q["quote_no"] or ""
-    title = f"Quotation {quote_no} Modoku x {client_name} — {course_title} {d}".replace("  ", " ").strip()
+    title = f"Quotation {quote_no} Modoku x {client_name} - {course_title} {d}".replace("  ", " ").strip()
     return title or "Quotation"
 
 
@@ -185,14 +185,14 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
     if q["created_by"]:
         notifications.notify(
             q["created_by"], "quotation_signed",
-            f"Signed quotation received — {q['quote_no']}",
+            f"Signed quotation received - {q['quote_no']}",
             body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + "." + warning_suffix,
             link=quotation_link,
             dedupe_key=f"quotation:{quotation_id}:signed",
         )
     notifications.notify_admins(
         "quotation_signed",
-        f"Signed quotation received — {q['quote_no']}",
+        f"Signed quotation received - {q['quote_no']}",
         body=f"A signed copy of {q['quote_no']} has been received" + (f" from {to_email}" if to_email else "") + "." + warning_suffix,
         link=quotation_link,
         dedupe_key=f"quotation:{quotation_id}:signed",
@@ -207,7 +207,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
                 return
             mailer.send_email(
                 notify_to,
-                f"Signed quotation received — {q['quote_no']} (no class linked yet)",
+                f"Signed quotation received - {q['quote_no']} (no class linked yet)",
                 f"A signed copy of quotation {q['quote_no']} has been received"
                 + (f" from {to_email}" if to_email else "") + ", but it isn't linked to a Class yet, so the "
                 "T3 Attendance Form link and calendar invite couldn't be sent automatically.\n\n"
@@ -231,7 +231,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
     if session_row["status"] == "Proposed":
         db.execute("UPDATE course_sessions SET status = 'Scheduled' WHERE id = ?", (session_row["id"],))
         activity.log("update", "session", session_row["id"],
-                      f"Class auto-advanced to Scheduled — signed quotation {q['quote_no']} received")
+                      f"Class auto-advanced to Scheduled, signed quotation {q['quote_no']} received")
         try:
             from . import calendar_integration
             scheduled_row = db.query(
@@ -247,7 +247,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
 
     if to_email:
         try:
-            subject = f"Thank you — next step for {session_row['course_title']} ({date_range})"
+            subject = f"Thank you, next step for {session_row['course_title']} ({date_range})"
             meeting_link_line = ""
             if session_row["training_mode"] in ("Virtual", "Hybrid") and session_row["meeting_link"]:
                 meeting_link_line = f"Meeting Link: {session_row['meeting_link']}\n"
@@ -266,7 +266,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
                 f"Venue: {session_row['venue'] or 'To be confirmed'}\n"
                 f"{meeting_link_line}\n"
                 f"{hrdcorp_para}"
-                "Please complete the attendance list for your participants here — you're welcome to come "
+                "Please complete the attendance list for your participants here, you're welcome to come "
                 f"back and update it anytime up until the day of training:\n{t3_url}\n\n"
                 "A calendar invite for the training date(s) is attached.\n\n"
                 "Should you have any questions, please feel free to contact us.\n\n"
@@ -292,10 +292,10 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
         else:
             office_body = (
                 f"A signed copy of quotation {q['quote_no']} has been received, but no client email was "
-                "on file to send the T3 Attendance Form link and calendar invite to — send them manually."
+                "on file to send the T3 Attendance Form link and calendar invite to. Send them manually."
             )
         if notify_to:
-            mailer.send_email(notify_to, f"Signed quotation received — {q['quote_no']}", office_body,
+            mailer.send_email(notify_to, f"Signed quotation received - {q['quote_no']}", office_body,
                                related_type="quotation", related_id=quotation_id)
     except Exception:  # noqa: BLE001
         current_app.logger.exception("Failed to send office notification for quotation %s", quotation_id)
@@ -455,8 +455,13 @@ def _form_common(request_form):
 def quoted_price_for_session(session_id):
     """The price actually quoted to the client for one class, for showing on
     the class page beside the course's own list price. Returns
-    {"quotation_id", "quote_no", "status", "grand_total", "sst_rate"} or None
-    when no quotation is linked to that class.
+    {"quotation_id", "quote_no", "status", "subtotal", "grand_total",
+    "sst_rate"} or None when no quotation is linked to that class.
+
+    The class page shows `subtotal` - the figure EXCLUDING SST - since that
+    is the training revenue itself rather than what the client is billed.
+    `grand_total` is returned alongside it for anything that wants the
+    billed amount.
 
     A class can carry several quotations (a revision supersedes its
     predecessor, and the quote number increments), so this picks the one that
@@ -483,10 +488,10 @@ def quoted_price_for_session(session_id):
         return None
     q = rows[0]
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ?", (q["id"],))
-    _subtotal, _sst, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
+    subtotal, _sst, grand_total = _totals(items, q["sst_rate"], q["sst_inclusive"])
     return {
         "quotation_id": q["id"], "quote_no": q["quote_no"], "status": q["status"],
-        "grand_total": grand_total, "sst_rate": q["sst_rate"],
+        "subtotal": subtotal, "grand_total": grand_total, "sst_rate": q["sst_rate"],
     }
 
 
@@ -824,7 +829,7 @@ def download(quotation_id):
         pdf_bytes = pdfgen.generate_quotation_pdf(q, items, subtotal, title)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate quotation PDF for %s", q["quote_no"])
-        flash("Couldn't generate the PDF — is wkhtmltopdf installed on the server?", "danger")
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",
@@ -900,7 +905,7 @@ def revise(quotation_id):
         (new_revision, new_quote_no, quotation_id),
     )
     activity.log("update", "quotation", quotation_id, f"Revised quotation to {new_quote_no}")
-    flash(f"New revision created — now {new_quote_no}.", "success")
+    flash(f"New revision created, now {new_quote_no}.", "success")
     return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
 
@@ -943,7 +948,7 @@ def send_email(quotation_id):
     # fallback for when that PIC isn't in Leads / has no email on file.
     to_email = request.form.get("to_email") or q["pic_email"] or q["client_company_email"]
     if not to_email:
-        flash("No client email on file — add one on the client's profile, or type an address to send to.", "danger")
+        flash("No client email on file. Add one on the client's profile, or type an address to send to.", "danger")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
@@ -1020,7 +1025,7 @@ def upload_signed(quotation_id):
     activity.log("update", "quotation", quotation_id, f"Uploaded signed copy of quotation {q['quote_no']}")
     ai_warning = doc_sanity.check_document(saved_path, "signed_quotation")
     _handle_quotation_signed(quotation_id, client_email, ai_warning=ai_warning)
-    flash("Signed quotation recorded — the client has been sent their T3 Attendance Form link and a "
+    flash("Signed quotation recorded. The client has been sent their T3 Attendance Form link and a "
           "calendar invite (if a class was linked and an email was on file).", "success")
     if ai_warning:
         flash(ai_warning, "warning")

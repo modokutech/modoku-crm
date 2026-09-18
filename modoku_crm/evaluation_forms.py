@@ -167,15 +167,15 @@ def generate_form_for_session(session_row):
     left out."""
     if not is_connected():
         raise EvaluationFormError(
-            "No Google account connected for Evaluation Forms yet — connect one under Settings first.")
+            "No Google account connected for Evaluation Forms yet, connect one under Settings first.")
     template_id = get_template_id()
     if not template_id:
         raise EvaluationFormError(
-            "No master evaluation Form template is set yet — set one under Settings first.")
+            "No master evaluation Form template is set yet. Set one under Settings first.")
     access_token = get_valid_access_token()
     if not access_token:
         raise EvaluationFormError(
-            "Couldn't get a valid Google access token — the connection under Settings may need to be "
+            "Couldn't get a valid Google access token. The connection under Settings may need to be "
             "reconnected.")
 
     course_title = session_row["course_title"]
@@ -191,8 +191,8 @@ def generate_form_for_session(session_row):
     # public sessions with no client company on file just skip that segment.
     client_segment = ""
     if client_name and client_name.strip():
-        client_segment = " ".join(client_name.strip().split()[:4]) + " — "
-    file_name = f"{date_text}: {client_segment}{course_title} Training Evaluation — {trainer_name or 'TBC'}"
+        client_segment = " ".join(client_name.strip().split()[:4]) + " - "
+    file_name = f"{date_text}: {client_segment}{course_title} Training Evaluation - {trainer_name or 'TBC'}"
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:
@@ -205,7 +205,7 @@ def generate_form_for_session(session_row):
     except requests.RequestException as exc:
         current_app.logger.exception("Drive copy failed for evaluation form template %s", template_id)
         raise EvaluationFormError(
-            "Couldn't duplicate the evaluation Form template — check the template ID under Settings is "
+            "Couldn't duplicate the evaluation Form template. Check the template ID under Settings is "
             "correct and the connected Google account can still access it."
         ) from exc
 
@@ -226,7 +226,7 @@ def generate_form_for_session(session_row):
     except requests.RequestException as exc:
         current_app.logger.exception("Forms batchUpdate failed for new evaluation form %s", new_form_id)
         raise EvaluationFormError(
-            "The Form was duplicated, but updating its title/trainer/date failed — you can still edit it "
+            "The Form was duplicated, but updating its title/trainer/date failed. You can still edit it "
             "by hand in Google Forms (it's already in your Drive), or try generating again."
         ) from exc
 
@@ -244,7 +244,7 @@ def generate_form_for_session(session_row):
     except requests.RequestException as exc:
         current_app.logger.exception("Forms setPublishSettings failed for new evaluation form %s", new_form_id)
         raise EvaluationFormError(
-            "The Form was created and updated, but publishing it so it can accept responses failed — open "
+            "The Form was created and updated, but publishing it so it can accept responses failed. Open "
             "it in Google Forms and click Publish by hand, or try generating again."
         ) from exc
 
@@ -255,7 +255,7 @@ def generate_form_for_session(session_row):
     except requests.RequestException as exc:
         current_app.logger.exception("Forms get failed for new evaluation form %s", new_form_id)
         raise EvaluationFormError(
-            "The Form was created and updated, but I couldn't retrieve its link — find it in Google "
+            "The Form was created and updated, but I couldn't retrieve its link, find it in Google "
             "Drive/Forms and paste the link in manually below."
         ) from exc
 
@@ -361,7 +361,7 @@ def get_form_structure(form_id, access_token):
     except requests.RequestException as exc:
         current_app.logger.exception("Forms get (structure) failed for form %s", form_id)
         raise EvaluationFormError(
-            "Couldn't read the Form's questions from Google — try again in a moment."
+            "Couldn't read the Form's questions from Google, try again in a moment."
         ) from exc
 
     questions = {}
@@ -378,7 +378,7 @@ def get_form_structure(form_id, access_token):
                 if not row_question_id:
                     continue
                 row_title = (row.get("rowQuestion") or {}).get("title") or "(untitled row)"
-                title = f"{group_title} — {row_title}" if group_title else row_title
+                title = f"{group_title} - {row_title}" if group_title else row_title
                 entry = {"title": title, "kind": kind, "options": grid_options, "group": group_title or None}
                 if scale:
                     entry["scale"] = list(scale)
@@ -444,7 +444,7 @@ def list_form_responses(form_id, access_token):
     except requests.RequestException as exc:
         current_app.logger.exception("Forms responses.list failed for form %s", form_id)
         raise EvaluationFormError(
-            "Couldn't read responses from Google Forms — try again in a moment."
+            "Couldn't read responses from Google Forms, try again in a moment."
         ) from exc
     return responses
 
@@ -459,7 +459,7 @@ def list_form_responses(form_id, access_token):
 @admin_required
 def connect():
     if not is_configured():
-        flash("Google OAuth isn't set up yet — GOOGLE_OAUTH_CLIENT_ID/SECRET need to be configured first "
+        flash("Google OAuth isn't set up yet. GOOGLE_OAUTH_CLIENT_ID/SECRET need to be configured first "
               "(see README).", "danger")
         return redirect(url_for("settings.index"))
     state = secrets.token_urlsafe(16)
@@ -480,11 +480,11 @@ def connect():
 @admin_required
 def google_callback():
     if request.args.get("state") != session.pop("eval_forms_oauth_state", None):
-        flash("Connection failed — the request expired, please try again.", "danger")
+        flash("Connection failed. The request expired, please try again.", "danger")
         return redirect(url_for("settings.index"))
     code = request.args.get("code")
     if not code:
-        flash("Google didn't grant access — connection cancelled.", "warning")
+        flash("Google didn't grant access. Connection cancelled.", "warning")
         return redirect(url_for("settings.index"))
     try:
         resp = requests.post(GOOGLE_TOKEN_URL, data={
@@ -509,7 +509,7 @@ def google_callback():
         flash(f"Google account connected for Evaluation Forms{' as ' + email if email else ''}.", "success")
     except requests.RequestException:
         current_app.logger.exception("Evaluation-forms Google OAuth exchange failed")
-        flash("Couldn't connect the Google account — please try again.", "danger")
+        flash("Couldn't connect the Google account. Please try again.", "danger")
     return redirect(url_for("settings.index"))
 
 
@@ -575,7 +575,7 @@ def generate(session_id):
         poster_failed = True
 
     if poster_failed:
-        flash("Evaluation Form generated, published, and linked — but the QR poster couldn't be "
+        flash("Evaluation Form generated, published, and linked, but the QR poster couldn't be "
               "auto-generated. Try again, or check the poster settings.", "warning")
     else:
         flash("Evaluation Form generated, published, linked, and its QR poster is ready below.", "success")

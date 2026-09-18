@@ -4,8 +4,41 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">Certificates</h4>
-    <small class="text-muted">e-Certificates, grouped by Class — generated automatically once staff mark participants attended.</small>
+    <small class="text-muted">e-Certificates, grouped by Class, generated automatically once staff mark participants attended.</small>
   </div>
+</div>
+
+<div class="card p-3 mb-3">
+  <h6 class="mb-1">Issue a certificate manually</h6>
+  <p class="small text-muted mb-3">
+    For someone the attendance list never captured, a corrected spelling, or a reprint. The course
+    title and training dates come from the class you pick, exactly as an automatic certificate does.
+    Nothing is added to the T3 Attendance List, since that is the signed document behind the HRDCorp
+    claim, so these are a straight download rather than a stored record.
+  </p>
+  <form method="post" action="{{ url_for('cert_admin.manual') }}" class="row g-3">
+    {{ csrf_field()|safe }}
+    <div class="col-md-5">
+      <label class="form-label">Class</label>
+      <select name="session_id" class="form-select" required>
+        <option value="">Select the class</option>
+        {% for c in classes %}
+        <option value="{{ c.id }}">{{ c.course_title }} ({{ c.start_date|fmtdaterange(c.end_date) }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-5">
+      <label class="form-label">Participant name(s)</label>
+      <textarea name="names" class="form-control" rows="3" required
+                placeholder="One name per line, e.g.&#10;Ali bin Ahmad&#10;Siti Aminah binti Yusof"></textarea>
+      <small class="text-muted">Up to {{ manual_name_limit }} at a time. One name gives a PDF; several give a zip.</small>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button class="btn btn-success w-100" type="submit">
+        <i class="bi bi-award me-1"></i>Generate
+      </button>
+    </div>
+  </form>
 </div>
 
 <div class="card p-3">
@@ -37,7 +70,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-muted mb-0">No certificates yet — mark participants attended on a class's T3 Attendance
+  <p class="text-muted mb-0">No certificates yet. Mark participants attended on a class's T3 Attendance
     List to generate them here.</p>
   {% endif %}
 </div>

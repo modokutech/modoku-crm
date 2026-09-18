@@ -46,7 +46,7 @@
       <div class="col-md-6">
         <label class="form-label">Client</label>
         <select name="client_company_id" id="client_company_id" class="form-select">
-          <option value="">— Public / no single client —</option>
+          <option value="">Public / no single client</option>
           {% for c in companies %}
           <option value="{{ c.id }}" {{ 'selected' if session and session.client_company_id == c.id }}>{{ c.name }}</option>
           {% endfor %}
@@ -57,7 +57,7 @@
         <label class="form-label">PIC (Client Contact)</label>
         <div class="d-flex gap-2">
           <select name="pic_lead_id" id="pic_lead_id" class="form-select">
-            <option value="">— No PIC selected —</option>
+            <option value="">No PIC selected</option>
             {% set ns = namespace(current_company='\x00__unset__') %}
             {% for l in leads %}
               {% if l.company_name != ns.current_company %}
@@ -103,7 +103,7 @@
       <div class="col-md-6">
         <label class="form-label">Room Setup</label>
         <select name="room_setup" class="form-select">
-          <option value="">— Not specified —</option>
+          <option value="">Not specified</option>
           {% for rs in room_setup_options %}
           <option value="{{ rs }}" {{ 'selected' if session and session.room_setup == rs }}>{{ rs }}</option>
           {% endfor %}
@@ -121,7 +121,7 @@
             <label class="form-check-label flex-grow-1" for="trainer_{{ t.id }}">{{ t.name }}</label>
             {% if card %}
             <span class="badge {{ score_badge(card.overall_pct) }}"
-                  title="Average participant evaluation across {{ card.rated_classes }} rated class{{ 'es' if card.rated_classes != 1 }}{{ ' — only a couple so far' if card.thin }}">
+                  title="Average participant evaluation across {{ card.rated_classes }} rated class{{ 'es' if card.rated_classes != 1 }}{{ ', only a couple so far' if card.thin }}">
               {{ card.overall_pct }}%{% if card.thin %} <i class="bi bi-asterisk small"></i>{% endif %}
             </span>
             {% endif %}
@@ -232,7 +232,7 @@ function toggleExamParticipants() {
 document.getElementById('has_exam').addEventListener('change', toggleExamParticipants);
 toggleExamParticipants();
 
-// PIC list is narrowed to whichever Client is currently selected — a PIC
+// PIC list is narrowed to whichever Client is currently selected, a PIC
 // with no company (or when no Client is selected at all) always stays
 // visible, since that's the "not tied to one client" case.
 function filterPicOptions() {
@@ -241,7 +241,7 @@ function filterPicOptions() {
   const selectedCompany = clientSelect.value;
   let selectionStillVisible = !picSelect.value;
   picSelect.querySelectorAll('option').forEach(function (opt) {
-    if (!opt.value) { return; } // "— No PIC selected —" placeholder always stays
+    if (!opt.value) { return; } // " (No PIC selected) " placeholder always stays
     const optCompany = opt.dataset.companyId || '';
     const show = !selectedCompany || !optCompany || optCompany === selectedCompany;
     opt.hidden = !show;
@@ -264,7 +264,7 @@ document.getElementById('quickAddPicModal').addEventListener('show.bs.modal', fu
   const clientName = clientSelect.options[clientSelect.selectedIndex].text;
   note.textContent = clientSelect.value
     ? 'This PIC will be added under ' + clientName + '.'
-    : 'No Client selected yet — this PIC will be saved without a company. Pick a Client above first if this contact belongs to one.';
+    : 'No Client selected yet. This PIC will be saved without a company. Pick a Client above first if this contact belongs to one.';
 });
 
 document.getElementById('qp_save').addEventListener('click', function () {
@@ -315,7 +315,7 @@ document.getElementById('qp_save').addEventListener('click', function () {
       document.getElementById('qp_phone').value = '';
     })
     .catch(function () {
-      errorBox.textContent = 'Something went wrong — please try again.';
+      errorBox.textContent = 'Something went wrong. Please try again.';
       errorBox.classList.remove('d-none');
     });
 });

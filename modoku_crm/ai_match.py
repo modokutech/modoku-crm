@@ -63,8 +63,8 @@ EXTRACTION_PROMPT = (
     "\"Course Title\", (2) the date written next to \"Dates of Training\", normalized to "
     "YYYY-MM-DD if you can confidently determine it (use null if it's illegible, ambiguous, or "
     "not visible), and (3) the full name of every participant who has actually signed or "
-    "initialed their row — skip blank rows, headers, and the trainer's own name if it's printed "
-    "at the top. Reply with ONLY a JSON object, nothing else — no markdown, no explanation. "
+    "initialed their row, skip blank rows, headers, and the trainer's own name if it's printed "
+    "at the top. Reply with ONLY a JSON object, nothing else, no markdown, no explanation. "
     "Example: {\"course_title\": \"Effective Leadership for New Managers\", "
     "\"training_date\": \"2026-09-10\", \"names\": [\"Ali bin Ahmad\", \"Siti Aminah\"]}"
 )
@@ -162,7 +162,7 @@ def resolve_return_date(session_row, detected_title, detected_date):
         if score < TITLE_MATCH_THRESHOLD:
             return None, (
                 f"The photo looks like it's for “{detected_title}”, but this class is "
-                f"“{session_row['course_title']}” — check it's the right sheet before it's counted."
+                f"“{session_row['course_title']}”. Check it's the right sheet before it's counted."
             )
 
     if detected_date:
@@ -171,14 +171,14 @@ def resolve_return_date(session_row, detected_title, detected_date):
         pretty_days = ", ".join(fmtdate(d) for d in valid_days)
         return None, (
             f"The photo is dated {fmtdate(detected_date)}, which isn't one of this class's training "
-            f"dates ({pretty_days}) — check it's the right day's sheet before it's counted."
+            f"dates ({pretty_days}). Check it's the right day's sheet before it's counted."
         )
 
     # No date could be confidently read off the sheet.
     if len(valid_days) == 1:
         return valid_days[0], None  # single-day class — nothing to disambiguate
     return None, (
-        "Couldn't read which day this sheet is for, and this class runs more than one day — "
+        "Couldn't read which day this sheet is for, and this class runs more than one day - "
         "check it against the Attendance List manually."
     )
 
