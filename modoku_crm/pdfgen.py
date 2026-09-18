@@ -1205,17 +1205,22 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
 
   /* Attendance table: bordered #333 throughout (not the lighter #999 the
      earlier version used), uppercase muted header text with no shaded
-     background (the real .table thead th rule has none), 33px-tall rows. */
+     background (the real .table thead th rule has none). */
   .attendance-table {{ margin-bottom: 14px; }}
-  /* Compact rows: a 25-pax list should not spill onto extra pages. Padding
-     trimmed from 4px/6px and the row height from 33px, but kept well clear
-     of the point where a handwritten signature or a wrapped two-line name
-     has nowhere to sit. */
-  .attendance-table th, .attendance-table td {{ border: 1px solid #333; padding: 2px 5px;
+  /* Row height: 44px. Signing room is the priority, not page count. A
+     25-pax sheet is meant to run to two pages here: the full list on page
+     1, the certification block and footnote on page 2, which is how it is
+     printed anyway. 44px is the tallest row that still keeps all 25 names
+     on page 1 even when every name wraps to two lines; from ~46px the list
+     itself starts splitting across pages, which reads worse. A 40-pax list
+     is still two pages. This was briefly 23px to force everything onto one
+     page and that was far too cramped to sign, so do not trade the height
+     back for a shorter sheet. */
+  .attendance-table th, .attendance-table td {{ border: 1px solid #333; padding: 4px 6px;
                                                   text-align: center; vertical-align: middle; }}
   .attendance-table th {{ font-size: 11.7px; font-weight: 700; text-transform: uppercase;
                            letter-spacing: 0.03em; color: #6b7280; padding: 3px 5px; }}
-  .attendance-table td {{ height: 23px; text-align: left; }}
+  .attendance-table td {{ height: 44px; text-align: left; }}
   /* No./Sex columns override to centered via their own inline style, which
      wins over this class rule - matching the two text-center cells in the
      real template. */

@@ -354,14 +354,23 @@ body {
 .t3-table td {
   border-color: #333 !important;
   vertical-align: middle;
-  /* Compact rows so a 25-pax list prints on one page, matching the emailed
-     PDF (pdfgen._build_t3_form_html). Tight, but still leaves room to write
-     a signature by hand or wrap a long name onto a second line. */
-  padding: 0.15rem 0.35rem;
+  /* Kept in step with the emailed PDF (pdfgen._build_t3_form_html), so
+     print-from-screen and print-from-PDF produce the same sheet. Written in
+     px, not rem, for the same reason the quotation PDF title is: this app
+     sets html { font-size: 15px }, and a rem here would drift from the PDF
+     if that root ever changed. */
+  padding: 4px 6px;
 }
 
 .t3-table td {
-  height: 1.55rem;
+  /* Signing room is what this number is for. A 25-pax sheet deliberately
+     runs to two pages: the full list on page 1, the certification block and
+     footnote on page 2, which is how it gets printed anyway. 44px is the
+     tallest row that still keeps all 25 names on page 1 even when every
+     name wraps to two lines; above ~45px the list itself starts splitting
+     across pages, which reads worse. Do not trade this back for a
+     single-page sheet, 23px was tried and was too cramped to sign. */
+  height: 44px;
 }
 
 /* Small class-identifying code stamped in the corner of the printed T3
