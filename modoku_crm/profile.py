@@ -61,6 +61,7 @@ def edit():
         name = request.form.get("name", "").strip()
         position = request.form.get("position", "").strip()
         contact_phone = request.form.get("contact_phone", "").strip()
+        mykad_no = request.form.get("mykad_no", "").strip()
         new_password = request.form.get("new_password", "")
         current_password = request.form.get("current_password", "")
 
@@ -71,13 +72,14 @@ def edit():
         else:
             if new_password:
                 db.execute(
-                    "UPDATE users SET name=?, position=?, contact_phone=?, password_hash=? WHERE id=?",
-                    (name, position or None, contact_phone or None, generate_password_hash(new_password), user_id),
+                    "UPDATE users SET name=?, position=?, contact_phone=?, mykad_no=?, password_hash=? WHERE id=?",
+                    (name, position or None, contact_phone or None, mykad_no or None,
+                     generate_password_hash(new_password), user_id),
                 )
             else:
                 db.execute(
-                    "UPDATE users SET name=?, position=?, contact_phone=? WHERE id=?",
-                    (name, position or None, contact_phone or None, user_id),
+                    "UPDATE users SET name=?, position=?, contact_phone=?, mykad_no=? WHERE id=?",
+                    (name, position or None, contact_phone or None, mykad_no or None, user_id),
                 )
             _handle_signature_upload(user_id)
             _handle_avatar_upload(user_id)

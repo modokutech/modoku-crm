@@ -116,6 +116,20 @@ def _user_signature_data_uri(signature_file, user_id):
     return _data_uri(path)
 
 
+def _company_stamp_data_uri():
+    """The global company rubber-stamp image (settings.py's Company Stamp
+    upload), embedded for the JD14 Form's Part 3(a) declaration block.
+    Imported at call time (not at module load) to sidestep any future
+    circular-import risk between pdfgen and settings — settings.py doesn't
+    import pdfgen today, but this keeps the two decoupled regardless."""
+    from . import settings as settings_module
+    stamp_file = settings_module.get_company_stamp_file()
+    if not stamp_file:
+        return ""
+    path = os.path.join(current_app.config["UPLOAD_FOLDER"], "global", stamp_file)
+    return _data_uri(path)
+
+
 def t3_signature_data_uri(session_id, signature_file):
     """Same idea as _user_signature_data_uri, for a captured T3 e-signature
     PNG (see t3._t3_signature_dir) — embedded into both the emailed T3
@@ -1360,6 +1374,213 @@ def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_r
         )
         if result.stderr:
             current_app.logger.info("wkhtmltopdf T3 form render stderr: %s", result.stderr.strip())
+        with open(pdf_path, "rb") as f:
+            return f.read()
+    finally:
+        for path in (html_path, pdf_path):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+
+
+# --- JD14 Form (PSMB/SBL-KHAS/JD/14) - OUR side ---------------------------
+#
+# NOTE - kept in sync by hand with the on-screen preview fragment in
+# templates/jd14/edit.html: both render the exact same table-based layout
+# from a shared design (see jd14.py's module docstring), one as inline CSS
+# for wkhtmltopdf, one as Jinja/Bootstrap for the live page. Changing this
+# layout means changing that template's preview markup to match, and vice
+# versa - there is no single source of truth to edit once and have both
+# follow, the same discipline already used for the T3 Attendance Form.
+def _build_jd14_html(session_row, jd14_row, signed_by_user):
+    """Self-contained HTML for the outgoing HRDCorp Joint Declaration Form
+    (PSMB/SBL-KHAS/JD/14) - OUR half of it, filled in and signed by an
+    admin, ready to send to the client to countersign and return (which
+    lands via the EXISTING jd14_return.py flow - this module never touches
+    that). Built entirely with <table> layout (no flexbox/grid - wkhtmltopdf
+    doesn't support either), mirroring the approach already used for the T3
+    Attendance Form above.
+
+    signed_by_user is None until the form is signed - in that case Part
+    3(a)'s signature/stamp/mykad/designation/date cells render blank so
+    staff can preview the unsigned version too."""
+    employer_address_html = (jd14_row["employer_address"] or "").replace("\n", "<br>")
+
+    commenced = _fmtdate(jd14_row["training_date_commenced"])
+    ended = _fmtdate(jd14_row["training_date_ended"])
+
+    signature_html = ""
+    stamp_html = ""
+    mykad = ""
+    designation = ""
+    signed_date = ""
+    signed_name = ""
+    if signed_by_user is not None:
+        sig_uri = _user_signature_data_uri(signed_by_user["signature_file"], signed_by_user["id"])
+        signature_html = f"<img src='{sig_uri}' style='max-height:60px;max-width:100%'>" if sig_uri else ""
+        stamp_uri = _company_stamp_data_uri()
+        stamp_html = f"<img src='{stamp_uri}' style='max-height:70px;max-width:100%'>" if stamp_uri else ""
+        mykad = escape(signed_by_user["mykad_no"] or "")
+        designation = escape(signed_by_user["position"] or "")
+        signed_date = _fmtdate(jd14_row["signed_at"].split(" ")[0]) if jd14_row["signed_at"] else ""
+        signed_name = escape(signed_by_user["name"] or "")
+
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  * {{ box-sizing: border-box; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; color: #1a1a1a; margin: 0; padding: 16px 18px; }}
+  table {{ border-collapse: collapse; width: 100%; }}
+  td, th {{ vertical-align: top; }}
+
+  /* Top strip: two small pre-printed boxes flanking the title - a TABLE,
+     not flexbox, so it renders the same under wkhtmltopdf as it does on
+     screen (see the T3 form's own note on this above). */
+  .jd14-topstrip td {{ border: 1px solid #333; padding: 5px 8px; font-size: 10px; vertical-align: top; }}
+  .jd14-topstrip {{ margin-bottom: 10px; table-layout: fixed; }}
+  .jd14-topstrip .box-title {{ font-weight: 700; }}
+
+  .jd14-title {{ text-align: center; font-weight: 700; font-size: 14px; margin: 4px 0 2px; }}
+  .jd14-subtitle {{ text-align: center; font-size: 10.5px; color: #444; margin: 0 0 12px; }}
+
+  .jd14-section {{ border: 1px solid #333; padding: 8px 10px; margin-bottom: 10px; }}
+  .jd14-section-title {{ font-weight: 700; font-size: 12px; margin: 0 0 6px; text-transform: uppercase; }}
+
+  .jd14-fill {{ border-bottom: 1px solid #333; min-height: 14px; padding: 1px 3px; }}
+  .jd14-row td {{ padding: 3px 4px; }}
+  .jd14-row td.label {{ white-space: nowrap; font-weight: 600; width: 190px; }}
+  .jd14-row td.colon {{ white-space: nowrap; width: 12px; }}
+
+  .jd14-box {{ border: 1px solid #999; min-height: 60px; padding: 4px; }}
+  .jd14-part3-table td {{ border: 1px solid #333; padding: 6px; width: 33.33%; vertical-align: top; }}
+  .jd14-part3-label {{ font-size: 10px; font-weight: 700; text-transform: uppercase; color: #555; margin-bottom: 4px; }}
+
+  .jd14-note {{ font-size: 9.5px; color: #555; font-style: italic; margin-top: 2px; }}
+  .jd14-footer {{ font-size: 9px; color: #555; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 6px; }}
+</style></head>
+<body>
+
+  <table class="jd14-topstrip">
+    <tr>
+      <td style="width:45%">
+        <div class="box-title">TRAINING PROVIDER MYCOID (ROC/ROB/ROS)</div>
+        Modoku Tech Sdn Bhd (1390352-H)
+      </td>
+      <td style="width:10%"></td>
+      <td style="width:45%;text-align:right">
+        <div class="box-title">PSMB/SBL-KHAS /JD/14</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="jd14-title">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
+  <div class="jd14-subtitle">To be completed and jointly signed by the Employer and the Training Provider before submission of the claim.</div>
+
+  <div class="jd14-section">
+    <div class="jd14-section-title">Part 1</div>
+    <table>
+      <tr>
+        <td style="width:48%;padding-right:10px">
+          <div style="font-weight:600;font-size:11px;margin-bottom:4px">Registered Name and Address of Employer</div>
+          <div class="jd14-box">{escape(jd14_row['employer_name'] or '')}<br>{employer_address_html}</div>
+        </td>
+        <td style="width:52%">
+          <table class="jd14-row">
+            <tr><td class="label">Employer Code</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['employer_code'] or '')}</td></tr>
+            <tr><td class="label">Approval No</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['approval_no'] or '')}</td></tr>
+            <tr><td class="label">Group Approved</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['group_approved'] or '')}</td></tr>
+            <tr><td class="label">Group Claimed</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['group_claimed'] or '')}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+    <table class="jd14-row" style="margin-top:6px">
+      <tr><td class="label">Course Title</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['course_title'] or '')}</td></tr>
+      <tr><td class="label">Training Dates (Commenced)</td><td class="colon">:</td><td class="jd14-fill">{commenced}</td></tr>
+      <tr><td class="label">Training Dates (Ended)</td><td class="colon">:</td><td class="jd14-fill">{ended}</td></tr>
+      <tr><td class="label">Training Venue</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['training_venue'] or '')}</td></tr>
+    </table>
+  </div>
+
+  <div class="jd14-section">
+    <div class="jd14-section-title">Part 2</div>
+    <table style="border:1px solid #333">
+      <tr>
+        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Number of Trainee(s)*</th>
+        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Total Fee Approved (RM)</th>
+        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Total Fee Claimed (RM)</th>
+      </tr>
+      <tr>
+        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['num_trainees'] or '')}</td>
+        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['total_fee_approved'] or '')}</td>
+        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['total_fee_claimed'] or '')}</td>
+      </tr>
+    </table>
+    <div class="jd14-note">* Number of trainees who fully attended the training programme.</div>
+  </div>
+
+  <div class="jd14-section">
+    <div class="jd14-section-title">Part 3</div>
+
+    <p style="margin:0 0 8px">(a) I/We, the Training Provider, hereby declare that the particulars given above are true and correct, and that the training programme was conducted as stated.</p>
+    <table class="jd14-part3-table">
+      <tr>
+        <td><div class="jd14-part3-label">Signature</div><div style="height:60px">{signature_html}</div></td>
+        <td><div class="jd14-part3-label">Name / Company Stamp</div><div>{signed_name}</div><div style="height:50px;margin-top:4px">{stamp_html}</div></td>
+        <td><div class="jd14-part3-label">MyKad No</div><div>{mykad}</div></td>
+      </tr>
+    </table>
+    <table class="jd14-row" style="margin-top:4px">
+      <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14-fill">{designation}</td></tr>
+      <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14-fill">{signed_date}</td></tr>
+    </table>
+    <div class="jd14-note">(Managing Director/General Manager/Centre Manager/Principal)</div>
+
+    <p style="margin:14px 0 8px">(b) I/We, the Employer, hereby declare that the training programme stated above was attended by our employee(s) as claimed.</p>
+    <table class="jd14-part3-table">
+      <tr>
+        <td><div class="jd14-part3-label">Signature</div><div style="height:60px"></div></td>
+        <td><div class="jd14-part3-label">Name / Company Stamp</div><div style="height:56px"></div></td>
+        <td><div class="jd14-part3-label">MyKad No</div><div style="height:20px"></div></td>
+      </tr>
+    </table>
+    <table class="jd14-row" style="margin-top:4px">
+      <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14-fill">&nbsp;</td></tr>
+      <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14-fill">&nbsp;</td></tr>
+    </table>
+    <div class="jd14-note">(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance Director of Employer)</div>
+  </div>
+
+  <div class="jd14-footer">
+    <strong>REMINDER:</strong> Any person who makes a false declaration, or knowingly furnishes false information, in connection with a claim under the
+    Pembangunan Sumber Manusia Berhad Act commits an offence under Section 40/41 of the Act, and on conviction is liable to a fine and/or imprisonment.
+    Both the Employer and the Training Provider are jointly responsible for the accuracy of the particulars declared in this form.
+  </div>
+
+</body></html>"""
+
+
+def generate_jd14_pdf(session_row, jd14_row, signed_by_user):
+    """Returns portrait A4 PDF bytes for the outgoing JD14 Form (our half,
+    filled in and optionally signed), for preview, download, or emailing to
+    the client. signed_by_user is a users Row (must have signature_file/
+    mykad_no/position/name available) or None if the form isn't signed yet."""
+    html = _build_jd14_html(session_row, jd14_row, signed_by_user)
+    with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as html_file:
+        html_file.write(html)
+        html_path = html_file.name
+    pdf_path = html_path.replace(".html", ".pdf")
+    try:
+        result = subprocess.run(
+            ["wkhtmltopdf", "--page-size", "A4",
+             "--margin-top", "10mm", "--margin-bottom", "10mm",
+             "--margin-left", "10mm", "--margin-right", "10mm",
+             html_path, pdf_path],
+            check=True, timeout=30, capture_output=True, text=True,
+        )
+        if result.stderr:
+            current_app.logger.info("wkhtmltopdf JD14 form render stderr: %s", result.stderr.strip())
         with open(pdf_path, "rb") as f:
             return f.read()
     finally:

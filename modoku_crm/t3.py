@@ -43,6 +43,20 @@ MIN_SIGNATURE_BYTES = 300
 MAX_SIGNATURE_BYTES = 300 * 1024
 
 
+def _title_case_name(name):
+    """Title-cases a participant name: split on whitespace, capitalize the
+    first alphabetic character of each word and lowercase the rest (e.g.
+    "ALI BIN ABU" / "aLi bIn AbU" -> "Ali Bin Abu"). Deliberately simple -
+    no special-casing of "Mc"/hyphens/apostrophes. Belt-and-suspenders
+    server-side pass mirroring the front-end auto-capitalize JS, in case
+    JS is disabled or another entry point bypasses it. Only ever applied
+    to the "name" field - never ic_no, employer_name, etc."""
+    if not name:
+        return name
+    return " ".join(word[:1].upper() + word[1:].lower() if word else word
+                     for word in name.split(" "))
+
+
 def _normalize_gender(raw):
     raw = (raw or "").strip().lower()
     if raw in ("m", "male"):
@@ -184,7 +198,7 @@ def _insert_participants(session_id, participants, remaining_capacity):
         db.execute(
             """INSERT INTO t3_participants (session_id, name, ic_no, employer_name, gender, citizenship)
                VALUES (?,?,?,?,?,?)""",
-            (session_id, name, ic_no, employer, gender, citizenship or "Malaysian"),
+            (session_id, _title_case_name(name), ic_no, employer, gender, citizenship or "Malaysian"),
         )
         added += 1
     return added, skipped_dup, skipped_capacity
@@ -321,7 +335,7 @@ def manage(session_id):
 @login_required
 def add(session_id):
     session_row = _session_or_none(session_id)
-    name = request.form.get("name", "").strip()
+    name = _title_case_name(request.form.get("name", "").strip())
     ic_no = request.form.get("ic_no") or None
     remaining = t3_remaining_capacity(session_row) if session_row else None
     if not name:
@@ -353,7 +367,7 @@ def edit(participant_id):
         return redirect(url_for("sessions.index"))
 
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
+        name = _title_case_name(request.form.get("name", "").strip())
         ic_no = request.form.get("ic_no") or None
         if not name:
             flash("Name is required.", "danger")

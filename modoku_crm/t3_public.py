@@ -31,6 +31,7 @@ from .t3 import (
     GENDERS, CITIZENSHIPS, _ic_taken, _normalize_gender, _parse_csv,
     _insert_participants, _bulk_result_flash, t3_remaining_capacity,
     check_and_record_sign_attempt, decode_signature_png, _t3_signature_dir,
+    _title_case_name,
 )
 
 bp = Blueprint("t3_public", __name__, url_prefix="/t3-form")
@@ -154,7 +155,7 @@ def add(token):
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
-    name = request.form.get("name", "").strip()
+    name = _title_case_name(request.form.get("name", "").strip())
     ic_no = request.form.get("ic_no") or None
     if not name:
         flash("Name is required.", "danger")
@@ -229,7 +230,7 @@ def edit(token, participant_id):
               "a change.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
-    name = request.form.get("name", "").strip()
+    name = _title_case_name(request.form.get("name", "").strip())
     ic_no = request.form.get("ic_no") or None
     if not name:
         flash("Name is required.", "danger")

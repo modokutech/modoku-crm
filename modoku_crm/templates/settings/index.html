@@ -125,5 +125,23 @@
       </form>
     </div>
   </div>
+
+  <div class="col-lg-6">
+    <div class="card p-4 h-100">
+      <h6 class="mb-1">Company Stamp</h6>
+      <p class="small text-muted">The company rubber-stamp image used on signed JD14 Forms, alongside the signing admin's own signature.</p>
+      {% if company_stamp_file %}
+      <div class="mb-2"><img src="{{ url_for('settings.company_stamp') }}" alt="Company stamp" style="max-height:90px;"></div>
+      {% else %}
+      <p class="small text-muted mb-2">No stamp uploaded yet.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('settings.upload_company_stamp') }}" enctype="multipart/form-data" class="d-flex gap-2">
+        {{ csrf_field()|safe }}
+        <input type="file" name="company_stamp_file" class="form-control form-control-sm" accept=".png,.jpg,.jpeg,.webp" required>
+        <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
+      </form>
+      <small class="text-muted">A transparent PNG works best. Max 2 MB.</small>
+    </div>
+  </div>
 </div>
 {% endblock %}

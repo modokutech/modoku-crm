@@ -44,6 +44,11 @@
         <input type="text" name="contact_phone" class="form-control" placeholder="e.g. +60 12-345 6789" value="{{ user.contact_phone or '' }}">
         <small class="text-muted">Shown on Quotations so clients can reach you.</small>
       </div>
+      <div class="col-md-6">
+        <label class="form-label">MyKad No.</label>
+        <input type="text" name="mykad_no" class="form-control" placeholder="e.g. 900101-10-1234" value="{{ user.mykad_no or '' }}">
+        <small class="text-muted">Used on the JD14 Form's Training Provider declaration when you sign one.</small>
+      </div>
     </div>
     <div class="mb-3">
       <label class="form-label">Signature *</label>

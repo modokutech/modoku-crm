@@ -380,6 +380,35 @@ CREATE TABLE IF NOT EXISTS training_costs (
     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- OUR side of the HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14) —
+-- 1:1 with course_sessions, same shape as training_costs. This is the
+-- outgoing, our-part-filled-in-and-signed form generated for the client to
+-- countersign (see jd14.py / pdfgen.generate_jd14_pdf); it is deliberately
+-- separate from course_sessions.jd14_file, which stores the CLIENT'S
+-- returned signed scan once it comes back (jd14_return.py) and is never
+-- touched by this table.
+CREATE TABLE IF NOT EXISTS jd14_forms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL UNIQUE REFERENCES course_sessions(id) ON DELETE CASCADE,
+    employer_name TEXT,
+    employer_address TEXT,
+    employer_code TEXT,
+    approval_no TEXT,
+    group_approved TEXT,
+    group_claimed TEXT,
+    course_title TEXT,
+    training_date_commenced TEXT,
+    training_date_ended TEXT,
+    training_venue TEXT,
+    num_trainees TEXT,
+    total_fee_approved TEXT,
+    total_fee_claimed TEXT,
+    signed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    signed_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Per-user notification inbox - system-generated reminders (quotation
 -- follow-up due, invoice overdue, evaluation report overdue, etc.) land here
 -- for the relevant staff member rather than only as an email. dedupe_key
@@ -969,6 +998,10 @@ _COLUMN_MIGRATIONS = [
     # sheet's figures don't silently change when this is deployed.
     ("training_costs", "deduct_hrdcorp_fee", "INTEGER NOT NULL DEFAULT 0"),
     ("training_costs", "deduct_sst", "INTEGER NOT NULL DEFAULT 0"),
+    # MyKad (IC) number for the JD14 form's Part 3(a) Training Provider
+    # declaration block — a staff member fills this in on their own Profile
+    # once, and it's reused whenever they sign a JD14 form (jd14.py).
+    ("users", "mykad_no", "TEXT"),
 ]
 
 

@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}JD14 Form{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">JD14 Form</h4>
+    <small class="text-muted">{{ s.course_title }} &middot; {{ s.start_date|fmtdaterange(s.end_date) }}</small>
+  </div>
+  <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Back to Class</a>
+</div>
+
+{% if f.signed_at %}
+<div class="alert alert-success py-2 small mb-3">
+  <i class="bi bi-check-circle me-1"></i>Signed by {{ signed_by_user.name if signed_by_user else 'someone' }} on {{ f.signed_at|fmtdate }}.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h6 class="mb-2">Fill in our part</h6>
+      <form method="post" action="{{ url_for('jd14.save', session_id=s.id) }}" id="jd14Form">
+        {{ csrf_field()|safe }}
+
+        <p class="small text-uppercase text-muted mb-1 mt-2">Part 1</p>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Employer Name</label>
+          <input type="text" id="employer_name" name="employer_name" class="form-control form-control-sm jd14-input" value="{{ f.employer_name or '' }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Employer Address</label>
+          <textarea id="employer_address" name="employer_address" class="form-control form-control-sm jd14-input" rows="2">{{ f.employer_address or '' }}</textarea>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">Employer Code</label>
+            <input type="text" id="employer_code" name="employer_code" class="form-control form-control-sm jd14-input" value="{{ f.employer_code or '' }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Approval No</label>
+            <input type="text" id="approval_no" name="approval_no" class="form-control form-control-sm jd14-input" value="{{ f.approval_no or '' }}">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">Group Approved</label>
+            <input type="text" id="group_approved" name="group_approved" class="form-control form-control-sm jd14-input" value="{{ f.group_approved or '' }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Group Claimed</label>
+            <input type="text" id="group_claimed" name="group_claimed" class="form-control form-control-sm jd14-input" value="{{ f.group_claimed or '' }}">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Course Title</label>
+          <input type="text" id="course_title" name="course_title" class="form-control form-control-sm jd14-input" value="{{ f.course_title or '' }}">
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <label class="form-label small mb-1">Training Dates (Commenced)</label>
+            <input type="date" id="training_date_commenced" name="training_date_commenced" class="form-control form-control-sm jd14-input" value="{{ f.training_date_commenced or '' }}">
+          </div>
+          <div class="col-6">
+            <label class="form-label small mb-1">Training Dates (Ended)</label>
+            <input type="date" id="training_date_ended" name="training_date_ended" class="form-control form-control-sm jd14-input" value="{{ f.training_date_ended or '' }}">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small mb-1">Training Venue</label>
+          <input type="text" id="training_venue" name="training_venue" class="form-control form-control-sm jd14-input" value="{{ f.training_venue or '' }}">
+        </div>
+
+        <p class="small text-uppercase text-muted mb-1 mt-3">Part 2</p>
+        <div class="row g-2 mb-2">
+          <div class="col-4">
+            <label class="form-label small mb-1">No. of Trainee(s)</label>
+            <input type="text" id="num_trainees" name="num_trainees" class="form-control form-control-sm jd14-input" value="{{ f.num_trainees or '' }}">
+          </div>
+          <div class="col-4">
+            <label class="form-label small mb-1">Fee Approved (RM)</label>
+            <input type="text" id="total_fee_approved" name="total_fee_approved" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_approved or '' }}">
+          </div>
+          <div class="col-4">
+            <label class="form-label small mb-1">Fee Claimed (RM)</label>
+            <input type="text" id="total_fee_claimed" name="total_fee_claimed" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_claimed or '' }}">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-success btn-sm" type="submit">Save</button>
+          <button class="btn btn-outline-secondary btn-sm" type="submit" form="jd14ResetForm">Reset to Derived Values</button>
+        </div>
+      </form>
+      <form method="post" action="{{ url_for('jd14.reset_prefill', session_id=s.id) }}" id="jd14ResetForm">
+        {{ csrf_field()|safe }}
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Live Preview</h6>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('jd14.preview_pdf', session_id=s.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">PDF Preview</a>
+          <a href="{{ url_for('jd14.download', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">Download</a>
+        </div>
+      </div>
+
+      {% if not f.signed_at %}
+        {% if is_admin %}
+        <form method="post" action="{{ url_for('jd14.sign', session_id=s.id) }}" class="mb-2">
+          {{ csrf_field()|safe }}
+          <button class="btn btn-sm btn-success w-100" type="submit" onclick="return confirm('Sign &amp; stamp this JD14 Form as {{ g.user.name }}?');">
+            <i class="bi bi-vector-pen me-1"></i>Sign &amp; Stamp
+          </button>
+        </form>
+        {% else %}
+        <p class="small text-muted mb-2">Only an admin can sign this form.</p>
+        {% endif %}
+      {% elif is_admin %}
+        <form method="post" action="{{ url_for('jd14.send', session_id=s.id) }}" class="mb-2">
+          {{ csrf_field()|safe }}
+          <button class="btn btn-sm btn-success w-100" type="submit" {{ 'disabled' if not s.company_email }}>
+            <i class="bi bi-envelope me-1"></i>Send to Client
+          </button>
+        </form>
+        {% if not s.company_email %}
+        <p class="small text-danger mb-2">This class's client company has no email on file - add one to send.</p>
+        {% endif %}
+      {% endif %}
+
+      <!-- NOTE - kept in sync by hand with pdfgen._build_jd14_html: both
+           render the same table-based JD14 layout, one for the emailed/
+           downloaded PDF (inline CSS, wkhtmltopdf), one for this on-screen
+           live preview (Jinja/Bootstrap-flavoured but same table shape).
+           Changing the layout means changing both. -->
+      <div class="jd14-preview">
+        <table class="jd14p-topstrip">
+          <tr>
+            <td style="width:45%">
+              <div class="jd14p-box-title">TRAINING PROVIDER MYCOID (ROC/ROB/ROS)</div>
+              Modoku Tech Sdn Bhd (1390352-H)
+            </td>
+            <td style="width:10%"></td>
+            <td style="width:45%;text-align:right">
+              <div class="jd14p-box-title">PSMB/SBL-KHAS /JD/14</div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="jd14p-title">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
+        <div class="jd14p-subtitle">To be completed and jointly signed by the Employer and the Training Provider before submission of the claim.</div>
+
+        <div class="jd14p-section">
+          <div class="jd14p-section-title">Part 1</div>
+          <table>
+            <tr>
+              <td style="width:48%;padding-right:10px">
+                <div style="font-weight:600;font-size:11px;margin-bottom:4px">Registered Name and Address of Employer</div>
+                <div class="jd14p-box"><span id="preview_employer_name">{{ f.employer_name or '' }}</span><br><span id="preview_employer_address" style="white-space:pre-line">{{ f.employer_address or '' }}</span></div>
+              </td>
+              <td style="width:52%">
+                <table class="jd14p-row">
+                  <tr><td class="label">Employer Code</td><td class="colon">:</td><td class="jd14p-fill" id="preview_employer_code">{{ f.employer_code or '' }}</td></tr>
+                  <tr><td class="label">Approval No</td><td class="colon">:</td><td class="jd14p-fill" id="preview_approval_no">{{ f.approval_no or '' }}</td></tr>
+                  <tr><td class="label">Group Approved</td><td class="colon">:</td><td class="jd14p-fill" id="preview_group_approved">{{ f.group_approved or '' }}</td></tr>
+                  <tr><td class="label">Group Claimed</td><td class="colon">:</td><td class="jd14p-fill" id="preview_group_claimed">{{ f.group_claimed or '' }}</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+          <table class="jd14p-row" style="margin-top:6px">
+            <tr><td class="label">Course Title</td><td class="colon">:</td><td class="jd14p-fill" id="preview_course_title">{{ f.course_title or '' }}</td></tr>
+            <tr><td class="label">Training Dates (Commenced)</td><td class="colon">:</td><td class="jd14p-fill" id="preview_training_date_commenced">{{ f.training_date_commenced|fmtdate if f.training_date_commenced else '' }}</td></tr>
+            <tr><td class="label">Training Dates (Ended)</td><td class="colon">:</td><td class="jd14p-fill" id="preview_training_date_ended">{{ f.training_date_ended|fmtdate if f.training_date_ended else '' }}</td></tr>
+            <tr><td class="label">Training Venue</td><td class="colon">:</td><td class="jd14p-fill" id="preview_training_venue">{{ f.training_venue or '' }}</td></tr>
+          </table>
+        </div>
+
+        <div class="jd14p-section">
+          <div class="jd14p-section-title">Part 2</div>
+          <table class="jd14p-part2">
+            <tr>
+              <th>Number of Trainee(s)*</th>
+              <th>Total Fee Approved (RM)</th>
+              <th>Total Fee Claimed (RM)</th>
+            </tr>
+            <tr>
+              <td id="preview_num_trainees">{{ f.num_trainees or '' }}</td>
+              <td id="preview_total_fee_approved">{{ f.total_fee_approved or '' }}</td>
+              <td id="preview_total_fee_claimed">{{ f.total_fee_claimed or '' }}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="jd14p-section">
+          <div class="jd14p-section-title">Part 3</div>
+          <p class="small mb-2">(a) I/We, the Training Provider, hereby declare that the particulars given above are true and correct, and that the training programme was conducted as stated.</p>
+          <table class="jd14p-part3">
+            <tr>
+              <td>
+                <div class="jd14p-part3-label">Signature</div>
+                <div class="jd14p-sigbox">
+                  {% if preview_user and preview_user.signature_file %}
+                  <img src="{{ url_for('profile.signature_for', user_id=preview_user.id) }}" style="max-height:55px;max-width:100%">
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div class="jd14p-part3-label">Name / Company Stamp</div>
+                <div>{{ signed_by_user.name if signed_by_user else (preview_user.name if preview_user else '') }}</div>
+                <div class="jd14p-sigbox" style="height:50px">
+                  {% if company_stamp_file %}
+                  <img src="{{ url_for('settings.company_stamp') }}" style="max-height:50px;max-width:100%">
+                  {% endif %}
+                </div>
+              </td>
+              <td>
+                <div class="jd14p-part3-label">MyKad No</div>
+                <div>{{ (signed_by_user.mykad_no if signed_by_user else preview_user.mykad_no) or '(will show once signed)' }}</div>
+              </td>
+            </tr>
+          </table>
+          <table class="jd14p-row" style="margin-top:4px">
+            <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14p-fill">{{ (signed_by_user.position if signed_by_user else preview_user.position) or '(will show once signed)' }}</td></tr>
+            <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14p-fill">{{ f.signed_at|fmtdate if f.signed_at else '' }}</td></tr>
+          </table>
+          <div class="jd14p-note">(Managing Director/General Manager/Centre Manager/Principal)</div>
+
+          <p class="small mb-2 mt-3">(b) I/We, the Employer, hereby declare that the training programme stated above was attended by our employee(s) as claimed.</p>
+          <table class="jd14p-part3">
+            <tr>
+              <td><div class="jd14p-part3-label">Signature</div><div class="jd14p-sigbox"></div></td>
+              <td><div class="jd14p-part3-label">Name / Company Stamp</div><div class="jd14p-sigbox" style="height:50px"></div></td>
+              <td><div class="jd14p-part3-label">MyKad No</div><div class="jd14p-sigbox" style="height:20px"></div></td>
+            </tr>
+          </table>
+          <table class="jd14p-row" style="margin-top:4px">
+            <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14p-fill">&nbsp;</td></tr>
+            <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14p-fill">&nbsp;</td></tr>
+          </table>
+          <div class="jd14p-note">(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance Director of Employer)</div>
+        </div>
+
+        <div class="jd14p-footer">
+          <strong>REMINDER:</strong> Any person who makes a false declaration, or knowingly furnishes false information, in connection with a claim under the
+          Pembangunan Sumber Manusia Berhad Act commits an offence under Section 40/41 of the Act, and on conviction is liable to a fine and/or imprisonment.
+          Both the Employer and the Training Provider are jointly responsible for the accuracy of the particulars declared in this form.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .jd14-preview { font-size: 11px; color: #1a1a1a; border: 1px solid #ddd; padding: 12px; background: #fff; }
+  .jd14-preview table { border-collapse: collapse; width: 100%; }
+  .jd14p-topstrip td { border: 1px solid #333; padding: 5px 8px; font-size: 9px; vertical-align: top; }
+  .jd14p-topstrip { margin-bottom: 8px; table-layout: fixed; }
+  .jd14p-box-title { font-weight: 700; }
+  .jd14p-title { text-align: center; font-weight: 700; font-size: 12px; margin: 4px 0 2px; }
+  .jd14p-subtitle { text-align: center; font-size: 9px; color: #444; margin: 0 0 10px; }
+  .jd14p-section { border: 1px solid #333; padding: 8px 10px; margin-bottom: 8px; }
+  .jd14p-section-title { font-weight: 700; font-size: 11px; margin: 0 0 6px; text-transform: uppercase; }
+  .jd14p-fill { border-bottom: 1px solid #333; min-height: 12px; padding: 1px 3px; }
+  .jd14p-box { border: 1px solid #999; min-height: 50px; padding: 4px; }
+  .jd14p-row td { padding: 2px 4px; font-size: 10.5px; }
+  .jd14p-row td.label { white-space: nowrap; font-weight: 600; width: 170px; }
+  .jd14p-row td.colon { white-space: nowrap; width: 10px; }
+  .jd14p-part2 th, .jd14p-part2 td { border: 1px solid #333; padding: 5px; text-align: center; font-size: 10px; }
+  .jd14p-part3 td { border: 1px solid #333; padding: 5px; width: 33.33%; vertical-align: top; font-size: 10px; }
+  .jd14p-part3-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: #555; margin-bottom: 3px; }
+  .jd14p-sigbox { border: 1px dashed #bbb; height: 55px; }
+  .jd14p-note { font-size: 8.5px; color: #555; font-style: italic; margin-top: 2px; }
+  .jd14p-footer { font-size: 8px; color: #555; margin-top: 8px; border-top: 1px solid #ccc; padding-top: 5px; }
+</style>
+
+<script>
+(function () {
+  // Real-time preview: as each field is typed, mirror its value straight
+  // into the matching preview cell. No AJAX, no server round-trip - the
+  // preview is just the same markup pdfgen._build_jd14_html renders,
+  // hand-kept in sync (see the NOTE above the preview block).
+  var fields = [
+    'employer_name', 'employer_address', 'employer_code', 'approval_no',
+    'group_approved', 'group_claimed', 'course_title', 'training_venue',
+    'num_trainees', 'total_fee_approved', 'total_fee_claimed',
+  ];
+  fields.forEach(function (id) {
+    var input = document.getElementById(id);
+    var preview = document.getElementById('preview_' + id);
+    if (!input || !preview) return;
+    input.addEventListener('input', function () {
+      preview.textContent = input.value;
+    });
+  });
+
+  function fmtDateForPreview(iso) {
+    if (!iso) return '';
+    var parts = iso.split('-');
+    if (parts.length !== 3) return iso;
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var m = parseInt(parts[1], 10) - 1;
+    if (m < 0 || m > 11) return iso;
+    return parseInt(parts[2], 10) + ' ' + months[m] + ' ' + parts[0];
+  }
+  ['training_date_commenced', 'training_date_ended'].forEach(function (id) {
+    var input = document.getElementById(id);
+    var preview = document.getElementById('preview_' + id);
+    if (!input || !preview) return;
+    input.addEventListener('input', function () {
+      preview.textContent = fmtDateForPreview(input.value);
+    });
+  });
+})();
+</script>
+{% endblock %}

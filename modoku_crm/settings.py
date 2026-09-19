@@ -5,11 +5,15 @@ redirect back to the dashboard with a flash message, for every user
 (including admins — re-enable it from Settings to get back in).
 """
 
+import os
+import uuid
 from functools import wraps
 
-from flask import Blueprint, flash, g, redirect, render_template, request, url_for
+from flask import (Blueprint, current_app, flash, g, redirect, render_template,
+                    request, send_from_directory, url_for)
+from werkzeug.utils import secure_filename
 
-from . import db, evaluation_forms, mailer
+from . import db, evaluation_forms, mailer, uploadutil
 from .auth import admin_required, login_required
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
@@ -38,6 +42,36 @@ INVOICE_SUFFIX_KEY = "invoice_number_suffix"
 INVOICE_OVERRIDE_KEY = "invoice_number_next_override"
 DEFAULT_PO_PREFIX = "PO"
 DEFAULT_INVOICE_PREFIX = "INV"
+
+# The company's rubber-stamp image, uploaded once here and reused on every
+# JD14 Form an admin signs (jd14.py / pdfgen.generate_jd14_pdf) — a global
+# setting, not per-user, since the stamp belongs to the company, not to
+# whichever admin happens to sign.
+COMPANY_STAMP_KEY = "company_stamp_file"
+
+
+def get_company_stamp_file():
+    return db.get_setting(COMPANY_STAMP_KEY, "")
+
+
+def _global_upload_dir():
+    path = os.path.join(current_app.config["UPLOAD_FOLDER"], "global")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _handle_company_stamp_upload():
+    file_storage = request.files.get("company_stamp_file")
+    if not file_storage or not file_storage.filename:
+        return
+    error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.IMAGE_EXTENSIONS)
+    if error:
+        flash(error, "danger")
+        return
+    safe_name = secure_filename(file_storage.filename)
+    stored_name = f"stamp_{uuid.uuid4().hex[:8]}_{safe_name}"
+    file_storage.save(os.path.join(_global_upload_dir(), stored_name))
+    db.set_setting(COMPANY_STAMP_KEY, stored_name)
 
 
 def get_po_number_prefix():
@@ -177,7 +211,41 @@ def index():
                             eval_forms_google_configured=evaluation_forms.is_configured(),
                             eval_forms_connected=evaluation_forms.is_connected(),
                             eval_forms_connected_email=evaluation_forms.connected_email(),
-                            eval_forms_template_id=evaluation_forms.get_template_id())
+                            eval_forms_template_id=evaluation_forms.get_template_id(),
+                            company_stamp_file=get_company_stamp_file())
+
+
+@bp.route("/company-stamp", methods=("POST",))
+@login_required
+@admin_required
+def upload_company_stamp():
+    """Uploads the global company rubber-stamp image used on signed JD14
+    Forms (see jd14.py / pdfgen.generate_jd14_pdf). Kept as its own route
+    (rather than folded into index()'s POST) so submitting this one small
+    file form never touches the Modules checkboxes living in a separate
+    <form> on the same page."""
+    file_storage = request.files.get("company_stamp_file")
+    if not file_storage or not file_storage.filename:
+        flash("Choose an image file first.", "danger")
+        return redirect(url_for("settings.index"))
+    _handle_company_stamp_upload()
+    if get_company_stamp_file():
+        flash("Company stamp updated.", "success")
+    return redirect(url_for("settings.index"))
+
+
+@bp.route("/company-stamp")
+@login_required
+def company_stamp():
+    """Serves the current global company stamp image — embedded into the
+    JD14 Form PDF/preview (pdfgen._company_stamp_data_uri) and shown as a
+    preview here on the Settings page. Any logged-in user can view it (it's
+    not sensitive), only an admin can replace it."""
+    stamp_file = get_company_stamp_file()
+    if not stamp_file:
+        flash("No company stamp uploaded yet.", "danger")
+        return redirect(url_for("settings.index"))
+    return send_from_directory(_global_upload_dir(), stamp_file, as_attachment=False)
 
 
 @bp.route("/reset-numbering", methods=("POST",))

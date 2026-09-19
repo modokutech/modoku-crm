@@ -248,6 +248,7 @@ def create_app(config_object="config.Config"):
     from . import vendor_po_confirm
     from . import vendor_invoice
     from . import hrdcorp_grant
+    from . import jd14
     from . import calendar_integration
     from . import settings as settings_module
     from . import security
@@ -299,6 +300,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(vendor_po_confirm.bp)
     app.register_blueprint(vendor_invoice.bp)
     app.register_blueprint(hrdcorp_grant.bp)
+    app.register_blueprint(jd14.bp)
     app.register_blueprint(jd14_return.bp)
     app.register_blueprint(guide.bp)
     app.register_blueprint(calendar_integration.bp)
