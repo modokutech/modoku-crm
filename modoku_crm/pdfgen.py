@@ -1034,6 +1034,40 @@ def generate_certificate_pdf(fullname, course_title, date_range):
     return buf.getvalue()
 
 
+# --- T3 attendance sheet pagination -------------------------------------
+# The emailed PDF paginates the participant list in Python rather than
+# leaving it to the PDF engine. wkhtmltopdf's WebKit honours neither
+# `thead { display: table-header-group }` nor `tr { page-break-inside:
+# avoid }`, so a list left to flow on its own lost its column headings on
+# the second page and sliced a participant's row in half across the page
+# break. On a form HRDCorp checks line by line, neither is acceptable.
+# Chunking the rows here and emitting one complete table per page gives the
+# same result the browser's own print does: headings repeated, no row split.
+#
+# The numbers are measured against A4 as wkhtmltopdf lays this sheet out,
+# with a deliberate margin of error, and they are a set - changing the row
+# height without re-measuring the rest will spill a 25-pax list onto a third
+# page, which is the one thing this is not allowed to do.
+_T3_ROW_HEIGHT_PX = 70          # tall enough to sign in by hand
+_T3_ROWS_FIRST_PAGE = 15        # page 1 also carries the form header
+_T3_ROWS_CONT_PAGE = 18         # continuation pages carry only the table
+_T3_ROWS_WITH_CERT_FIRST = 11   # rows that still leave room for the cert block
+_T3_ROWS_WITH_CERT_CONT = 15
+
+
+def _t3_row_chunks(rows):
+    """The participant rows split into one list per printed page."""
+    if not rows:
+        return [[]]
+    chunks, i, first = [], 0, True
+    while i < len(rows):
+        size = _T3_ROWS_FIRST_PAGE if first else _T3_ROWS_CONT_PAGE
+        chunks.append(rows[i:i + size])
+        i += size
+        first = False
+    return chunks
+
+
 def _build_t3_form_html(session_row, participants, training_days, extra_blank_rows=0,
                          signatures_by_participant=None):
     """Self-contained HTML for the printable T3 (PSMB/SBL-KHAS/T3/01)
@@ -1068,53 +1102,24 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
     # At least 6 rows total, plus any extra blank rows the user asked for
     # (e.g. for last-minute walk-in participants to fill in by hand).
     blank_row_count = max(0, 6 - len(participants)) + max(0, extra_blank_rows)
-    blank_rows = "".join(
+    blank_rows = [
         "<tr><td style='text-align:center'>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>"
         for _ in range(blank_row_count)
-    )
+    ]
 
-    pages = []
-    for idx, day in enumerate(training_days):
-        day_label = _fmtdate(day.isoformat())
-        day_iso = day.isoformat()
-        if len(training_days) > 1:
-            day_label += f" (Day {idx + 1})"
-        page_style = "page-break-before: always;" if idx > 0 else ""
+    form_header = f"""
+          <p style="text-align:center;font-weight:700;margin:0 0 14px">FOR SBL-KHAS SCHEME ONLY</p>
+          <table class="t3-header-row">
+            <tr>
+              <td class="t3-box t3-box-first">PSMB/SBL-KHAS/T3/01</td>
+              <td class="t3-gap"></td>
+              <td class="t3-header-title">ATTENDANCE LIST</td>
+              <td class="t3-gap"></td>
+              <td class="t3-box t3-box-last">This attendance list must be enclosed when submitting the claim form PSMB/SBL-KHAS/JD/14</td>
+            </tr>
+          </table>"""
 
-        participant_rows = ""
-        for i, p in enumerate(participants, start=1):
-            sig_file = signatures_by_participant.get(p["id"], {}).get(day_iso)
-            # 62px — scaled up the same 2x factor as the on-screen/print
-            # page's own signature size (36px -> 72px), so the emailed PDF
-            # (the actual document sent for HRDCorp claims) isn't left
-            # looking smaller than the page staff actually look at.
-            sig_cell = (f"<img src='{t3_signature_data_uri(session_row['id'], sig_file)}' "
-                        f"style='max-height:62px;max-width:100%'>") if sig_file else ""
-            participant_rows += (
-                f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
-                # Employer, NRIC and Citizenship are centred; only the
-                # trainee's own name stays left-aligned, since that is the
-                # column that actually wraps to a second line.
-                f"<td style='text-align:center'>{escape(p['employer_name'] or '')}</td>"
-                f"<td style='text-align:center'>{escape(p['ic_no'] or '')}</td>"
-                f"<td style='text-align:center'>{escape(p['citizenship'] or 'Malaysian')}</td>"
-                f"<td style='text-align:center'>{escape((p['gender'] or '')[:1])}</td>"
-                f"<td style='text-align:center'>{sig_cell}</td></tr>"
-            )
-
-        pages.append(f"""
-        <div class="t3-page" style="{page_style}">
-          <div class="code-stamp">{session_code}</div>
-          <p style="text-align:center;font-weight:700;margin:0 0 16px">FOR SBL-KHAS SCHEME ONLY</p>
-          <div class="t3-header-row">
-            <div class="t3-box t3-box-first">PSMB/SBL-KHAS/T3/01</div>
-            <div class="t3-header-title"><span>ATTENDANCE LIST</span></div>
-            <div class="t3-box t3-box-last">This attendance list must be enclosed when submitting the claim form PSMB/SBL-KHAS/JD/14</div>
-          </div>
-          <table class="info-table">
-            <tr><td class="label">Course Title</td><td class="colon">:</td><td class="t3-fill">{course_title}</td></tr>
-            <tr><td class="label">Dates of Training</td><td class="colon">:</td><td class="t3-fill">{day_label}</td></tr>
-          </table>
+    table_head = """
           <table class="attendance-table">
             <thead>
               <tr>
@@ -1123,8 +1128,9 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
                 <th style="width:7%">Sex</th><th style="width:16%">Signature*</th>
               </tr>
             </thead>
-            <tbody>{participant_rows}{blank_rows}</tbody>
-          </table>
+            <tbody>"""
+
+    cert_block = """
           <p style="font-weight:700;margin:0 0 16px">I certify that all trainees listed above had fully attended the training.</p>
           <table class="cert-block">
             <tr>
@@ -1149,9 +1155,71 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
             </tr>
           </table>
           <p class="note">* Note: 1. Please make a separate attachment if more space is required</p>
-          <p class="note">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. This attendance list must be prepared on daily basis and signed by the trainee in each column of the relevant date of training if he/she had attended the programme on that day</p>
+          <p class="note">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. This attendance list must be prepared on daily basis and signed by the trainee in each column of the relevant date of training if he/she had attended the programme on that day</p>"""
+
+    pages = []
+    for idx, day in enumerate(training_days):
+        day_label = _fmtdate(day.isoformat())
+        day_iso = day.isoformat()
+        if len(training_days) > 1:
+            day_label += f" (Day {idx + 1})"
+
+        participant_rows = []
+        for i, p in enumerate(participants, start=1):
+            sig_file = signatures_by_participant.get(p["id"], {}).get(day_iso)
+            # 62px - scaled up the same 2x factor as the on-screen/print
+            # page's own signature size (36px -> 72px), so the emailed PDF
+            # (the actual document sent for HRDCorp claims) isn't left
+            # looking smaller than the page staff actually look at.
+            sig_cell = (f"<img src='{t3_signature_data_uri(session_row['id'], sig_file)}' "
+                        f"style='max-height:62px;max-width:100%'>") if sig_file else ""
+            participant_rows.append(
+                f"<tr><td style='text-align:center'>{i}</td><td>{escape(p['name'] or '')}</td>"
+                # Employer, NRIC and Citizenship are centred; only the
+                # trainee's own name stays left-aligned, since that is the
+                # column that actually wraps to a second line.
+                f"<td style='text-align:center'>{escape(p['employer_name'] or '')}</td>"
+                f"<td style='text-align:center'>{escape(p['ic_no'] or '')}</td>"
+                f"<td style='text-align:center'>{escape(p['citizenship'] or 'Malaysian')}</td>"
+                f"<td style='text-align:center'>{escape((p['gender'] or '')[:1])}</td>"
+                f"<td style='text-align:center'>{sig_cell}</td></tr>"
+            )
+
+        chunks = _t3_row_chunks(participant_rows + blank_rows)
+        last = len(chunks) - 1
+        cert_limit = _T3_ROWS_WITH_CERT_FIRST if last == 0 else _T3_ROWS_WITH_CERT_CONT
+        cert_on_last_chunk = len(chunks[last]) <= cert_limit
+
+        for c_idx, chunk in enumerate(chunks):
+            first_page_of_day = c_idx == 0
+            # Every page after the very first one in the document starts a
+            # new sheet: a new training day, or a continuation of this day's
+            # list. page-break-before is the one break rule wkhtmltopdf does
+            # honour, which is why the pagination above is done by hand.
+            page_style = "" if (idx == 0 and c_idx == 0) else "page-break-before: always;"
+            head = f"""{form_header}
+          <table class="info-table">
+            <tr><td class="label">Course Title</td><td class="colon">:</td><td class="t3-fill">{course_title}</td></tr>
+            <tr><td class="label">Dates of Training</td><td class="colon">:</td><td class="t3-fill">{day_label}</td></tr>
+          </table>""" if first_page_of_day else ""
+            tail = cert_block if (c_idx == last and cert_on_last_chunk) else ""
+            pages.append(f"""
+        <div class="t3-page" style="{page_style}">
+          <div class="code-stamp">{session_code}</div>{head}{table_head}{"".join(chunk)}</tbody>
+          </table>{tail}
         </div>
         """)
+
+        if not cert_on_last_chunk:
+            # The list finished too close to the foot of its page for the
+            # certification block to follow it, so that block gets a sheet of
+            # its own rather than being split across the break.
+            pages.append(f"""
+        <div class="t3-page" style="page-break-before: always;">
+          <div class="code-stamp">{session_code}</div>{cert_block}
+        </div>
+        """)
+
     pages_html = "".join(pages)
 
     return f"""<!doctype html>
@@ -1169,16 +1237,21 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
      produced an entirely blank second page when printed. */
   .t3-page {{ position: relative; padding: 16px 14px 0; }}
 
-  /* .t3-header-row: flexbox row of three boxes, matching the on-screen
-     d-flex .t3-header-row markup (gap-3 = 15px, mb-4 = 22px). */
-  .t3-header-row {{ display: flex; justify-content: space-between; align-items: stretch;
-                     gap: 15px; margin-bottom: 22px; }}
-  .t3-box {{ border: 1px solid #333; padding: 9px 13px; display: flex; align-items: center;
-             justify-content: center; text-align: center; font-weight: 700; }}
-  .t3-box-first {{ min-width: 170px; }}
-  .t3-box-last {{ max-width: 280px; font-weight: 400; font-size: 12px; }}
-  .t3-header-title {{ flex-grow: 1; display: flex; align-items: center; justify-content: center; text-align: center; }}
-  .t3-header-title span {{ font-size: 18.75px; font-weight: 700; }}
+  /* .t3-header-row: the three-box strip at the top of the HRDCorp form -
+     code box on the left, ATTENDANCE LIST in the middle, claim-form note on
+     the right. Laid out as a TABLE, not flexbox: wkhtmltopdf's WebKit does
+     not support flexbox, so the on-screen `d-flex` version silently stacked
+     the three boxes vertically in the emailed PDF and the trainer got a
+     sheet that did not match the HRDCorp layout at all. A table renders the
+     same in both engines. The two narrow .t3-gap cells stand in for the
+     flex `gap`. Widths mirror the on-screen proportions. */
+  .t3-header-row {{ table-layout: fixed; margin-bottom: 18px; }}
+  .t3-header-row td {{ vertical-align: middle; }}
+  .t3-gap {{ width: 2.5%; border: 0; }}
+  .t3-box {{ border: 1px solid #333; padding: 9px 13px; text-align: center; font-weight: 700; }}
+  .t3-box-first {{ width: 25%; }}
+  .t3-box-last {{ width: 34%; font-weight: 400; font-size: 12px; }}
+  .t3-header-title {{ text-align: center; font-size: 18.75px; font-weight: 700; border: 0; }}
 
   /* Course Title / Dates of Training and NAME/SIGNATURE blocks: borderless
      info tables with a single underline (.t3-fill) on the value cell. */
@@ -1207,20 +1280,28 @@ def _build_t3_form_html(session_row, participants, training_days, extra_blank_ro
      earlier version used), uppercase muted header text with no shaded
      background (the real .table thead th rule has none). */
   .attendance-table {{ margin-bottom: 14px; }}
-  /* Row height: 44px. Signing room is the priority, not page count. A
-     25-pax sheet is meant to run to two pages here: the full list on page
-     1, the certification block and footnote on page 2, which is how it is
-     printed anyway. 44px is the tallest row that still keeps all 25 names
-     on page 1 even when every name wraps to two lines; from ~46px the list
-     itself starts splitting across pages, which reads worse. A 40-pax list
-     is still two pages. This was briefly 23px to force everything onto one
-     page and that was far too cramped to sign, so do not trade the height
-     back for a shorter sheet. */
+  /* Row height comes from _T3_ROW_HEIGHT_PX, which the Python-side
+     pagination above is measured against - change one and you must
+     re-measure the other. It is set for signing room: a hand-written
+     signature needs a band roughly this tall, and the on-screen version
+     the trainer prints from is about this size. It was briefly cut to
+     23px to force a 25-pax list onto one page and that was far too
+     cramped to sign; page count is not what this number optimises for. */
+  /* When the list runs past the foot of a page: repeat the column headings
+     on the next page (HRDCorp's sheet is read column by column, a headless
+     continuation is not acceptable) and never let a single participant's
+     row be sliced in half by the page break. */
+  .attendance-table thead {{ display: table-header-group; }}
+  .attendance-table tr {{ page-break-inside: avoid; }}
   .attendance-table th, .attendance-table td {{ border: 1px solid #333; padding: 4px 6px;
                                                   text-align: center; vertical-align: middle; }}
+  /* Header text is black, like the on-screen form and the official HRDCorp
+     sheet. It was grey here, which is the app's own table-header styling and
+     does not belong on a form that has to match HRDCorp's exactly. Kept
+     compact (small type, tight padding) so the space goes to the rows. */
   .attendance-table th {{ font-size: 11.7px; font-weight: 700; text-transform: uppercase;
-                           letter-spacing: 0.03em; color: #6b7280; padding: 3px 5px; }}
-  .attendance-table td {{ height: 44px; text-align: left; }}
+                           letter-spacing: 0.03em; color: #1a1a1a; padding: 3px 5px; }}
+  .attendance-table td {{ height: {_T3_ROW_HEIGHT_PX}px; text-align: left; }}
   /* No./Sex columns override to centered via their own inline style, which
      wins over this class rule - matching the two text-center cells in the
      real template. */
