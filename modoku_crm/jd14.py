@@ -104,7 +104,36 @@ def _jd14_row_or_derived(session_row):
     derived["session_id"] = session_row["id"]
     derived["signed_by_user_id"] = None
     derived["signed_at"] = None
+    derived["sent_at"] = None
+    derived["sent_to"] = None
     return derived
+
+
+def jd14_stage(session_row, jd14_row):
+    """The JD14 pipeline stage for a class, driven entirely by existing or
+    derived state - this helper never writes anything itself. One of:
+      - "not_signed": our half hasn't been signed yet - the pipeline
+        (Sent -> Awaiting Return -> Received) hasn't started, so nothing
+        should be shown for it.
+      - "preparing": signed, but not yet emailed to the client - "Sent"
+        hasn't been reached yet.
+      - "awaiting_return": emailed to the client (jd14_forms.sent_at is
+        set), but their countersigned copy hasn't come back yet.
+      - "received": the client's signed copy is on file - this reads
+        course_sessions.jd14_file, which the EXISTING receive flow
+        (jd14_return.py / sessions.upload_jd14) already maintains; this
+        function never writes it, only reads it.
+    session_row and jd14_row can be the SAME row object (e.g. one query
+    joining course_sessions and jd14_forms together, as index() does) as
+    long as it carries jd14_file, signed_at and sent_at - this function
+    only ever reads those three fields by name."""
+    if jd14_row is None or not jd14_row["signed_at"]:
+        return "not_signed"
+    if not jd14_row["sent_at"]:
+        return "preparing"
+    if not session_row["jd14_file"]:
+        return "awaiting_return"
+    return "received"
 
 
 def _save_fields(session_id, form, derived=False):
@@ -145,18 +174,55 @@ def _pdf_row_and_signer(session_id):
     return session_row, jd14_row, signed_by_user
 
 
+# Status is a derived label (no jd14_forms row at all / drafted-not-signed /
+# signed / sent-awaiting-return / received), not a stored column, so sorting
+# by it needs its own rank expression rather than a plain column name - kept
+# in the same order the badges progress in on the page.
+_STATUS_RANK_SQL = """CASE
+    WHEN cs.jd14_file IS NOT NULL THEN 4
+    WHEN jf.sent_at IS NOT NULL THEN 3
+    WHEN jf.signed_at IS NOT NULL THEN 2
+    WHEN jf.id IS NOT NULL THEN 1
+    ELSE 0
+END"""
+
+SORTABLE_COLUMNS = {
+    "class": "c.title",
+    "date": "cs.start_date",
+    "status": _STATUS_RANK_SQL,
+}
+
+
 @bp.route("/")
 @login_required
 def index():
-    rows = db.query(
-        """SELECT cs.id, cs.start_date, cs.end_date, cs.status, c.title AS course_title,
-                  jf.signed_at, jf.id AS jd14_forms_id
-           FROM course_sessions cs
-           JOIN courses c ON c.id = cs.course_id
-           LEFT JOIN jd14_forms jf ON jf.session_id = cs.id
-           ORDER BY cs.start_date DESC"""
-    )
-    return render_template("jd14/index.html", sessions=rows)
+    q = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "date")
+    direction = request.args.get("dir", "desc")
+    if sort not in SORTABLE_COLUMNS:
+        sort = "date"
+    if direction not in ("asc", "desc"):
+        direction = "desc"
+
+    sql = """SELECT cs.id, cs.start_date, cs.end_date, cs.status, cs.jd14_file, c.title AS course_title,
+                    co.name AS client_name, jf.signed_at, jf.sent_at, jf.id AS jd14_forms_id
+             FROM course_sessions cs
+             JOIN courses c ON c.id = cs.course_id
+             LEFT JOIN companies co ON co.id = cs.client_company_id
+             LEFT JOIN jd14_forms jf ON jf.session_id = cs.id
+             WHERE 1=1"""
+    args = []
+    if q:
+        sql += " AND (c.title LIKE ? OR co.name LIKE ? OR cs.venue LIKE ?)"
+        args += [f"%{q}%"] * 3
+    sql += f" ORDER BY {SORTABLE_COLUMNS[sort]} {direction.upper()}, cs.start_date DESC"
+
+    rows = db.query(sql, args)
+    # jd14_stage() only reads jd14_file/signed_at/sent_at, all three already
+    # on this one merged row - see its own docstring for why passing the
+    # same row as both its session_row and jd14_row arguments is fine here.
+    sessions = [dict(r, jd14_stage=jd14_stage(r, r)) for r in rows]
+    return render_template("jd14/index.html", sessions=sessions, q=q, sort=sort, direction=direction)
 
 
 @bp.route("/sessions/<int:session_id>")
@@ -179,6 +245,7 @@ def edit(session_id):
         "jd14/edit.html", s=session_row, f=jd14_row, signed_by_user=signed_by_user,
         preview_user=preview_user, company_stamp_file=settings.get_company_stamp_file(),
         is_admin=(g.user and g.user["role"] == "admin"),
+        jd14_stage_value=jd14_stage(session_row, jd14_row),
     )
 
 
@@ -325,6 +392,15 @@ def send(session_id):
     except mailer.MailSendError as exc:
         flash(f"Email failed to send: {exc}", "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
+
+    # Drives the Sent -> Awaiting Return -> Received status tracker
+    # (jd14_stage()) - the receiving half (course_sessions.jd14_file) is
+    # still tracked entirely by the EXISTING jd14_return.py flow, untouched
+    # here.
+    db.execute(
+        "UPDATE jd14_forms SET sent_at = datetime('now'), sent_to = ? WHERE session_id = ?",
+        (to_email, session_id),
+    )
 
     flash(f"JD14 Form emailed to {to_email}.", "success")
     return redirect(url_for("jd14.edit", session_id=session_id))

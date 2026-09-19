@@ -8,12 +8,38 @@
   </div>
 </div>
 
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-4">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by class, client or venue">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-outline-secondary w-100" type="submit">Search</button>
+    </div>
+    {% if q %}
+    <div class="col-md-2">
+      <a href="{{ url_for('jd14.index') }}" class="btn btn-link w-100">Clear</a>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
 <div class="card p-3">
+  {% macro sort_link(key, label) %}
+    <a href="{{ url_for('jd14.index', q=q, sort=key, dir='asc' if sort==key and direction=='desc' else 'desc') }}"
+       class="text-decoration-none text-reset">
+      {{ label }}
+      {% if sort == key %}<i class="bi bi-caret-{{ 'up' if direction=='asc' else 'down' }}-fill small"></i>{% endif %}
+    </a>
+  {% endmacro %}
   {% if sessions %}
   <div class="table-responsive">
     <table class="table table-hover align-middle">
       <thead><tr>
-        <th>Class</th><th>Date</th><th>Status</th><th></th>
+        <th>{{ sort_link('class', 'Class') }}</th>
+        <th>{{ sort_link('date', 'Date') }}</th>
+        <th>{{ sort_link('status', 'Status') }}</th>
+        <th></th>
       </tr></thead>
       <tbody>
         {% for s in sessions %}
@@ -28,6 +54,18 @@
             {% else %}
             <span class="badge bg-secondary">Not started</span>
             {% endif %}
+            {# Sent -> Awaiting Return -> Received tracker - see jd14.py's
+               jd14_stage() docstring; shown once our half is signed, i.e.
+               the pipeline has actually started. #}
+            {% if s.jd14_stage and s.jd14_stage != 'not_signed' %}
+            <div class="d-flex align-items-center gap-1 mt-1">
+              <span class="badge small {{ 'bg-success' if s.jd14_stage in ('awaiting_return', 'received') else 'bg-light text-muted border' }}">Sent</span>
+              <i class="bi bi-arrow-right text-muted small"></i>
+              <span class="badge small {{ 'bg-success' if s.jd14_stage == 'received' else ('bg-primary' if s.jd14_stage == 'awaiting_return' else 'bg-light text-muted border') }}">Awaiting Return</span>
+              <i class="bi bi-arrow-right text-muted small"></i>
+              <span class="badge small {{ 'bg-success' if s.jd14_stage == 'received' else 'bg-light text-muted border' }}">Received</span>
+            </div>
+            {% endif %}
           </td>
           <td class="text-end">
             <a href="{{ url_for('jd14.edit', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Open</a>
@@ -37,6 +75,8 @@
       </tbody>
     </table>
   </div>
+  {% elif q %}
+  <p class="text-muted mb-0">No classes match "{{ q }}".</p>
   {% else %}
   <p class="text-muted mb-0">No classes yet.</p>
   {% endif %}
