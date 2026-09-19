@@ -405,6 +405,11 @@ CREATE TABLE IF NOT EXISTS jd14_forms (
     total_fee_claimed TEXT,
     signed_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     signed_at TEXT,
+    sent_at TEXT,                    -- when OUR signed half was emailed to the client to countersign
+    sent_to TEXT,                    -- the address it was sent to (jd14.send) - drives the
+                                      -- Sent -> Awaiting Return -> Received status tracker; NOT the
+                                      -- same event as course_sessions.jd14_sent_at/jd14_sent_to,
+                                      -- which track re-sending the CLIENT'S returned signed copy
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
@@ -1002,6 +1007,14 @@ _COLUMN_MIGRATIONS = [
     # declaration block — a staff member fills this in on their own Profile
     # once, and it's reused whenever they sign a JD14 form (jd14.py).
     ("users", "mykad_no", "TEXT"),
+    # When OUR signed half of the JD14 form was last emailed to the client
+    # (jd14.send) and who it went to — drives the Sent -> Awaiting Return ->
+    # Received status tracker on the JD14 index/edit pages (jd14_stage()).
+    # Distinct from course_sessions.jd14_sent_at/jd14_sent_to, which track
+    # a different event (re-sending the CLIENT'S already-returned signed
+    # copy — see db.py's CREATE TABLE jd14_forms note above).
+    ("jd14_forms", "sent_at", "TEXT"),
+    ("jd14_forms", "sent_to", "TEXT"),
 ]
 
 
