@@ -1044,15 +1044,28 @@ def generate_certificate_pdf(fullname, course_title, date_range):
 # Chunking the rows here and emitting one complete table per page gives the
 # same result the browser's own print does: headings repeated, no row split.
 #
-# The numbers are measured against A4 as wkhtmltopdf lays this sheet out,
-# with a deliberate margin of error, and they are a set - changing the row
-# height without re-measuring the rest will spill a 25-pax list onto a third
-# page, which is the one thing this is not allowed to do.
-_T3_ROW_HEIGHT_PX = 70          # tall enough to sign in by hand
-_T3_ROWS_FIRST_PAGE = 15        # page 1 also carries the form header
-_T3_ROWS_CONT_PAGE = 18         # continuation pages carry only the table
-_T3_ROWS_WITH_CERT_FIRST = 11   # rows that still leave room for the cert block
-_T3_ROWS_WITH_CERT_CONT = 15
+# Sizing. A4 less the 10mm margins is 786pt tall; the form header eats ~89pt
+# and the column headings ~15pt, leaving ~682pt of rows on page 1 and ~771pt
+# on a continuation page, with the certification block worth ~120pt.
+#
+# The one number that is NOT portable is how a CSS px maps to a point:
+# wkhtmltopdf scales the rendered page to fit the paper, and the factor
+# differs per build. Measured off real output: 0.677 pt/px on the server
+# (0.12.6.1 / Qt 4.8.7), 0.575 pt/px on the 0.12.6 / Qt 5.15.13 build used in
+# testing - the server renders ~18% larger, which is why a 25-pax sheet that
+# was two pages in testing came back three from the server, with a nearly
+# empty middle page. The counts below are therefore sized for the SERVER's
+# mapping, the tighter of the two: a sheet that fits there fits anywhere, and
+# a build that renders smaller just leaves more white space at the foot of a
+# page. They hold with a row to spare up to ~1.35x the server's scale
+# (test_t3_form.py re-renders at that scale with --zoom to prove it). Do not
+# raise them off a local render that looks like it has room - that is exactly
+# the mistake that produced the three-page sheet.
+_T3_ROW_HEIGHT_PX = 64          # ~17mm on paper: room to sign by hand
+_T3_ROWS_FIRST_PAGE = 13        # page 1 also carries the form header
+_T3_ROWS_CONT_PAGE = 15         # continuation pages carry only the table
+_T3_ROWS_WITH_CERT_FIRST = 10   # rows that still leave room for the cert block
+_T3_ROWS_WITH_CERT_CONT = 12
 
 
 def _t3_row_chunks(rows):
@@ -1333,6 +1346,12 @@ def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_r
     pdf_path = html_path.replace(".html", ".pdf")
     try:
         result = subprocess.run(
+            # Render options are deliberately left at the same defaults every
+            # other document here uses. --dpi/--disable-smart-shrinking were
+            # tried and made things worse: they change how CSS px map to the
+            # page, and they do so differently per build, which would have
+            # moved the server (0.12.6.1 / Qt 4.8.7) away from the measured
+            # behaviour the pagination constants above are based on.
             ["wkhtmltopdf", "--page-size", "A4",
              "--margin-top", "10mm", "--margin-bottom", "10mm",
              "--margin-left", "10mm", "--margin-right", "10mm",
