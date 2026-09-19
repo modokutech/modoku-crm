@@ -1393,6 +1393,65 @@ def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_r
 # layout means changing that template's preview markup to match, and vice
 # versa - there is no single source of truth to edit once and have both
 # follow, the same discipline already used for the T3 Attendance Form.
+#
+# This layout is a VERBATIM reproduction of the official HRDCorp reference
+# (PSMB/SBL-KHAS/JD/14) - extracted with `pdftotext -layout` and checked
+# against a 150dpi render of the real PDF, not a paraphrase. Section order,
+# box/border structure, wording and bold/label placement below all mirror
+# that reference exactly; don't "clean up" the wording, spacing or the
+# double-colon in the footer's "REMINDER: :" - that is how the source form
+# has it. See jd14.py's module docstring for the receiving half of this
+# workflow, which this function never touches.
+_JD14_MYCOID_CELLS = list("1390352-H") + [""] * 11  # one char per cell, + blank cells to fill out the row
+
+
+def _jd14_decl_block(letter, paragraph, signature_html, name_html, mykad_html,
+                      designation_html, stamp_html, note_text, date_html, date_gap):
+    """The (a)/(b) declaration block inside Part 3 - identical structure for
+    both the Training Provider (a, our side, may be filled in) and the
+    Employer (b, always blank - filled in by hand by the client). A single
+    helper avoids the two blocks silently drifting apart from each other
+    inside this one file (templates/jd14/edit.html still repeats this
+    markup by hand for the live preview, per the module note above).
+
+    date_gap adds extra vertical space above the DATE row, matching the
+    reference: in (a) there's a visible gap between MYKAD NO and DATE
+    (room for a physical stamp over the printed COMPANY STAMP line); (b)
+    has none since every field in it is left blank anyway.
+
+    SIGNATURE/DESIGNATION (row 1) and NAME/COMPANY STAMP (row 2) both get
+    the same extra row height on BOTH sides, even though only the left
+    (signature) and right (stamp) side of each pair actually holds an
+    embedded image - the two columns are independent tables, so giving
+    only one side extra height would push its row out of line with its
+    counterpart, which the reference does not do (every row lines up
+    across both columns)."""
+    return f"""
+    <table class="jd14-hang">
+      <tr><td class="jd14-hang-mark">({letter})</td><td class="jd14-hang-body">{paragraph}</td></tr>
+    </table>
+    <table class="jd14-decl-cols">
+      <tr>
+        <td style="width:50%">
+          <table class="jd14-decl-kv">
+            <tr><td class="dlabel">SIGNATURE</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{signature_html}</td></tr>
+            <tr><td class="dlabel">NAME</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{name_html}</td></tr>
+            <tr><td class="dlabel">MYKAD NO</td><td class="dcolon">:</td><td class="dvalue">{mykad_html}</td></tr>
+          </table>
+        </td>
+        <td style="width:50%">
+          <table class="jd14-decl-kv">
+            <tr><td class="dlabel">DESIGNATION</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{designation_html}</td></tr>
+            <tr><td class="dlabel">COMPANY STAMP</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{stamp_html}</td></tr>
+            <tr><td colspan="2"></td><td class="jd14-decl-note">{note_text}</td></tr>
+            <tr style="height:{date_gap}px"><td colspan="3"></td></tr>
+            <tr><td class="dlabel">DATE</td><td class="dcolon">:</td><td class="dvalue">{date_html}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>"""
+
+
 def _build_jd14_html(session_row, jd14_row, signed_by_user):
     """Self-contained HTML for the outgoing HRDCorp Joint Declaration Form
     (PSMB/SBL-KHAS/JD/14) - OUR half of it, filled in and signed by an
@@ -1402,9 +1461,15 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
     doesn't support either), mirroring the approach already used for the T3
     Attendance Form above.
 
+    A plain black-and-white bureaucratic form reproduced as-is - no Modoku
+    branding, colours or logo, since the real HRDCorp document has none of
+    those either.
+
     signed_by_user is None until the form is signed - in that case Part
     3(a)'s signature/stamp/mykad/designation/date cells render blank so
-    staff can preview the unsigned version too."""
+    staff can preview the unsigned version too. Part 3(b) (the Employer's
+    side) is ALWAYS left blank here - it's filled in by hand by the client
+    after they receive the form."""
     employer_address_html = (jd14_row["employer_address"] or "").replace("\n", "<br>")
 
     commenced = _fmtdate(jd14_row["training_date_commenced"])
@@ -1418,144 +1483,176 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
     signed_name = ""
     if signed_by_user is not None:
         sig_uri = _user_signature_data_uri(signed_by_user["signature_file"], signed_by_user["id"])
-        signature_html = f"<img src='{sig_uri}' style='max-height:60px;max-width:100%'>" if sig_uri else ""
+        signature_html = f"<img src='{sig_uri}' style='max-height:24px;max-width:100%'>" if sig_uri else ""
         stamp_uri = _company_stamp_data_uri()
-        stamp_html = f"<img src='{stamp_uri}' style='max-height:70px;max-width:100%'>" if stamp_uri else ""
+        stamp_html = f"<img src='{stamp_uri}' style='max-height:24px;max-width:100%'>" if stamp_uri else ""
         mykad = escape(signed_by_user["mykad_no"] or "")
         designation = escape(signed_by_user["position"] or "")
         signed_date = _fmtdate(jd14_row["signed_at"].split(" ")[0]) if jd14_row["signed_at"] else ""
         signed_name = escape(signed_by_user["name"] or "")
 
+    mycoid_cells = "".join(f'<td class="mycoid-cell">{c}</td>' for c in _JD14_MYCOID_CELLS)
+
+    decl_a = _jd14_decl_block(
+        "a",
+        "I certify that all information declared above is true and correct and the training program claimed "
+        "above has been conducted with all terms and condition under this scheme has been complied. I also "
+        "declared that apart from this claim, there is no other claim has been made for these expenses. All "
+        "relevant documents pertaining to this claim are with us and can be inspected by the Secretariat of "
+        "the Pembangunan Sumber Manusia Berhad. (Training Provider)",
+        signature_html, signed_name, mykad, designation, stamp_html,
+        "(Managing Director/General Manager/Centre Manager/Principal)",
+        signed_date, date_gap=64,
+    )
+    decl_b = _jd14_decl_block(
+        "b",
+        "I certify that the training had been completed and agreed with the fees charged above.&nbsp; I am "
+        "responsible to the claimed above and certify all information provided here is true and correct. (Employer)",
+        "", "", "", "", "",
+        "(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance "
+        "Director of Employer)",
+        "", date_gap=14,
+    )
+
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
   * {{ box-sizing: border-box; }}
-  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 12.5px; color: #1a1a1a; margin: 0; padding: 16px 18px; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000; margin: 0; padding: 16px 18px; }}
   table {{ border-collapse: collapse; width: 100%; }}
   td, th {{ vertical-align: top; }}
 
-  /* Top strip: two small pre-printed boxes flanking the title - a TABLE,
-     not flexbox, so it renders the same under wkhtmltopdf as it does on
-     screen (see the T3 form's own note on this above). */
-  .jd14-topstrip td {{ border: 1px solid #333; padding: 5px 8px; font-size: 10px; vertical-align: top; }}
-  .jd14-topstrip {{ margin-bottom: 10px; table-layout: fixed; }}
-  .jd14-topstrip .box-title {{ font-weight: 700; }}
+  /* Top strip: the pre-printed MyCoID comb box and the small form-code box
+     below it - TABLEs, not flexbox, so they render the same under
+     wkhtmltopdf as on screen (see the T3 form's own note on this above).
+     Neither is full page width in the reference, so both get an explicit
+     width instead of inheriting the 100% default above. Kept close to
+     their original small size on purpose - the reference itself keeps
+     this pre-printed strip and the footer disclaimer small while the
+     Part 1/2/3 body content is noticeably larger. */
+  .jd14-mycoid {{ width: 48%; table-layout: fixed; }}
+  .jd14-mycoid td {{ border: 1px solid #000; }}
+  .jd14-mycoid .mycoid-label {{ text-align: center; font-weight: 700; font-size: 11px; padding: 5px 2px; }}
+  .jd14-mycoid .mycoid-cell {{ text-align: center; font-weight: 700; font-size: 9.5px; height: 17px; padding: 2px 0; }}
+  .jd14-formcode {{ width: auto; margin: 5px 0 0; }}
+  .jd14-formcode td {{ border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 5px 9px; }}
 
-  .jd14-title {{ text-align: center; font-weight: 700; font-size: 14px; margin: 4px 0 2px; }}
-  .jd14-subtitle {{ text-align: center; font-size: 10.5px; color: #444; margin: 0 0 12px; }}
+  .jd14-title-main {{ text-align: center; font-weight: 700; font-size: 17px; margin: 14px 0 3px; }}
+  .jd14-title-sub {{ text-align: center; font-weight: 700; font-size: 14px; margin: 0 0 8px; }}
+  .jd14-intro {{ text-align: center; font-size: 11.5px; line-height: 1.45; margin: 0 0 16px; }}
 
-  .jd14-section {{ border: 1px solid #333; padding: 8px 10px; margin-bottom: 10px; }}
-  .jd14-section-title {{ font-weight: 700; font-size: 12px; margin: 0 0 6px; text-transform: uppercase; }}
+  .jd14-part-heading {{ text-align: center; font-weight: 700; font-size: 14.5px; margin: 16px 0 10px; }}
 
-  .jd14-fill {{ border-bottom: 1px solid #333; min-height: 14px; padding: 1px 3px; }}
-  .jd14-row td {{ padding: 3px 4px; }}
-  .jd14-row td.label {{ white-space: nowrap; font-weight: 600; width: 190px; }}
-  .jd14-row td.colon {{ white-space: nowrap; width: 12px; }}
+  /* Part 1: ONE outer bordered box, open layout inside it - fields are
+     underlined (border-bottom on the value cell) rather than boxed in
+     their own bordered grid, matching the reference. */
+  .jd14-box-outer {{ border: 1px solid #000; padding: 10px 14px 12px; margin-bottom: 20px; }}
+  .jd14-p1-top td {{ padding: 0; }}
+  .jd14-field-label {{ font-size: 12px; margin-bottom: 5px; }}
+  .jd14-employer-area {{ font-size: 12px; min-height: 92px; padding-top: 5px; }}
 
-  .jd14-box {{ border: 1px solid #999; min-height: 60px; padding: 4px; }}
-  .jd14-part3-table td {{ border: 1px solid #333; padding: 6px; width: 33.33%; vertical-align: top; }}
-  .jd14-part3-label {{ font-size: 10px; font-weight: 700; text-transform: uppercase; color: #555; margin-bottom: 4px; }}
+  .jd14-kv td {{ padding: 5px 6px; font-size: 12px; vertical-align: bottom; }}
+  .jd14-kv td.kvlabel {{ white-space: nowrap; width: 150px; }}
+  .jd14-kv td.kvcolon {{ white-space: nowrap; width: 12px; }}
+  .jd14-kv td.kvvalue {{ border-bottom: 1px solid #000; }}
+  .jd14-kv td.kvsub {{ white-space: nowrap; padding-right: 4px; }}
+  .jd14-kv-full td.kvlabel {{ width: 165px; }}
 
-  .jd14-note {{ font-size: 9.5px; color: #555; font-style: italic; margin-top: 2px; }}
-  .jd14-footer {{ font-size: 9px; color: #555; margin-top: 10px; border-top: 1px solid #ccc; padding-top: 6px; }}
+  /* Part 2: a proper bordered grid, unlike Part 1's open underlines - the
+     reference draws visible cell borders all round here. */
+  .jd14-part2 {{ margin-bottom: 4px; }}
+  .jd14-part2 th, .jd14-part2 td {{ border: 1px solid #000; text-align: center; padding: 10px; font-size: 12.5px; }}
+  .jd14-part2 th {{ font-weight: 700; font-size: 12.5px; }}
+
+  /* Part 3: ONE outer box holding both (a) and (b) declarations, each a
+     hanging-indent paragraph (its own small table, so wrapped lines align
+     under the paragraph text rather than under the "(a)"/"(b)" mark - the
+     same reason a <table> is used instead of CSS text-indent, which
+     wkhtmltopdf's older WebKit does not apply consistently across wrapped
+     lines) followed by a two-column label/value grid. */
+  .jd14-hang {{ margin: 10px 0 14px; }}
+  .jd14-hang td {{ padding: 0; font-size: 12px; }}
+  .jd14-hang-mark {{ width: 22px; white-space: nowrap; }}
+  .jd14-hang-body {{ text-align: justify; }}
+  .jd14-decl-cols td {{ padding: 0; vertical-align: top; }}
+  .jd14-decl-kv td {{ padding: 6px 8px; font-size: 12px; }}
+  .jd14-decl-kv td.dlabel {{ font-weight: 700; white-space: nowrap; width: 130px; }}
+  .jd14-decl-kv td.dcolon {{ white-space: nowrap; width: 12px; }}
+  .jd14-decl-kv td.dvalue {{ border-bottom: 1px solid #000; }}
+  .jd14-decl-note {{ font-size: 10.5px; font-style: italic; text-align: right; padding: 2px 4px 0 !important; }}
+
+  .jd14-footer {{ font-size: 9.5px; line-height: 1.45; margin-top: 16px; }}
 </style></head>
 <body>
 
-  <table class="jd14-topstrip">
-    <tr>
-      <td style="width:45%">
-        <div class="box-title">TRAINING PROVIDER MYCOID (ROC/ROB/ROS)</div>
-        Modoku Tech Sdn Bhd (1390352-H)
-      </td>
-      <td style="width:10%"></td>
-      <td style="width:45%;text-align:right">
-        <div class="box-title">PSMB/SBL-KHAS /JD/14</div>
-      </td>
-    </tr>
+  <table class="jd14-mycoid">
+    <tr><td class="mycoid-label" colspan="20">TRAINING PROVIDER MYCOID(ROC/ROB/ROS)</td></tr>
+    <tr>{mycoid_cells}</tr>
+  </table>
+  <table class="jd14-formcode">
+    <tr><td>PSMB/SBL-KHAS /JD/14</td></tr>
   </table>
 
-  <div class="jd14-title">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
-  <div class="jd14-subtitle">To be completed and jointly signed by the Employer and the Training Provider before submission of the claim.</div>
+  <div class="jd14-title-main">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
+  <div class="jd14-title-sub">UNDER THE PEMBANGUNAN SUMBER MANUSIA BERHAD ACT 2001</div>
+  <div class="jd14-intro">This declaration is to certify that employer involved in the training program had agreed with the training program conducted, fees charged and
+    allow training provider to claim with PSMB. This declaration should only be signed by employers after the training completed. This form must be attached when
+    submitting online SBL &ndash;KHAS claim. This form must be kept at training providers premises and available for future verification by PSMB.</div>
 
-  <div class="jd14-section">
-    <div class="jd14-section-title">Part 1</div>
-    <table>
+  <div class="jd14-part-heading">PART 1 &ndash; EMPLOYER&rsquo;S PARTICULAR</div>
+  <div class="jd14-box-outer">
+    <table class="jd14-p1-top">
       <tr>
-        <td style="width:48%;padding-right:10px">
-          <div style="font-weight:600;font-size:11px;margin-bottom:4px">Registered Name and Address of Employer</div>
-          <div class="jd14-box">{escape(jd14_row['employer_name'] or '')}<br>{employer_address_html}</div>
+        <td style="width:55%;padding-right:10px">
+          <div class="jd14-field-label">Registered Name and Address of Employer:</div>
+          <div class="jd14-employer-area">{escape(jd14_row['employer_name'] or '')}<br>{employer_address_html}</div>
         </td>
-        <td style="width:52%">
-          <table class="jd14-row">
-            <tr><td class="label">Employer Code</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['employer_code'] or '')}</td></tr>
-            <tr><td class="label">Approval No</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['approval_no'] or '')}</td></tr>
-            <tr><td class="label">Group Approved</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['group_approved'] or '')}</td></tr>
-            <tr><td class="label">Group Claimed</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['group_claimed'] or '')}</td></tr>
+        <td style="width:45%">
+          <table class="jd14-kv">
+            <tr><td class="kvlabel">Employer Code</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['employer_code'] or '')}</td></tr>
+            <tr><td class="kvlabel">Approval No</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['approval_no'] or '')}</td></tr>
+            <tr><td class="kvlabel">Group Approved</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['group_approved'] or '')}</td></tr>
+            <tr><td class="kvlabel">Group Claimed</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['group_claimed'] or '')}</td></tr>
           </table>
         </td>
       </tr>
     </table>
-    <table class="jd14-row" style="margin-top:6px">
-      <tr><td class="label">Course Title</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['course_title'] or '')}</td></tr>
-      <tr><td class="label">Training Dates (Commenced)</td><td class="colon">:</td><td class="jd14-fill">{commenced}</td></tr>
-      <tr><td class="label">Training Dates (Ended)</td><td class="colon">:</td><td class="jd14-fill">{ended}</td></tr>
-      <tr><td class="label">Training Venue</td><td class="colon">:</td><td class="jd14-fill">{escape(jd14_row['training_venue'] or '')}</td></tr>
+    <table class="jd14-kv jd14-kv-full" style="margin-top:4px">
+      <tr><td class="kvlabel">Course Title</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4">{escape(jd14_row['course_title'] or '')}</td></tr>
+      <tr>
+        <td class="kvlabel">Training Dates</td><td class="kvcolon">:</td>
+        <td class="kvsub">Commenced:</td><td class="kvvalue" style="width:26%">{commenced}</td>
+        <td class="kvsub" style="padding-left:10px">Ended&nbsp;:</td><td class="kvvalue">{ended}</td>
+      </tr>
+      <tr><td class="kvlabel">Training Venue</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4">{escape(jd14_row['training_venue'] or '')}</td></tr>
     </table>
   </div>
 
-  <div class="jd14-section">
-    <div class="jd14-section-title">Part 2</div>
-    <table style="border:1px solid #333">
-      <tr>
-        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Number of Trainee(s)*</th>
-        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Total Fee Approved (RM)</th>
-        <th style="border:1px solid #333;padding:6px;text-align:center;font-size:10.5px">Total Fee Claimed (RM)</th>
-      </tr>
-      <tr>
-        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['num_trainees'] or '')}</td>
-        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['total_fee_approved'] or '')}</td>
-        <td style="border:1px solid #333;padding:8px;text-align:center">{escape(jd14_row['total_fee_claimed'] or '')}</td>
-      </tr>
-    </table>
-    <div class="jd14-note">* Number of trainees who fully attended the training programme.</div>
-  </div>
+  <div class="jd14-part-heading">PART 2 &ndash; CLAIM FOR COURSE FEE</div>
+  <table class="jd14-part2">
+    <tr>
+      <th>Number of Trainee(s)*</th>
+      <th>Total Fee Approved<br>(RM)</th>
+      <th>Total Fee Claimed<br>(RM)</th>
+    </tr>
+    <tr>
+      <td>{escape(jd14_row['num_trainees'] or '')}</td>
+      <td>{escape(jd14_row['total_fee_approved'] or '')}</td>
+      <td>{escape(jd14_row['total_fee_claimed'] or '')}</td>
+    </tr>
+  </table>
 
-  <div class="jd14-section">
-    <div class="jd14-section-title">Part 3</div>
-
-    <p style="margin:0 0 8px">(a) I/We, the Training Provider, hereby declare that the particulars given above are true and correct, and that the training programme was conducted as stated.</p>
-    <table class="jd14-part3-table">
-      <tr>
-        <td><div class="jd14-part3-label">Signature</div><div style="height:60px">{signature_html}</div></td>
-        <td><div class="jd14-part3-label">Name / Company Stamp</div><div>{signed_name}</div><div style="height:50px;margin-top:4px">{stamp_html}</div></td>
-        <td><div class="jd14-part3-label">MyKad No</div><div>{mykad}</div></td>
-      </tr>
-    </table>
-    <table class="jd14-row" style="margin-top:4px">
-      <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14-fill">{designation}</td></tr>
-      <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14-fill">{signed_date}</td></tr>
-    </table>
-    <div class="jd14-note">(Managing Director/General Manager/Centre Manager/Principal)</div>
-
-    <p style="margin:14px 0 8px">(b) I/We, the Employer, hereby declare that the training programme stated above was attended by our employee(s) as claimed.</p>
-    <table class="jd14-part3-table">
-      <tr>
-        <td><div class="jd14-part3-label">Signature</div><div style="height:60px"></div></td>
-        <td><div class="jd14-part3-label">Name / Company Stamp</div><div style="height:56px"></div></td>
-        <td><div class="jd14-part3-label">MyKad No</div><div style="height:20px"></div></td>
-      </tr>
-    </table>
-    <table class="jd14-row" style="margin-top:4px">
-      <tr><td class="label" style="width:110px">Designation</td><td class="colon">:</td><td class="jd14-fill">&nbsp;</td></tr>
-      <tr><td class="label">Date</td><td class="colon">:</td><td class="jd14-fill">&nbsp;</td></tr>
-    </table>
-    <div class="jd14-note">(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance Director of Employer)</div>
+  <div class="jd14-part-heading">PART 3 &ndash; JOINT DECLARATION OF THE TRAINING PROVIDER AND THE EMPLOYER</div>
+  <div class="jd14-box-outer">
+    {decl_a}
+    {decl_b}
   </div>
 
   <div class="jd14-footer">
-    <strong>REMINDER:</strong> Any person who makes a false declaration, or knowingly furnishes false information, in connection with a claim under the
-    Pembangunan Sumber Manusia Berhad Act commits an offence under Section 40/41 of the Act, and on conviction is liable to a fine and/or imprisonment.
-    Both the Employer and the Training Provider are jointly responsible for the accuracy of the particulars declared in this form.
+    <strong>REMINDER: :</strong> You are reminded that, if you should give false or misleading statements, or makes in writing, or signs any declaration which is
+    untrue or incorrect in any particular, you will be prosecuted under <strong>Section 40 and / or Section 41 of Pembangunan Sumber Manusia Berhad Act 2001</strong>
+    and shall be liable to a fine not exceeding twenty thousand ringgit or to imprisonment for a term not exceeding two years or to both. Besides, Pembangunan
+    Sumber Manusia Berhad may, at its discretion, withdraw the grant and recover immediately any amount of the grant that may have been disbursed.
   </div>
 
 </body></html>"""
