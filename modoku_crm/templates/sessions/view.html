@@ -534,12 +534,12 @@
       <p class="small text-muted mb-3">
         Class code <span class="fw-semibold" style="letter-spacing:0.08em">{{ s.session_code }}</span> is stamped on
         the printed form. Trainers use it on the
-        <a href="{{ url_for('attendance_return.lookup') }}" target="_blank">Return Attendance Form</a> page to send back photos of the signed sheet.
+        <a href="{{ url_for('attendance_return.lookup') }}" target="_blank">Return Attendance Form</a> page to send back photos (or a PDF) of the signed sheet.
         {% if ai_configured %}Attendance is then read and marked automatically, no manual cross-check needed.{% endif %}
       </p>
       {% if attendance_returns %}
       <div class="d-flex justify-content-between align-items-center mb-1">
-        <p class="small fw-semibold mb-0">Photos submitted by trainer</p>
+        <p class="small fw-semibold mb-0">Files submitted by trainer</p>
         <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
           <i class="bi bi-robot me-1"></i>AI Match Attendance
         </a>
