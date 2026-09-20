@@ -1434,15 +1434,15 @@ def _jd14_decl_block(letter, paragraph, signature_html, name_html, mykad_html,
       <tr>
         <td style="width:50%">
           <table class="jd14-decl-kv">
-            <tr><td class="dlabel">SIGNATURE</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{signature_html}</td></tr>
-            <tr><td class="dlabel">NAME</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{name_html}</td></tr>
+            <tr><td class="dlabel">SIGNATURE</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{signature_html}</td></tr>
+            <tr><td class="dlabel">NAME</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{name_html}</td></tr>
             <tr><td class="dlabel">MYKAD NO</td><td class="dcolon">:</td><td class="dvalue">{mykad_html}</td></tr>
           </table>
         </td>
         <td style="width:50%">
           <table class="jd14-decl-kv">
-            <tr><td class="dlabel">DESIGNATION</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{designation_html}</td></tr>
-            <tr><td class="dlabel">COMPANY STAMP</td><td class="dcolon">:</td><td class="dvalue" style="height:46px">{stamp_html}</td></tr>
+            <tr><td class="dlabel">DESIGNATION</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{designation_html}</td></tr>
+            <tr><td class="dlabel">COMPANY STAMP</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{stamp_html}</td></tr>
             <tr><td colspan="2"></td><td class="jd14-decl-note">{note_text}</td></tr>
             <tr style="height:{date_gap}px"><td colspan="3"></td></tr>
             <tr><td class="dlabel">DATE</td><td class="dcolon">:</td><td class="dvalue">{date_html}</td></tr>
@@ -1483,9 +1483,9 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
     signed_name = ""
     if signed_by_user is not None:
         sig_uri = _user_signature_data_uri(signed_by_user["signature_file"], signed_by_user["id"])
-        signature_html = f"<img src='{sig_uri}' style='max-height:24px;max-width:100%'>" if sig_uri else ""
+        signature_html = f"<img src='{sig_uri}' style='max-height:64px;max-width:100%'>" if sig_uri else ""
         stamp_uri = _company_stamp_data_uri()
-        stamp_html = f"<img src='{stamp_uri}' style='max-height:24px;max-width:100%'>" if stamp_uri else ""
+        stamp_html = f"<img src='{stamp_uri}' style='max-height:64px;max-width:100%'>" if stamp_uri else ""
         mykad = escape(signed_by_user["mykad_no"] or "")
         designation = escape(signed_by_user["position"] or "")
         signed_date = _fmtdate(jd14_row["signed_at"].split(" ")[0]) if jd14_row["signed_at"] else ""
@@ -1502,7 +1502,7 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
         "the Pembangunan Sumber Manusia Berhad. (Training Provider)",
         signature_html, signed_name, mykad, designation, stamp_html,
         "(Managing Director/General Manager/Centre Manager/Principal)",
-        signed_date, date_gap=64,
+        signed_date, date_gap=10,
     )
     decl_b = _jd14_decl_block(
         "b",
@@ -1511,14 +1511,14 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
         "", "", "", "", "",
         "(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance "
         "Director of Employer)",
-        "", date_gap=14,
+        "", date_gap=2,
     )
 
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
   * {{ box-sizing: border-box; }}
-  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000; margin: 0; padding: 16px 18px; }}
+  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 8px 12px; }}
   table {{ border-collapse: collapse; width: 100%; }}
   td, th {{ vertical-align: top; }}
 
@@ -1532,26 +1532,26 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
      Part 1/2/3 body content is noticeably larger. */
   .jd14-mycoid {{ width: 48%; table-layout: fixed; }}
   .jd14-mycoid td {{ border: 1px solid #000; }}
-  .jd14-mycoid .mycoid-label {{ text-align: center; font-weight: 700; font-size: 11px; padding: 5px 2px; }}
-  .jd14-mycoid .mycoid-cell {{ text-align: center; font-weight: 700; font-size: 9.5px; height: 17px; padding: 2px 0; }}
-  .jd14-formcode {{ width: auto; margin: 5px 0 0; }}
-  .jd14-formcode td {{ border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 5px 9px; }}
+  .jd14-mycoid .mycoid-label {{ text-align: center; font-weight: 700; font-size: 11px; padding: 4px 2px; }}
+  .jd14-mycoid .mycoid-cell {{ text-align: center; font-weight: 700; font-size: 9.5px; height: 16px; padding: 2px 0; }}
+  .jd14-formcode {{ width: auto; margin: 4px 0 0; }}
+  .jd14-formcode td {{ border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 4px 9px; }}
 
-  .jd14-title-main {{ text-align: center; font-weight: 700; font-size: 17px; margin: 14px 0 3px; }}
-  .jd14-title-sub {{ text-align: center; font-weight: 700; font-size: 14px; margin: 0 0 8px; }}
-  .jd14-intro {{ text-align: center; font-size: 11.5px; line-height: 1.45; margin: 0 0 16px; }}
+  .jd14-title-main {{ text-align: center; font-weight: 700; font-size: 16px; margin: 6px 0 2px; }}
+  .jd14-title-sub {{ text-align: center; font-weight: 700; font-size: 13px; margin: 0 0 4px; }}
+  .jd14-intro {{ text-align: center; font-size: 10.5px; line-height: 1.3; margin: 0 0 7px; }}
 
-  .jd14-part-heading {{ text-align: center; font-weight: 700; font-size: 14.5px; margin: 16px 0 10px; }}
+  .jd14-part-heading {{ text-align: center; font-weight: 700; font-size: 13px; margin: 6px 0 4px; }}
 
   /* Part 1: ONE outer bordered box, open layout inside it - fields are
      underlined (border-bottom on the value cell) rather than boxed in
      their own bordered grid, matching the reference. */
-  .jd14-box-outer {{ border: 1px solid #000; padding: 10px 14px 12px; margin-bottom: 20px; }}
+  .jd14-box-outer {{ border: 1px solid #000; padding: 5px 10px 6px; margin-bottom: 6px; }}
   .jd14-p1-top td {{ padding: 0; }}
-  .jd14-field-label {{ font-size: 12px; margin-bottom: 5px; }}
-  .jd14-employer-area {{ font-size: 12px; min-height: 92px; padding-top: 5px; }}
+  .jd14-field-label {{ font-size: 11px; margin-bottom: 3px; }}
+  .jd14-employer-area {{ font-size: 11px; min-height: 40px; padding-top: 3px; }}
 
-  .jd14-kv td {{ padding: 5px 6px; font-size: 12px; vertical-align: bottom; }}
+  .jd14-kv td {{ padding: 2px 6px; font-size: 11px; vertical-align: bottom; }}
   .jd14-kv td.kvlabel {{ white-space: nowrap; width: 150px; }}
   .jd14-kv td.kvcolon {{ white-space: nowrap; width: 12px; }}
   .jd14-kv td.kvvalue {{ border-bottom: 1px solid #000; }}
@@ -1561,8 +1561,8 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
   /* Part 2: a proper bordered grid, unlike Part 1's open underlines - the
      reference draws visible cell borders all round here. */
   .jd14-part2 {{ margin-bottom: 4px; }}
-  .jd14-part2 th, .jd14-part2 td {{ border: 1px solid #000; text-align: center; padding: 10px; font-size: 12.5px; }}
-  .jd14-part2 th {{ font-weight: 700; font-size: 12.5px; }}
+  .jd14-part2 th, .jd14-part2 td {{ border: 1px solid #000; text-align: center; padding: 6px; font-size: 11.5px; }}
+  .jd14-part2 th {{ font-weight: 700; font-size: 11.5px; }}
 
   /* Part 3: ONE outer box holding both (a) and (b) declarations, each a
      hanging-indent paragraph (its own small table, so wrapped lines align
@@ -1570,18 +1570,18 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
      same reason a <table> is used instead of CSS text-indent, which
      wkhtmltopdf's older WebKit does not apply consistently across wrapped
      lines) followed by a two-column label/value grid. */
-  .jd14-hang {{ margin: 10px 0 14px; }}
-  .jd14-hang td {{ padding: 0; font-size: 12px; }}
+  .jd14-hang {{ margin: 4px 0 5px; }}
+  .jd14-hang td {{ padding: 0; font-size: 11px; }}
   .jd14-hang-mark {{ width: 22px; white-space: nowrap; }}
   .jd14-hang-body {{ text-align: justify; }}
   .jd14-decl-cols td {{ padding: 0; vertical-align: top; }}
-  .jd14-decl-kv td {{ padding: 6px 8px; font-size: 12px; }}
+  .jd14-decl-kv td {{ padding: 1px 6px; font-size: 11px; }}
   .jd14-decl-kv td.dlabel {{ font-weight: 700; white-space: nowrap; width: 130px; }}
   .jd14-decl-kv td.dcolon {{ white-space: nowrap; width: 12px; }}
   .jd14-decl-kv td.dvalue {{ border-bottom: 1px solid #000; }}
-  .jd14-decl-note {{ font-size: 10.5px; font-style: italic; text-align: right; padding: 2px 4px 0 !important; }}
+  .jd14-decl-note {{ font-size: 9.5px; font-style: italic; text-align: right; padding: 2px 4px 0 !important; }}
 
-  .jd14-footer {{ font-size: 9.5px; line-height: 1.45; margin-top: 16px; }}
+  .jd14-footer {{ font-size: 8.5px; line-height: 1.2; margin-top: 3px; }}
 </style></head>
 <body>
 
