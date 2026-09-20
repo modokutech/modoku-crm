@@ -34,6 +34,7 @@
       {{ csrf_field()|safe }}
       <button class="btn btn-outline-danger btn-sm">Delete</button>
     </form>
+    <a href="{{ url_for('sessions.index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
   </div>
 </div>
 <style>
