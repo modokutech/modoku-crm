@@ -8,7 +8,8 @@
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('t3.manage', session_id=s.id) }}" class="btn btn-sm btn-outline-success">Manage Participants</a>
-    <button onclick="window.print()" class="btn btn-sm btn-success">Print / PDF</button>
+    <button onclick="window.print()" class="btn btn-sm btn-outline-success">Print</button>
+    <a href="{{ url_for('sessions.download_t3_form', session_id=s.id, extra_blank_rows=extra_blank_rows) }}" class="btn btn-sm btn-success">Download PDF</a>
     <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="collapse" data-bs-target="#emailT3FormPanel">
       <i class="bi bi-envelope me-1"></i>Email T3 Form to Trainer
     </button>

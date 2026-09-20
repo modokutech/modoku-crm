@@ -5,7 +5,7 @@ import secrets
 import uuid
 from datetime import date, datetime, time as dtime, timedelta
 
-from flask import (Blueprint, current_app, flash, g, redirect, render_template,
+from flask import (Blueprint, Response, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
@@ -16,6 +16,7 @@ from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evalu
 from . import APP_TZ, fmtdaterange
 from .auth import admin_required, login_required
 from .csvutil import csv_response
+from .docutil import content_disposition
 
 bp = Blueprint("sessions", __name__, url_prefix="/sessions")
 
@@ -1097,6 +1098,36 @@ def t3_attendance_form(session_id):
                             t3_form_pdf_filename=_t3_form_pdf_filename(session_row),
                             extra_blank_rows=extra_blank_rows,
                             signature_data_uris=signature_data_uris)
+
+
+@bp.route("/<int:session_id>/t3-attendance/download")
+@login_required
+def download_t3_form(session_id):
+    """Downloads the actual T3 Attendance Form PDF (same generator used for
+    the emailed copy — pdfgen.generate_t3_form_pdf), rather than relying on
+    the browser's own "print to PDF" via window.print(), which the Print
+    button still offers separately for anyone who just wants a paper
+    printout."""
+    session_row, participants, training_days, signatures_by_participant = _t3_form_session_and_participants(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+
+    extra_blank_rows = max(0, min(request.args.get("extra_blank_rows", 0, type=int) or 0, 50))
+
+    try:
+        pdf_bytes = pdfgen.generate_t3_form_pdf(session_row, participants, training_days,
+                                                 extra_blank_rows=extra_blank_rows,
+                                                 signatures_by_participant=signatures_by_participant)
+    except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
+        current_app.logger.exception("Failed to generate T3 form PDF for session %s", session_id)
+        flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")
+        return redirect(url_for("sessions.t3_attendance_form", session_id=session_id))
+
+    return Response(
+        pdf_bytes, mimetype="application/pdf",
+        headers={"Content-Disposition": content_disposition(_t3_form_pdf_filename(session_row))},
+    )
 
 
 @bp.route("/<int:session_id>/email-t3-form", methods=("POST",))
