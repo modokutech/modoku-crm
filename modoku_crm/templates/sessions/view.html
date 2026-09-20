@@ -553,6 +553,9 @@
           <i class="bi bi-camera text-success me-1"></i>
           {% endif %}
           <a href="{{ url_for('sessions.download_return', session_id=s.id, return_id=r.id) }}" target="_blank">{{ r.created_at|fmtdatetime }}</a>
+          {% if r.enhanced_filename %}
+          · <a href="{{ url_for('sessions.download_return_enhanced', session_id=s.id, return_id=r.id) }}" target="_blank" title="Straightened, contrast-enhanced version - the original above is untouched">Scanned version</a>
+          {% endif %}
           {% if r.training_date %}<span class="text-muted">· {{ r.training_date|fmtdate }}</span>{% endif %}
           {% if r.submitted_by_note %}<span class="text-muted">· {{ r.submitted_by_note }}</span>{% endif %}
           {% if r.ai_mismatch %}<span class="text-warning">(flagged, check AI Match Attendance)</span>{% endif %}

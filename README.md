@@ -490,6 +490,34 @@ fraction of a cent). Set `ANTHROPIC_MODEL` to override the model if you ever wan
 The same `ANTHROPIC_API_KEY` also powers **AI namecard reading** on the lead form (below) —
 set it once and both features work.
 
+## "Scan mode" for returned attendance photos (optional)
+
+Every photo a trainer submits through the "Return Attendance Form" also gets a second,
+enhanced copy generated automatically — straightened (perspective-corrected) and
+contrast/sharpness-enhanced so it's easier to read back in the office than a raw phone
+photo taken at an angle or in dim light. On the class page, next to each submitted photo's
+timestamp, a **Scanned version** link appears when one was generated.
+
+This is plain, deterministic image processing (OpenCV, running on your own server) — no
+API key, no account, no external service, and no per-use cost. It also never invents detail:
+it straightens and sharpens what's actually in the photo rather than generating anything.
+**The original upload is never modified or replaced** — it's always available at its own
+unlabeled link exactly as the trainer submitted it, for anyone who needs to refer back to
+the untouched original.
+
+It's optional in the sense that it degrades gracefully rather than needing setup: if
+`opencv-python-headless` (in `requirements.txt`) isn't installed, or a given photo's
+enhancement fails for any reason (corrupt file, no document-shaped region confidently
+found), that submission simply has no "Scanned version" link — the original photo is
+completely unaffected either way. Only applies to image uploads; a submitted PDF is left
+as-is (it's usually already a compiled scan of its own).
+
+If `pip install` succeeds but the app logs an OpenCV import error on startup (rare, seen on
+some minimal Linux base images), install `libglib2.0-0`:
+```bash
+sudo apt-get install -y libglib2.0-0
+```
+
 ## Reading a namecard into a lead (optional)
 
 Leads have always had a Namecard upload; now the card can fill the form in for you. On

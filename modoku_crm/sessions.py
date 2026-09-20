@@ -1380,6 +1380,23 @@ def download_return(session_id, return_id):
                                 download_name=ret["original_name"] or ret["filename"])
 
 
+@bp.route("/<int:session_id>/returns/<int:return_id>/download-enhanced")
+@login_required
+def download_return_enhanced(session_id, return_id):
+    """Views the "scan mode" version of one submitted photo (see
+    scan_enhance.py) - a separate, straightened/contrast-enhanced copy the
+    original untouched upload (download_return above) always stays
+    available alongside."""
+    ret = db.query("SELECT * FROM attendance_returns WHERE id = ? AND session_id = ?",
+                    (return_id, session_id), one=True)
+    if ret is None or not ret["enhanced_filename"]:
+        flash("No enhanced version of that photo is available.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+    base_name = os.path.splitext(ret["original_name"] or ret["filename"])[0]
+    return send_from_directory(_attendance_dir(session_id), ret["enhanced_filename"], as_attachment=False,
+                                download_name=f"{base_name}_scan.jpg")
+
+
 @bp.route("/<int:session_id>/grant-documents/upload", methods=("POST",))
 @login_required
 def upload_grant_quotation(session_id):

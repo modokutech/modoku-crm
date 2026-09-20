@@ -1015,6 +1015,15 @@ _COLUMN_MIGRATIONS = [
     # copy — see db.py's CREATE TABLE jd14_forms note above).
     ("jd14_forms", "sent_at", "TEXT"),
     ("jd14_forms", "sent_to", "TEXT"),
+    # An auto-generated "scan mode" version of an image submitted through the
+    # public Return Attendance Form (see scan_enhance.py): perspective-
+    # corrected and contrast-enhanced to look closer to a proper scan than a
+    # phone photo. NULL when enhancement wasn't attempted (a PDF submission,
+    # or an image where it failed) or hasn't been generated yet. The
+    # original `filename` this table already stores is NEVER touched or
+    # replaced by this — it stays exactly as the trainer uploaded it, so
+    # staff can always fall back to the unmodified original.
+    ("attendance_returns", "enhanced_filename", "TEXT"),
 ]
 
 

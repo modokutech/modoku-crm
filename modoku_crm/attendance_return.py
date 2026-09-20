@@ -17,6 +17,13 @@ whoever signed is marked attended (and their e-Certificate generated) with
 no staff review step — see auto_mark_attendance for the one guardrail kept
 (a name that can't be confidently matched is left for a quick manual look
 on the AI Match Attendance page, rather than guessed).
+
+Each submitted photo (not PDFs - see scan_enhance.py) also gets a "scan
+mode" version generated alongside it - straightened and contrast-enhanced
+so it's easier to read back in the office than a raw phone photo. That's a
+SEPARATE file (attendance_returns.enhanced_filename); the original upload
+in `filename` is never modified or replaced, so staff can always fall back
+to exactly what the trainer submitted.
 """
 import os
 import uuid
@@ -25,7 +32,7 @@ from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
-from . import ai_match, db, doc_sanity, mailer, notifications, uploadutil
+from . import ai_match, db, doc_sanity, mailer, notifications, scan_enhance, uploadutil
 from . import fmtdaterange
 from . import settings as settings_module
 
@@ -102,9 +109,25 @@ def submit(code):
         stored_name = f"return_{uuid.uuid4().hex[:8]}_{safe_name}"
         saved_path = os.path.join(_session_dir(session_row["id"]), stored_name)
         file_storage.save(saved_path)
+
+        # "Scan mode": a separate, straightened + contrast-enhanced copy for
+        # easier reading - images only (a PDF is usually already a compiled
+        # scan itself, and isn't what scan_enhance.py's document-detection
+        # is built for). Never touches saved_path itself. Best-effort: a
+        # failure here just means no enhanced copy for this one file, never
+        # a blocked submission.
+        enhanced_filename = None
+        ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+        if ext in uploadutil.IMAGE_EXTENSIONS:
+            candidate_name = f"scan_{uuid.uuid4().hex[:8]}.jpg"
+            candidate_path = os.path.join(_session_dir(session_row["id"]), candidate_name)
+            if scan_enhance.enhance_to_scan(saved_path, candidate_path):
+                enhanced_filename = candidate_name
+
         db.execute(
-            "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note) VALUES (?,?,?,?)",
-            (session_row["id"], stored_name, file_storage.filename, note),
+            "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note, enhanced_filename) "
+            "VALUES (?,?,?,?,?)",
+            (session_row["id"], stored_name, file_storage.filename, note, enhanced_filename),
         )
         saved_count += 1
         warning = doc_sanity.check_document(saved_path, "t3_attendance")
