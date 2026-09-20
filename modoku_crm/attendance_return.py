@@ -7,9 +7,12 @@ and forth, they open this page, type in the short code stamped on the
 printed form (see sessions.py's t3_attendance_form + db.generate_session_code),
 see the class it belongs to as confirmation, then snap/upload the photo(s)
 directly — landing in Modoku Hub against that class for the office to see.
+Multiple files can be submitted at once (one photo per page is the common
+case for a multi-page sheet), or a single already-compiled PDF works too —
+see uploadutil.RETURN_ATTENDANCE_EXTENSIONS.
 
 If AI attendance matching is configured (see ai_match.py), submitting here
-also triggers it immediately and automatically: the photo is read, and
+also triggers it immediately and automatically: each photo/PDF is read, and
 whoever signed is marked attended (and their e-Certificate generated) with
 no staff review step — see auto_mark_attendance for the one guardrail kept
 (a name that can't be confidently matched is left for a quick manual look
@@ -84,14 +87,14 @@ def submit(code):
 
     files = [f for f in request.files.getlist("photos") if f and f.filename]
     if not files:
-        flash("Choose or take at least one photo of the signed form first.", "danger")
+        flash("Choose or take at least one photo of the signed form (or upload a PDF) first.", "danger")
         return redirect(url_for("attendance_return.details", code=code))
 
     note = request.form.get("note", "").strip() or None
     saved_count = 0
     sanity_warnings = []
     for file_storage in files:
-        error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.IMAGE_EXTENSIONS)
+        error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.RETURN_ATTENDANCE_EXTENSIONS)
         if error:
             flash(error, "danger")
             return redirect(url_for("attendance_return.details", code=code))

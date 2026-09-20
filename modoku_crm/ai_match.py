@@ -58,8 +58,9 @@ TITLE_MATCH_THRESHOLD = 0.5
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 EXTRACTION_PROMPT = (
-    "This is a photo of a printed or handwritten HRDCorp training attendance sign-in sheet "
-    "(form PSMB/SBL-KHAS/T3/01). Read three things: (1) the course title written next to "
+    "This is a photo, or a scanned/compiled PDF, of a printed or handwritten HRDCorp training "
+    "attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01) — if it's a multi-page PDF, look across "
+    "all its pages. Read three things: (1) the course title written next to "
     "\"Course Title\", (2) the date written next to \"Dates of Training\", normalized to "
     "YYYY-MM-DD if you can confidently determine it (use null if it's illegible, ambiguous, or "
     "not visible), and (3) the full name of every participant who has actually signed or "
@@ -74,28 +75,38 @@ def is_configured():
     return bool(current_app.config.get("ANTHROPIC_API_KEY"))
 
 
-def _encode_image(path):
+def _content_block(path):
+    """Builds the Claude API content block for one submitted file — an
+    "image" block for a photo, or a "document" block for a PDF (a trainer
+    who compiled their scan into a single PDF before submitting — see
+    uploadutil.RETURN_ATTENDANCE_EXTENSIONS). Same split doc_sanity.py uses
+    for its own file-type checks."""
+    if path.rsplit(".", 1)[-1].lower() == "pdf":
+        with open(path, "rb") as fh:
+            data = base64.b64encode(fh.read()).decode("ascii")
+        return {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": data}}
     mime, _ = mimetypes.guess_type(path)
     if not mime or not mime.startswith("image/"):
         mime = "image/jpeg"
     with open(path, "rb") as fh:
         data = base64.b64encode(fh.read()).decode("ascii")
-    return mime, data
+    return {"type": "image", "source": {"type": "base64", "media_type": mime, "data": data}}
 
 
 def analyze_attendance_photo(image_path):
-    """Calls Claude's vision API on one attendance-form photo and returns
-    {"course_title": str|None, "training_date": "YYYY-MM-DD"|None,
-    "names": [str, ...]}. Best-effort: returns all-empty/None if the
-    feature isn't configured, the request fails, or the response isn't
-    parseable — callers should treat that as "nothing to suggest", never
-    as "no one attended" or "this is the wrong class". Never raises."""
+    """Calls Claude's vision API on one attendance-form submission (a photo
+    or a PDF — see _content_block) and returns {"course_title": str|None,
+    "training_date": "YYYY-MM-DD"|None, "names": [str, ...]}. Best-effort:
+    returns all-empty/None if the feature isn't configured, the request
+    fails, or the response isn't parseable — callers should treat that as
+    "nothing to suggest", never as "no one attended" or "this is the wrong
+    class". Never raises."""
     empty = {"course_title": None, "training_date": None, "names": []}
     api_key = current_app.config.get("ANTHROPIC_API_KEY")
     if not api_key:
         return empty
     try:
-        mime, b64_data = _encode_image(image_path)
+        block = _content_block(image_path)
         response = requests.post(
             ANTHROPIC_API_URL,
             timeout=45,
@@ -110,7 +121,7 @@ def analyze_attendance_photo(image_path):
                 "messages": [{
                     "role": "user",
                     "content": [
-                        {"type": "image", "source": {"type": "base64", "media_type": mime, "data": b64_data}},
+                        block,
                         {"type": "text", "text": EXTRACTION_PROMPT},
                     ],
                 }],

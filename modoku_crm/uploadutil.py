@@ -30,6 +30,13 @@ CSV_EXTENSIONS = {"csv"}
 # scanned properly.
 DEFAULT_EXTENSIONS = DOCUMENT_EXTENSIONS | IMAGE_EXTENSIONS
 
+# The public "Return Attendance Form" page (attendance_return.py): a trainer
+# usually submits one photo per page of the signed sheet, but some compile
+# their scan/photos into a single PDF first — both are accepted there, just
+# not the other document types (Word/Excel/etc.) that DEFAULT_EXTENSIONS
+# allows on staff-side uploads.
+RETURN_ATTENDANCE_EXTENSIONS = IMAGE_EXTENSIONS | {"pdf"}
+
 
 def _extension(filename):
     return (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
