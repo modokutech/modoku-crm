@@ -358,6 +358,17 @@ def add(session_id):
     return redirect(url_for("t3.manage", session_id=session_id))
 
 
+def _t3_edit_redirect(participant, request_form):
+    """Where Save/Cancel on the edit form sends staff back to - the ordinary
+    Manage Participants page by default, or back to the T3 Attendance Form
+    page (preserving its Extra Blank Rows setting) when the edit was opened
+    from there via the return_to/extra_blank_rows hidden fields."""
+    if request_form.get("return_to") == "t3_form":
+        return redirect(url_for("sessions.t3_attendance_form", session_id=participant["session_id"],
+                                 extra_blank_rows=request_form.get("extra_blank_rows", 0, type=int) or 0))
+    return redirect(url_for("t3.manage", session_id=participant["session_id"]))
+
+
 @bp.route("/<int:participant_id>/edit", methods=("GET", "POST"))
 @login_required
 def edit(participant_id):
@@ -382,10 +393,17 @@ def edit(participant_id):
                  participant_id),
             )
             flash("Participant updated.", "success")
-            return redirect(url_for("t3.manage", session_id=participant["session_id"]))
+            return _t3_edit_redirect(participant, request.form)
+        # Validation failed - fall through to the full-page form below, but
+        # keep return_to/extra_blank_rows so a retry from there still lands
+        # back on the T3 Attendance Form page rather than defaulting away
+        # from wherever staff actually started.
+        return render_template("t3/edit.html", participant=participant, genders=GENDERS,
+                                citizenships=CITIZENSHIPS, return_to=request.form.get("return_to"),
+                                extra_blank_rows=request.form.get("extra_blank_rows", 0, type=int) or 0)
 
     return render_template("t3/edit.html", participant=participant, genders=GENDERS,
-                            citizenships=CITIZENSHIPS)
+                            citizenships=CITIZENSHIPS, return_to=None, extra_blank_rows=0)
 
 
 @bp.route("/<int:participant_id>/delete", methods=("POST",))

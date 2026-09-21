@@ -120,7 +120,16 @@
       {% set sig = signature_data_uris.get(p.id, {}).get(day.isoformat()) %}
       <tr>
         <td class="text-center">{{ loop.index }}</td>
-        <td>{{ p.name }}</td>
+        <td>
+          {{ p.name }}
+          <i class="bi bi-pencil-square d-print-none text-muted ms-1" role="button" tabindex="0"
+             title="Edit participant" style="cursor:pointer;font-size:0.85em;"
+             data-bs-toggle="modal" data-bs-target="#editParticipantModal"
+             data-action="{{ url_for('t3.edit', participant_id=p.id) }}"
+             data-name="{{ p.name }}" data-ic="{{ p.ic_no or '' }}"
+             data-employer="{{ p.employer_name or '' }}" data-gender="{{ p.gender or '' }}"
+             data-citizenship="{{ p.citizenship or 'Malaysian' }}"></i>
+        </td>
         {# Employer, NRIC and Citizenship centred; the trainee's own name stays
            left-aligned, since that is the column that wraps to a second line. #}
         <td class="text-center">{{ p.employer_name or '' }}</td>
@@ -179,4 +188,71 @@
   <p class="small fst-italic mb-0">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2. This attendance list must be prepared on daily basis and signed by the trainee in <strong>each column</strong> of the relevant date of training if he/she had attended the programme on that day</p>
 </div>
 {% endfor %}
+
+<div class="modal fade d-print-none" id="editParticipantModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="editParticipantForm">
+        {{ csrf_field()|safe }}
+        <input type="hidden" name="return_to" value="t3_form">
+        <input type="hidden" name="extra_blank_rows" value="{{ extra_blank_rows }}">
+        <div class="modal-header">
+          <h6 class="modal-title mb-0">Edit Participant</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Name *</label>
+            <input type="text" name="name" id="editParticipantName" class="form-control" required>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">IC No.</label>
+              <input type="text" name="ic_no" id="editParticipantIc" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Gender</label>
+              <select name="gender" id="editParticipantGender" class="form-select">
+                <option value="">—</option>
+                {% for g in genders %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Employer</label>
+              <input type="text" name="employer_name" id="editParticipantEmployer" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Citizenship</label>
+              <select name="citizenship" id="editParticipantCitizenship" class="form-select">
+                {% for c in citizenships %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/title-case-name.js') }}"></script>
+<script>
+(function () {
+  var modal = document.getElementById('editParticipantModal');
+  if (!modal) return;
+  modal.addEventListener('show.bs.modal', function (event) {
+    var trigger = event.relatedTarget;
+    if (!trigger) return;
+    document.getElementById('editParticipantForm').action = trigger.getAttribute('data-action');
+    document.getElementById('editParticipantName').value = trigger.getAttribute('data-name') || '';
+    document.getElementById('editParticipantIc').value = trigger.getAttribute('data-ic') || '';
+    document.getElementById('editParticipantEmployer').value = trigger.getAttribute('data-employer') || '';
+    document.getElementById('editParticipantGender').value = trigger.getAttribute('data-gender') || '';
+    document.getElementById('editParticipantCitizenship').value = trigger.getAttribute('data-citizenship') || 'Malaysian';
+  });
+})();
+</script>
 {% endblock %}

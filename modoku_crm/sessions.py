@@ -9,7 +9,7 @@ from flask import (Blueprint, Response, current_app, flash, g, redirect, render_
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, trainer_scores, uploadutil, settings as settings_module
+from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, t3, trainer_scores, uploadutil, settings as settings_module
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -1097,7 +1097,8 @@ def t3_attendance_form(session_id):
                             default_t3_form_email_body=_default_t3_form_email_body(session_row),
                             t3_form_pdf_filename=_t3_form_pdf_filename(session_row),
                             extra_blank_rows=extra_blank_rows,
-                            signature_data_uris=signature_data_uris)
+                            signature_data_uris=signature_data_uris,
+                            genders=t3.GENDERS, citizenships=t3.CITIZENSHIPS)
 
 
 @bp.route("/<int:session_id>/t3-attendance/download")
