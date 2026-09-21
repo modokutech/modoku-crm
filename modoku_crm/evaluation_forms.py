@@ -40,6 +40,17 @@ Best-effort throughout: is_connected()/get_template_id() gate every entry
 point, and a failed API call always raises EvaluationFormError with a
 clear, already-flashable message rather than a bare exception — an
 existing evaluation_form_link on the class is left untouched on failure.
+
+generate_form_for_session() always makes a brand-new copy of the template
+— it has no idea whether a class's current Form already has real
+responses sitting in it. Two safeguards around that: the generate() route
+refuses to run again on a class that already has a Form linked unless the
+request explicitly confirms it (see templates/sessions/view.html's
+"Regenerate" checkbox), and link_existing() lets a class adopt an already-
+existing, already-published Form by its file ID — no copy, nothing
+touched on Google's side — for a class whose real Form was created by
+hand (e.g. before this automation was connected) or one Erik doesn't want
+replaced.
 """
 import secrets
 from datetime import datetime, timedelta
@@ -547,6 +558,22 @@ def generate(session_id):
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
+
+    # This always creates a brand-new copy of the template — it has no way
+    # to know whether the class's *current* evaluation_form_id already has
+    # real responses sitting in it, and overwriting that pointer would
+    # orphan them (the old Form + its responses stay in Google Drive, but
+    # Modoku Hub loses track of it and the Training Report would start
+    # reading from the new, empty one instead). So once a class already has
+    # a Form linked, this route requires an explicit confirmation from the
+    # "Regenerate" UI (see templates/sessions/view.html) rather than firing
+    # on a bare POST — a class with no Form linked yet has nothing to lose
+    # and skips this check.
+    if session_row["evaluation_form_id"] and request.form.get("confirm_regenerate") != "on":
+        flash("This class already has a linked Evaluation Form — please tick the confirmation box "
+              "before regenerating.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+
     try:
         form_id, responder_uri = generate_form_for_session(session_row)
     except EvaluationFormError as exc:
@@ -579,4 +606,83 @@ def generate(session_id):
               "auto-generated. Try again, or check the poster settings.", "warning")
     else:
         flash("Evaluation Form generated, published, linked, and its QR poster is ready below.", "success")
+    return redirect(url_for("sessions.view", session_id=session_id))
+
+
+@bp.route("/<int:session_id>/link-existing", methods=("POST",))
+@login_required
+def link_existing(session_id):
+    """Points a class at a Google Form that already exists (typically one
+    that already has real participant responses — either created by hand
+    before Evaluation Forms automation was connected, or one Erik doesn't
+    want replaced) instead of generate_form_for_session()'s always-make-a-
+    new-copy behaviour. No Drive copy is made and nothing on Google's side
+    is touched at all — this only reads the Form (to confirm it exists, is
+    reachable, and is published) and writes its id/link onto the class, the
+    same fields generate() would have set, so the Training Report and QR
+    poster both work the same way afterwards. Reuses the same "paste the
+    file ID from the Form's edit URL" convention as the Settings master-
+    template field (see set_template() above)."""
+    session_row = db.query(
+        """SELECT cs.*, c.title AS course_title FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
+        (session_id,), one=True,
+    )
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+
+    file_id = (request.form.get("existing_form_id") or "").strip()
+    if not file_id:
+        flash("Paste the existing Form's file ID first (the long string in its edit URL: "
+              "docs.google.com/forms/d/THIS_PART/edit).", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+
+    access_token = get_valid_access_token()
+    if not access_token:
+        flash("Couldn't get a valid Google access token. Connect (or reconnect) Google under Settings "
+              "first.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+
+    try:
+        resp = requests.get(f"{FORMS_API_URL}/forms/{file_id}",
+                             headers={"Authorization": f"Bearer {access_token}"}, timeout=20)
+        resp.raise_for_status()
+        responder_uri = resp.json().get("responderUri")
+    except requests.RequestException:
+        current_app.logger.exception("Forms get failed linking existing form %s to session %s", file_id, session_id)
+        flash("Couldn't find that Form. Double-check the file ID (the long string in its edit URL: "
+              "docs.google.com/forms/d/THIS_PART/edit) and that the connected Google account can access "
+              "it.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+    if not responder_uri:
+        flash("That Form doesn't have a public link yet — open it in Google Forms, make sure it's "
+              "published and accepting responses, then try again.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+
+    db.execute(
+        "UPDATE course_sessions SET evaluation_form_id = ?, evaluation_form_link = ?, "
+        "evaluation_form_generated_at = datetime('now') WHERE id = ?",
+        (file_id, responder_uri, session_id),
+    )
+    activity.log("update", "session", session_id, "Linked an existing Evaluation Form (no new copy created)")
+
+    poster_failed = False
+    try:
+        from . import sessions as sessions_module
+        sessions_module._build_evaluation_qr_poster(
+            session_id, session_row["course_title"], session_row["start_date"], session_row["end_date"],
+            responder_uri,
+        )
+    except Exception:
+        current_app.logger.exception(
+            "Auto QR poster generation failed linking existing form for session %s", session_id)
+        poster_failed = True
+
+    if poster_failed:
+        flash("Linked to your existing Form — no new copy was created — but the QR poster couldn't be "
+              "auto-generated. Try again, or check the poster settings.", "warning")
+    else:
+        flash("Linked to your existing Form. No new copy was created, and its responses will now show "
+              "up in the Training Report.", "success")
     return redirect(url_for("sessions.view", session_id=session_id))

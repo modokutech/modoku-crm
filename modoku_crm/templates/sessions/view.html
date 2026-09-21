@@ -239,20 +239,62 @@
       <p class="small text-muted mb-2">Paste the evaluation form link and generate a QR poster linking to it.</p>
       {% endif %}
       {% if eval_forms_ready %}
+      {% if s.evaluation_form_id %}
+      <p class="small mb-2">
+        <i class="bi bi-check-circle-fill text-success me-1"></i>Linked to a generated Evaluation Form
+        {% if s.evaluation_form_generated_at %}since {{ s.evaluation_form_generated_at|fmtdatetime }}{% endif %}.
+        The QR poster above stays pointed at it.
+        {% if s.evaluation_form_link %}<a href="{{ s.evaluation_form_link }}" target="_blank">Open Form</a>{% endif %}
+      </p>
+      <details class="mb-2">
+        <summary class="small text-danger" style="cursor:pointer">Need to regenerate?</summary>
+        <form method="post" action="{{ url_for('evaluation_forms.generate', session_id=s.id) }}" class="mt-2">
+          {{ csrf_field()|safe }}
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="confirm_regenerate" id="confirmRegen{{ s.id }}" required>
+            <label class="form-check-label small" for="confirmRegen{{ s.id }}">
+              I understand this creates a brand-new, empty Form and this class stops tracking the current
+              one. Responses already collected stay in Google Drive but will no longer show in this
+              class's Training Report.
+            </label>
+          </div>
+          <button class="btn btn-sm btn-outline-danger w-100" type="submit">
+            <i class="bi bi-google me-1"></i>Regenerate Evaluation Form
+          </button>
+        </form>
+      </details>
+      {% else %}
       <form method="post" action="{{ url_for('evaluation_forms.generate', session_id=s.id) }}" class="mb-2">
         {{ csrf_field()|safe }}
         <button class="btn btn-sm btn-outline-primary w-100" type="submit">
-          <i class="bi bi-google me-1"></i>{{ 'Regenerate' if s.evaluation_form_id else 'Generate' }} Evaluation Form
+          <i class="bi bi-google me-1"></i>Generate Evaluation Form
         </button>
       </form>
-      <p class="small text-muted mb-2">
-        {% if s.evaluation_form_generated_at %}
-        Generated from template on {{ s.evaluation_form_generated_at|fmtdatetime }}. The QR poster above was
-        built automatically at the same time.
-        {% else %}
-        Publishes the Form and builds the QR poster in one click.
-        {% endif %}
+      <p class="small text-muted mb-2">Publishes the Form and builds the QR poster in one click.</p>
+      {% if s.evaluation_form_link %}
+      <p class="small text-warning mb-2">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>This class already has an evaluation form
+        link on file, which may already have responses. Generating here creates a <strong>separate, new
+        </strong> Form — use "Already have a Form for this class?" below instead to keep the existing one.
       </p>
+      {% endif %}
+      {% endif %}
+      <details class="mb-2">
+        <summary class="small" style="cursor:pointer">Already have a Form for this class?</summary>
+        <form method="post" action="{{ url_for('evaluation_forms.link_existing', session_id=s.id) }}" class="mt-2">
+          {{ csrf_field()|safe }}
+          <div class="mb-2">
+            <label class="form-label small mb-1">Existing Form's file ID</label>
+            <input type="text" name="existing_form_id" class="form-control form-control-sm"
+                   placeholder="the long string in its edit URL: docs.google.com/forms/d/THIS_PART/edit">
+          </div>
+          <button class="btn btn-sm btn-outline-secondary w-100" type="submit">
+            <i class="bi bi-link-45deg me-1"></i>Link Existing Form
+          </button>
+        </form>
+        <p class="small text-muted mt-2 mb-0">Points this class at a Form you already created/published
+          by hand — no new copy is made, and its existing responses will show up in the Training Report.</p>
+      </details>
       {% else %}
       <form method="post" action="{{ url_for('sessions.generate_evaluation_poster', session_id=s.id) }}">
         {{ csrf_field()|safe }}
