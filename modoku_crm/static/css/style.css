@@ -297,6 +297,14 @@ body {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  /* Horizontal breathing room so the card doesn't run edge-to-edge on a
+     phone-width screen — without this, .auth-card's width:100% fills the
+     viewport exactly and the background image never shows on the sides.
+     Shared by every public/guest page (certificate claim, T3/JD14/quotation
+     return links, the "/how" tutorial page, ...), all of which reuse this
+     same .auth-wrap/.auth-card markup. */
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
   /* modoku-bg-gradient.jpg is the actual background on every front-end/guest
      page; the linear-gradient is a fallback layer only (shown if the
      image can't load, and briefly while it does) — and on pages that also

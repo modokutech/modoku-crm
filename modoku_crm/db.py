@@ -1027,6 +1027,12 @@ _COLUMN_MIGRATIONS = [
     # replaced by this — it stays exactly as the trainer uploaded it, so
     # staff can always fall back to the unmodified original.
     ("attendance_returns", "enhanced_filename", "TEXT"),
+    # Random, unguessable per-certificate link used by the public "Claim
+    # Your e-Certificate" flow's actual download step (certificates.py) -
+    # a GET on this token, re-validated against t3_participants.attended on
+    # every request, in place of the old POST-resubmit-the-form approach
+    # (which broke on mobile - see certificates.py's module docstring).
+    ("certificates", "download_token", "TEXT"),
 ]
 
 
@@ -1045,6 +1051,13 @@ def _apply_light_migrations(db):
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_t3_token ON course_sessions(t3_public_token)")
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_jd14_return_token ON course_sessions(jd14_return_token)")
     db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_po_confirm_token ON purchase_orders(confirm_token)")
+    db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_certificates_download_token ON certificates(download_token)")
+    db.commit()
+
+    # Backfill download_token for any certificates row created before that
+    # column existed - randomblob() is evaluated fresh per matched row, so
+    # this gives each one its own token rather than one value copied to all.
+    db.execute("UPDATE certificates SET download_token = lower(hex(randomblob(24))) WHERE download_token IS NULL")
     db.commit()
 
     # Lead status labels were renamed ('Qualified' -> 'Had Meeting',

@@ -15,7 +15,16 @@
     /* Deliberately standalone (doesn't extend base.html) so this page never
        shows the app sidebar even for a logged-in staff member projecting
        it, it's meant to fill the screen on its own, every time. */
-    html, body { height: 100%; overflow: hidden; }
+    /* The "fits on one screen, no scrollbar" behavior only holds at the
+       width where the QR code and the numbered steps sit side by side
+       (Bootstrap's md breakpoint, same as .col-md-5/.col-md-7 below) — a
+       projector or a laptop. Below that the two columns stack and the
+       content runs taller than a phone's viewport, so height:100% +
+       overflow:hidden was silently clipping the bottom of the card with
+       no way to scroll to it. Only lock the viewport at md and up. */
+    @media (min-width: 768px) {
+      html, body { height: 100%; overflow: hidden; }
+    }
     /* Sized ~30% larger than the standard auth-card look, on purpose, this
        page is meant to be projected on a screen for a whole room to read,
        not viewed up close on one person's device. */

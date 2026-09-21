@@ -11,12 +11,9 @@
       Congratulations, <strong>{{ p.name }}</strong>. Your Certificate of Participation for
       <strong>{{ p.course_title }}</strong> ({{ date_range }}) is ready to download.
     </p>
-    <form method="post" action="{{ url_for('certificates.download') }}">
-      {{ csrf_field()|safe }}
-      <input type="hidden" name="start_date" value="{{ start_date }}">
-      <input type="hidden" name="ic_no" value="{{ ic_no }}">
-      <button type="submit" class="btn btn-success w-100"><i class="bi bi-download me-1"></i>Download Certificate</button>
-    </form>
+    <a href="{{ url_for('certificates.download', token=download_token) }}" class="btn btn-success w-100">
+      <i class="bi bi-download me-1"></i>Download Certificate
+    </a>
     <a href="{{ url_for('certificates.lookup') }}" class="btn btn-outline-secondary w-100 mt-2">Look Up Another</a>
   </div>
 </div>
