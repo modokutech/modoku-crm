@@ -37,6 +37,12 @@ DEFAULT_EXTENSIONS = DOCUMENT_EXTENSIONS | IMAGE_EXTENSIONS
 # allows on staff-side uploads.
 RETURN_ATTENDANCE_EXTENSIONS = IMAGE_EXTENSIONS | {"pdf"}
 
+# Same page, size cap only: a full-resolution phone photo (especially a
+# modern iPhone's HEIC-to-JPEG conversion, or a multi-page compiled PDF)
+# routinely exceeds the default 2 MB cap — bumped just for this one field
+# rather than raising the cap everywhere else.
+RETURN_ATTENDANCE_MAX_BYTES = 4 * 1024 * 1024  # 4 MB per file
+
 
 def _extension(filename):
     return (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()

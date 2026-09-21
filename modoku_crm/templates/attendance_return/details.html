@@ -21,8 +21,8 @@
       {{ csrf_field()|safe }}
       <div class="mb-3">
         <label class="form-label">Photo(s) of the signed attendance form</label>
-        <input type="file" name="photos" class="form-control" accept="image/*,.pdf" capture="environment" multiple required>
-        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet. You can select several at once. Max 2 MB per photo.</small>
+        <input type="file" name="photos" class="form-control" accept="image/*,.pdf" multiple required>
+        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet. You can select several at once. Max 4 MB per photo.</small>
         <small class="text-warning-emphasis d-block mt-1">
           <i class="bi bi-camera me-1"></i>Please take a clear photo in good lighting. The system reads
           it automatically, so a blurry or dark photo may not work.

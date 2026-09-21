@@ -1,8 +1,12 @@
 """Staff expense claims — anyone with the link submits a claim tied to a
 class they worked on (trainer allowance, transport, materials, etc.),
-uploading supporting photos/files. Finance later reviews it, uploads the
-payment receipt plus the approved amount and a remark, then emails the
-receipt to the claimant — which flips the claim to Paid.
+uploading supporting photos/files. A supporting photo is compressed on the
+way in (see image_compress.py) before the size cap is checked, since a
+photo of a receipt from a modern phone is often much bigger than it needs
+to be; an uploaded document (PDF/Word/Excel) is left untouched. Finance
+later reviews it, uploads the payment receipt plus the approved amount and
+a remark, then emails the receipt to the claimant — which flips the claim
+to Paid.
 
 Public / no-login by design, at Erik's explicit request — a claim carries
 a bank account number, and he's confirmed that being visible without a
@@ -28,7 +32,7 @@ from flask import (Blueprint, current_app, flash, g, redirect, render_template,
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, doc_sanity, mailer, uploadutil
+from . import activity, db, doc_sanity, image_compress, mailer, uploadutil
 
 bp = Blueprint("claims", __name__)
 
@@ -163,6 +167,10 @@ def new():
                 for file_storage in request.files.getlist("files"):
                     if not file_storage or not file_storage.filename:
                         continue
+                    # A supporting photo (receipt, expense proof, ...) is
+                    # compressed before the size check; a document (PDF,
+                    # Word, Excel, ...) passes through untouched.
+                    file_storage = image_compress.maybe_compress(file_storage)
                     error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.DEFAULT_EXTENSIONS)
                     if error:
                         flash(error, "danger")

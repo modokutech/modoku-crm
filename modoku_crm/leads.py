@@ -6,7 +6,7 @@ from flask import (Blueprint, current_app, flash, g, jsonify, redirect, render_t
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, namecard_ai, uploadutil
+from . import activity, db, image_compress, namecard_ai, uploadutil
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -26,6 +26,9 @@ def _handle_namecard_upload(lead_id):
     file_storage = request.files.get("namecard_file")
     if not file_storage or not file_storage.filename:
         return
+    # Compressed before the size check - a namecard photo from a modern
+    # phone camera is far bigger than the small amount of text on it needs.
+    file_storage = image_compress.maybe_compress(file_storage)
     error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.IMAGE_EXTENSIONS)
     if error:
         flash(error, "danger")

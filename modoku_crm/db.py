@@ -197,7 +197,10 @@ CREATE TABLE IF NOT EXISTS attendance_returns (
     filename TEXT NOT NULL,
     original_name TEXT,
     submitted_by_note TEXT,          -- optional free-text the trainer can leave (e.g. "Day 2 of 2")
-    ai_names_json TEXT,               -- names Claude read off this photo, cached (see ai_match.py)
+    ai_names_json TEXT,               -- rows Claude read off this photo, cached (see ai_match.py) -
+                                       -- a JSON list of {"name","ic_no","sex"} objects (older rows
+                                       -- saved before IC/Sex reading existed are a flat list of plain
+                                       -- name strings instead - see _normalize_stored_rows)
     ai_analyzed_at TEXT,              -- when that AI read last ran, so it isn't repeated every page load
     ai_detected_title TEXT,           -- course title Claude read off the sheet itself (cross-check)
     ai_detected_date TEXT,            -- training date Claude read off the sheet, normalized YYYY-MM-DD

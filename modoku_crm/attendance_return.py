@@ -18,12 +18,20 @@ no staff review step — see auto_mark_attendance for the one guardrail kept
 (a name that can't be confidently matched is left for a quick manual look
 on the AI Match Attendance page, rather than guessed).
 
+Each submitted photo (not PDFs) is first run through image_compress.py —
+resized/re-encoded to a much smaller file with no visible loss in quality,
+since a modern phone's 30-50 MP camera produces a far bigger JPEG than
+anyone reading a signed attendance sheet needs. That compressed copy is
+what's actually stored as `filename` and treated as "the original" from
+then on (best-effort: if compression fails for any reason, the raw upload
+is stored as-is instead).
+
 Each submitted photo (not PDFs - see scan_enhance.py) also gets a "scan
 mode" version generated alongside it - straightened and contrast-enhanced
 so it's easier to read back in the office than a raw phone photo. That's a
-SEPARATE file (attendance_returns.enhanced_filename); the original upload
-in `filename` is never modified or replaced, so staff can always fall back
-to exactly what the trainer submitted.
+SEPARATE file (attendance_returns.enhanced_filename); the stored `filename`
+copy is never modified or replaced by scan mode, so staff can always fall
+back to it.
 """
 import os
 import uuid
@@ -32,7 +40,7 @@ from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
-from . import ai_match, db, doc_sanity, mailer, notifications, scan_enhance, uploadutil
+from . import ai_match, db, doc_sanity, image_compress, mailer, notifications, scan_enhance, uploadutil
 from . import fmtdaterange
 from . import settings as settings_module
 
@@ -101,7 +109,12 @@ def submit(code):
     saved_count = 0
     sanity_warnings = []
     for file_storage in files:
-        error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.RETURN_ATTENDANCE_EXTENSIONS)
+        # Compress before the size check - a photo (not a PDF) gets resized/
+        # re-encoded first, so a raw multi-megapixel phone photo gets a
+        # chance to shrink under the cap instead of being rejected outright.
+        file_storage = image_compress.maybe_compress(file_storage)
+        error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.RETURN_ATTENDANCE_EXTENSIONS,
+                                            max_bytes=uploadutil.RETURN_ATTENDANCE_MAX_BYTES)
         if error:
             flash(error, "danger")
             return redirect(url_for("attendance_return.details", code=code))

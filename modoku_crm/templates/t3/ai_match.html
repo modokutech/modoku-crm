@@ -84,6 +84,7 @@
       <thead><tr>
         <th style="width:2.2rem"></th>
         <th>Name read from photo</th>
+        <th>IC / Sex read</th>
         <th>Matched participant</th>
         <th>Confidence</th>
         <th>Status</th>
@@ -97,9 +98,17 @@
           {% endif %}
         </td>
         <td>{{ row.extracted }}</td>
+        <td class="small text-muted">
+          {{ row.extracted_ic or '—' }}{% if row.extracted_sex %} &middot; {{ row.extracted_sex }}{% endif %}
+        </td>
         <td>
           {% if row.participant_name %}
             {{ row.participant_name }}
+            {% if row.matched_by == 'ic' %}
+            <span class="badge bg-primary ms-1" title="Matched by IC/NRIC number rather than name">
+              <i class="bi bi-person-vcard me-1"></i>Matched by IC
+            </span>
+            {% endif %}
           {% else %}
             <span class="text-muted">No confident match. Check by hand on the <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a></span>
           {% endif %}

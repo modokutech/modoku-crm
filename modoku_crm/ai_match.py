@@ -12,11 +12,18 @@ course title/date is printed at the top of that sheet — then:
      look at — see resolve_return_date. A photo the AI simply couldn't
      read clearly (blurry, illegible date) is NOT treated as a mismatch
      by itself; only a positively wrong reading blocks it.
-  2. For a photo that checks out, fuzzy-matches the signed names against
-     the class's T3 participant list and marks each confident match
-     attended for that specific training day (see attendance_days.py —
-     for a multi-day class, every scheduled day has to be covered before
-     a participant becomes certificate-eligible, not just one).
+  2. For a photo that checks out, matches each signed row against the
+     class's T3 participant list and marks each confident match attended
+     for that specific training day (see attendance_days.py — for a
+     multi-day class, every scheduled day has to be covered before a
+     participant becomes certificate-eligible, not just one). Matching
+     prefers an exact IC/NRIC number match when the sheet's IC column is
+     legible (a far stronger signal than a name, which handwriting/OCR
+     can easily blur into a similar-looking one) and falls back to fuzzy
+     name matching otherwise — see match_rows_to_participants. Where a
+     matched participant's own ic_no/gender is still blank, it's filled
+     in from what was read off the sheet (never overwriting a value
+     that's already there) — see _backfill_participant_identity.
 
 Entirely optional and additive — if ANTHROPIC_API_KEY isn't set (see
 config.py / README "Setting up AI attendance matching"), is_configured()
@@ -57,17 +64,51 @@ TITLE_MATCH_THRESHOLD = 0.5
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
+# A normalized IC shorter than this is treated as unusable for matching -
+# guards against a badly-misread scrap of digits accidentally colliding
+# with a real participant's IC. Format-agnostic on purpose (this app also
+# tracks non-Malaysian participants, whose ID numbers can look different
+# from a 12-digit Malaysian NRIC) - just a floor against near-empty noise.
+MIN_USABLE_IC_LENGTH = 6
+
+
+def _normalize_ic(raw):
+    """Strips everything but letters/digits and uppercases, so "901231-14-
+    5566", "901231145566" and stray OCR spacing all compare equal. Returns
+    None for anything blank or too short to trust as a real match key."""
+    if not raw or not isinstance(raw, str):
+        return None
+    cleaned = re.sub(r"[^0-9A-Za-z]", "", raw).upper()
+    return cleaned if len(cleaned) >= MIN_USABLE_IC_LENGTH else None
+
+
+def _normalize_sex(raw):
+    """Same normalization t3.py's _normalize_gender applies to a manually
+    entered value - duplicated in miniature here (rather than imported)
+    because t3.py itself imports this module, and importing back would be
+    circular. Keep the two in sync if the accepted values ever change."""
+    raw = (raw or "").strip().lower() if isinstance(raw, str) else ""
+    if raw in ("m", "male"):
+        return "Male"
+    if raw in ("f", "female"):
+        return "Female"
+    return None
+
 EXTRACTION_PROMPT = (
     "This is a photo, or a scanned/compiled PDF, of a printed or handwritten HRDCorp training "
     "attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01) — if it's a multi-page PDF, look across "
-    "all its pages. Read three things: (1) the course title written next to "
-    "\"Course Title\", (2) the date written next to \"Dates of Training\", normalized to "
-    "YYYY-MM-DD if you can confidently determine it (use null if it's illegible, ambiguous, or "
-    "not visible), and (3) the full name of every participant who has actually signed or "
-    "initialed their row, skip blank rows, headers, and the trainer's own name if it's printed "
-    "at the top. Reply with ONLY a JSON object, nothing else, no markdown, no explanation. "
-    "Example: {\"course_title\": \"Effective Leadership for New Managers\", "
-    "\"training_date\": \"2026-09-10\", \"names\": [\"Ali bin Ahmad\", \"Siti Aminah\"]}"
+    "all its pages. Read: (1) the course title written next to \"Course Title\", (2) the date "
+    "written next to \"Dates of Training\", normalized to YYYY-MM-DD if you can confidently "
+    "determine it (use null if it's illegible, ambiguous, or not visible), and (3) for every "
+    "participant who has actually signed or initialed their row (skip blank rows, headers, and "
+    "the trainer's own name if it's printed at the top): their full name; their IC/NRIC number "
+    "exactly as written in that row's IC column, digits and dashes as shown (use null if that "
+    "column is blank, illegible, or missing from the sheet); and their sex if a \"Sex\"/\"Jantina\" "
+    "column is filled in for that row (\"Male\" or \"Female\" — use null if blank, illegible, or "
+    "missing). Reply with ONLY a JSON object, nothing else, no markdown, no explanation. Example: "
+    "{\"course_title\": \"Effective Leadership for New Managers\", \"training_date\": "
+    "\"2026-09-10\", \"rows\": [{\"name\": \"Ali bin Ahmad\", \"ic_no\": \"901231-14-5566\", "
+    "\"sex\": \"Male\"}, {\"name\": \"Siti Aminah\", \"ic_no\": null, \"sex\": \"Female\"}]}"
 )
 
 
@@ -96,12 +137,13 @@ def _content_block(path):
 def analyze_attendance_photo(image_path):
     """Calls Claude's vision API on one attendance-form submission (a photo
     or a PDF — see _content_block) and returns {"course_title": str|None,
-    "training_date": "YYYY-MM-DD"|None, "names": [str, ...]}. Best-effort:
-    returns all-empty/None if the feature isn't configured, the request
-    fails, or the response isn't parseable — callers should treat that as
-    "nothing to suggest", never as "no one attended" or "this is the wrong
-    class". Never raises."""
-    empty = {"course_title": None, "training_date": None, "names": []}
+    "training_date": "YYYY-MM-DD"|None, "rows": [{"name": str, "ic_no":
+    str|None, "sex": "Male"|"Female"|None}, ...]}. Best-effort: returns
+    all-empty/None if the feature isn't configured, the request fails, or
+    the response isn't parseable — callers should treat that as "nothing
+    to suggest", never as "no one attended" or "this is the wrong class".
+    Never raises."""
+    empty = {"course_title": None, "training_date": None, "rows": []}
     api_key = current_app.config.get("ANTHROPIC_API_KEY")
     if not api_key:
         return empty
@@ -136,15 +178,24 @@ def analyze_attendance_photo(image_path):
         parsed = json.loads(text)
         if not isinstance(parsed, dict):
             return empty
-        names = parsed.get("names") or []
-        names = [n.strip() for n in names if isinstance(n, str) and n.strip()]
+        rows = []
+        for item in parsed.get("rows") or []:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            name = name.strip() if isinstance(name, str) and name.strip() else None
+            if not name:
+                continue
+            ic_no = item.get("ic_no")
+            ic_no = ic_no.strip() if isinstance(ic_no, str) and ic_no.strip() else None
+            rows.append({"name": name, "ic_no": ic_no, "sex": _normalize_sex(item.get("sex"))})
         course_title = parsed.get("course_title")
         course_title = course_title.strip() if isinstance(course_title, str) and course_title.strip() else None
         training_date = parsed.get("training_date")
         training_date = training_date.strip() if isinstance(training_date, str) else None
         if not training_date or not _ISO_DATE_RE.match(training_date):
             training_date = None
-        return {"course_title": course_title, "training_date": training_date, "names": names}
+        return {"course_title": course_title, "training_date": training_date, "rows": rows}
     except Exception:  # noqa: BLE001 - a bad photo/response must never break the review page
         current_app.logger.exception("AI attendance-sheet analysis failed for %s", image_path)
         return empty
@@ -194,13 +245,49 @@ def resolve_return_date(session_row, detected_title, detected_date):
     )
 
 
-def match_names_to_participants(names, session_id, threshold=MATCH_CONFIDENCE_THRESHOLD, training_date=None):
-    """Fuzzy-matches each extracted name against this class's T3 participant
-    list. Returns one dict per input name: {"extracted", "participant_id",
-    "participant_name", "confidence", "already_attended"} — participant_id
-    is None when nothing scored above `threshold`, leaving that one
-    unmatched rather than risking a wrong tick. Each participant is matched
-    to at most one name.
+def _normalize_stored_rows(raw_json):
+    """Parses attendance_returns.ai_names_json, tolerating both the old
+    format (a flat JSON list of name strings, from before IC/Sex reading
+    existed) and the current format (a list of {"name", "ic_no", "sex"}
+    objects) — so historical rows already in the database keep working
+    with no backfill migration needed. Always returns a list of
+    {"name", "ic_no", "sex"} dicts."""
+    if not raw_json:
+        return []
+    try:
+        parsed = json.loads(raw_json)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    rows = []
+    for item in parsed:
+        if isinstance(item, str):
+            if item.strip():
+                rows.append({"name": item.strip(), "ic_no": None, "sex": None})
+        elif isinstance(item, dict):
+            name = item.get("name")
+            if isinstance(name, str) and name.strip():
+                rows.append({"name": name.strip(), "ic_no": item.get("ic_no"), "sex": item.get("sex")})
+    return rows
+
+
+def match_rows_to_participants(rows, session_id, threshold=MATCH_CONFIDENCE_THRESHOLD, training_date=None):
+    """Matches each extracted {"name", "ic_no", "sex"} row against this
+    class's T3 participant list. Returns one dict per input row:
+    {"extracted", "extracted_ic", "extracted_sex", "participant_id",
+    "participant_name", "confidence", "matched_by", "already_attended"} —
+    participant_id is None when nothing scored above `threshold`, leaving
+    that one unmatched rather than risking a wrong tick. Each participant
+    is matched to at most one row.
+
+    An exact IC/NRIC match (after _normalize_ic on both sides) is tried
+    first and always wins outright (confidence 1.0, matched_by="ic") over
+    a name-only match — a sheet's IC column, when legible, identifies a
+    specific person far more reliably than a name that handwriting or OCR
+    can blur into a similar-looking one. Falls back to the existing fuzzy
+    name match (matched_by="name") when no usable IC was read, or it
+    didn't match anyone on this class's list.
 
     already_attended reflects whether the matched participant is already
     marked attended for `training_date` specifically (per-day, via
@@ -209,37 +296,89 @@ def match_names_to_participants(names, session_id, threshold=MATCH_CONFIDENCE_TH
     (used only by the review page's own display logic) it falls back to
     the participant's overall attended flag."""
     participants = db.query(
-        "SELECT id, name, attended FROM t3_participants WHERE session_id = ? ORDER BY id", (session_id,)
+        "SELECT id, name, ic_no, gender, attended FROM t3_participants WHERE session_id = ? ORDER BY id",
+        (session_id,),
     )
     already_for_day = set()
     if training_date:
-        rows = db.query(
+        day_rows = db.query(
             """SELECT participant_id FROM t3_day_attendance
                WHERE training_date = ? AND participant_id IN (
                    SELECT id FROM t3_participants WHERE session_id = ?)""",
             (training_date, session_id),
         )
-        already_for_day = {r["participant_id"] for r in rows}
+        already_for_day = {r["participant_id"] for r in day_rows}
     used_ids = set()
     results = []
-    for name in names:
-        best, best_score = None, 0.0
-        for p in participants:
-            if p["id"] in used_ids:
-                continue
-            score = difflib.SequenceMatcher(None, name.lower(), p["name"].lower()).ratio()
-            if score > best_score:
-                best, best_score = p, score
+    for row in rows:
+        name = row["name"]
+        extracted_ic = row.get("ic_no")
+        extracted_sex = row.get("sex")
+        best, best_score, matched_by = None, 0.0, None
+
+        extracted_ic_norm = _normalize_ic(extracted_ic)
+        if extracted_ic_norm:
+            for p in participants:
+                if p["id"] in used_ids:
+                    continue
+                if _normalize_ic(p["ic_no"]) == extracted_ic_norm:
+                    best, best_score, matched_by = p, 1.0, "ic"
+                    break
+
+        if best is None:
+            for p in participants:
+                if p["id"] in used_ids:
+                    continue
+                score = difflib.SequenceMatcher(None, name.lower(), p["name"].lower()).ratio()
+                if score > best_score:
+                    best, best_score, matched_by = p, score, "name"
+
         if best is not None and best_score >= threshold:
             used_ids.add(best["id"])
             already = (best["id"] in already_for_day) if training_date else bool(best["attended"])
-            results.append({"extracted": name, "participant_id": best["id"],
-                             "participant_name": best["name"], "confidence": round(best_score, 2),
-                             "already_attended": already})
+            results.append({
+                "extracted": name, "extracted_ic": extracted_ic, "extracted_sex": extracted_sex,
+                "participant_id": best["id"], "participant_name": best["name"],
+                "confidence": round(best_score, 2), "matched_by": matched_by, "already_attended": already,
+            })
         else:
-            results.append({"extracted": name, "participant_id": None, "participant_name": None,
-                             "confidence": round(best_score, 2), "already_attended": False})
+            results.append({
+                "extracted": name, "extracted_ic": extracted_ic, "extracted_sex": extracted_sex,
+                "participant_id": None, "participant_name": None,
+                "confidence": round(best_score, 2), "matched_by": None, "already_attended": False,
+            })
     return results
+
+
+def _backfill_participant_identity(participant_id, ic_no, sex):
+    """Fills in a matched participant's ic_no/gender from what was read off
+    the signed sheet — but only where that field is currently blank on the
+    participant record; a value a human already entered is never
+    overwritten. Called only from auto_mark_attendance, i.e. only for a
+    match that already cleared AUTO_ATTEND_CONFIDENCE_THRESHOLD — the same
+    bar this app already trusts enough to mark attendance and issue a
+    certificate with no human review. Best-effort and silent: this must
+    never block or fail attendance marking."""
+    if not ic_no and not sex:
+        return
+    try:
+        participant = db.query(
+            "SELECT ic_no, gender FROM t3_participants WHERE id = ?", (participant_id,), one=True
+        )
+        if participant is None:
+            return
+        updates, params = [], []
+        if ic_no and not (participant["ic_no"] or "").strip():
+            updates.append("ic_no = ?")
+            params.append(ic_no)
+        if sex and not (participant["gender"] or "").strip():
+            updates.append("gender = ?")
+            params.append(sex)
+        if updates:
+            params.append(participant_id)
+            db.execute(f"UPDATE t3_participants SET {', '.join(updates)} WHERE id = ?", params)
+    except Exception:  # noqa: BLE001 - a backfill failure must never break attendance marking
+        current_app.logger.exception("Failed to backfill IC/gender for T3 participant %s", participant_id)
 
 
 def analyze_unprocessed_returns(session_id):
@@ -262,7 +401,7 @@ def analyze_unprocessed_returns(session_id):
             """UPDATE attendance_returns
                SET ai_names_json = ?, ai_detected_title = ?, ai_detected_date = ?, ai_analyzed_at = datetime('now')
                WHERE id = ?""",
-            (json.dumps(result["names"]), result["course_title"], result["training_date"], row["id"]),
+            (json.dumps(result["rows"]), result["course_title"], result["training_date"], row["id"]),
         )
         analyzed += 1
     return analyzed
@@ -286,20 +425,17 @@ def get_review_data(session_id, threshold=MATCH_CONFIDENCE_THRESHOLD):
     )
     photos = []
     for row in rows:
-        try:
-            names = json.loads(row["ai_names_json"]) if row["ai_names_json"] else []
-        except (TypeError, ValueError):
-            names = []
+        rows_read = _normalize_stored_rows(row["ai_names_json"])
         entry = {
             "return_id": row["id"], "original_name": row["original_name"],
             "detected_title": row["ai_detected_title"], "detected_date": row["ai_detected_date"],
             "training_date": row["training_date"], "mismatch": bool(row["ai_mismatch"]),
-            "mismatch_reason": row["ai_mismatch_reason"], "names_read": len(names),
+            "mismatch_reason": row["ai_mismatch_reason"], "names_read": len(rows_read),
             "suggestions": [],
         }
-        if not row["ai_mismatch"] and names and session_row is not None:
-            entry["suggestions"] = match_names_to_participants(
-                names, session_id, threshold=threshold, training_date=row["training_date"])
+        if not row["ai_mismatch"] and rows_read and session_row is not None:
+            entry["suggestions"] = match_rows_to_participants(
+                rows_read, session_id, threshold=threshold, training_date=row["training_date"])
         photos.append(entry)
     return photos
 
@@ -342,11 +478,8 @@ def auto_mark_attendance(session_id):
     unmatched_names = []
     mismatches = []
     for row in rows:
-        try:
-            names = json.loads(row["ai_names_json"]) if row["ai_names_json"] else []
-        except (TypeError, ValueError):
-            names = []
-        total_read += len(names)
+        rows_read = _normalize_stored_rows(row["ai_names_json"])
+        total_read += len(rows_read)
 
         resolved_date, reason = resolve_return_date(session_row, row["ai_detected_title"], row["ai_detected_date"])
         if reason:
@@ -364,14 +497,19 @@ def auto_mark_attendance(session_id):
             "UPDATE attendance_returns SET training_date = ?, ai_action = 'auto_marked' WHERE id = ?",
             (resolved_date, row["id"]),
         )
-        if not names:
+        if not rows_read:
             continue
-        matches = match_names_to_participants(
-            names, session_id, threshold=AUTO_ATTEND_CONFIDENCE_THRESHOLD, training_date=resolved_date)
+        matches = match_rows_to_participants(
+            rows_read, session_id, threshold=AUTO_ATTEND_CONFIDENCE_THRESHOLD, training_date=resolved_date)
         for m in matches:
             if not m["participant_id"]:
                 unmatched_names.append(m["extracted"])
                 continue
+            # Backfill from whatever this row read regardless of whether this
+            # particular photo goes on to mark anything new below - a repeat
+            # photo of someone already marked attended for the day can still
+            # be the first one where their IC/Sex was actually legible.
+            _backfill_participant_identity(m["participant_id"], m.get("extracted_ic"), m.get("extracted_sex"))
             if m["already_attended"]:
                 continue  # already marked for this specific day — nothing new to do
             try:
