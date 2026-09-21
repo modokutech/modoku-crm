@@ -144,6 +144,7 @@ Ravi Kumar" required></textarea>
           <table class="table table-sm align-middle">
             <thead><tr>
               <th style="width:2.2rem"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+              <th style="width:2.5rem">No.</th>
               <th>Name</th><th>IC No.</th><th>Employer</th><th>Gender</th><th>Citizenship</th><th>Attended</th>
               <th>Signature{{ 's' if total_days > 1 }}</th><th></th>
             </tr></thead>
@@ -152,6 +153,7 @@ Ravi Kumar" required></textarea>
             {% set p = row.p %}
             <tr>
               <td><input type="checkbox" name="participant_ids" value="{{ p.id }}" class="form-check-input row-check"></td>
+              <td class="text-center small text-muted">{{ loop.index }}</td>
               <td style="cursor:pointer" onclick="window.location='{{ url_for('t3.edit', participant_id=p.id) }}'">{{ p.name }}</td>
               <td class="small">{{ p.ic_no or '-' }}</td>
               <td class="small">{{ p.employer_name or '-' }}</td>
