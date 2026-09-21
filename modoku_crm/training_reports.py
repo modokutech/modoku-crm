@@ -34,6 +34,14 @@ using a hand-pasted Evaluation Form link (from before this automation
 existed, or where Google Forms automation was never connected) has no
 Training Report option; the manual evaluation_form_link on that class is
 just a URL, not something Modoku Hub can read responses back from.
+
+A "Full Name" (or similarly-titled) question — present on Erik's forms
+purely to identify the respondent — is dropped before aggregation (see
+_is_identity_question) rather than surfaced as its own question: the
+report already lists who attended from the signed T3 attendance roster
+(full_reports._participant_names), so pulling the Form's own name field
+too would just repeat that list under a "question" that isn't real
+evaluation content.
 """
 import json
 from collections import Counter
@@ -126,6 +134,24 @@ def _aggregate_categorical(values):
         "count": sum(counts.values()),
         "distribution": [{"option": option, "count": n} for option, n in counts.most_common()],
     }
+
+
+# A question that just captures who's answering (near-universally titled
+# "Full Name" on Erik's forms, matched loosely here in case a form varies
+# the wording) rather than actual evaluation content. Redundant with the
+# report's own participant list (full_reports._participant_names, pulled
+# from the signed T3 attendance form) and, worse, would otherwise show up
+# as a bare list of names under a "question" in the numeric/open-text
+# summary — so it's dropped in build_report() below, before it ever
+# reaches aggregation, rather than filtered out later at render time.
+_IDENTITY_QUESTION_TITLES = {
+    "full name", "name", "your name", "participant name", "participant's name",
+    "trainee name", "trainee's name", "attendee name",
+}
+
+
+def _is_identity_question(title):
+    return (title or "").strip().lower() in _IDENTITY_QUESTION_TITLES
 
 
 def _ordinal_score_map(scale):
@@ -398,6 +424,8 @@ def build_report(session_id, user_id=None):
     for question_id, meta in structure.items():
         kind = meta["kind"]
         if kind not in ("scale", "choice_numeric", "choice_ordinal", "choice_text", "text"):
+            continue
+        if _is_identity_question(meta.get("title")):
             continue
         values = []
         for response in responses:

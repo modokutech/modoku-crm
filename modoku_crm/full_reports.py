@@ -85,10 +85,17 @@ def _participant_names(session_id):
     # The Attendance Form roster (t3_participants — the printed T3 list a
     # class's actual attendees sign), not `enrollments` — enrollments drives
     # invoicing/HRDF-claim counts and can include people who registered but
-    # never actually showed up. Same table/order t3.manage's own Attendance
-    # List page uses.
+    # never actually showed up.
+    #
+    # Restricted to attended = 1 (per Erik: the report's participant list
+    # should only be people who actually attended, as reflected on the
+    # signed T3 attendance form) — someone added to the class roster but
+    # never marked attended (a no-show, a duplicate entry, a registration
+    # that didn't pan out) has no business appearing in a report that's
+    # meant to describe who was actually in the room. Same `attended` flag
+    # certificates.py already gates certificate eligibility on.
     rows = db.query(
-        "SELECT name FROM t3_participants WHERE session_id = ? ORDER BY id", (session_id,)
+        "SELECT name FROM t3_participants WHERE session_id = ? AND attended = 1 ORDER BY id", (session_id,)
     )
     return [r["name"] for r in rows]
 
