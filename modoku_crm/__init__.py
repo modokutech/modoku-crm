@@ -227,6 +227,7 @@ def create_app(config_object="config.Config"):
     from . import vendors
     from . import trainers
     from . import trainer_utilization
+    from . import trainer_profile
     from . import courses
     from . import sessions
     from . import enrollments
@@ -279,6 +280,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(vendors.bp)
     app.register_blueprint(trainers.bp)
     app.register_blueprint(trainer_utilization.bp)
+    app.register_blueprint(trainer_profile.bp)
     app.register_blueprint(courses.bp)
     app.register_blueprint(sessions.bp)
     app.register_blueprint(enrollments.bp)

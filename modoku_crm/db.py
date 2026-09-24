@@ -118,6 +118,94 @@ CREATE TABLE IF NOT EXISTS trainer_rate_history (
     changed_by INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- Structured data behind the auto-generated, multi-page "Trainer Profile"
+-- brochure (trainer_profile_pdf.py) - the branded document that lands in
+-- trainers.profile_file (see DOCUMENT_FIELDS in trainers.py), the same slot
+-- a manually-uploaded profile used before this module existed, and which a
+-- class's HRDCorp Grant Documents pack already pulls in automatically. One
+-- row per trainer; credentials_line is the short line under the trainer's
+-- name (e.g. "PhD, MAITD" or "16 Years of Experience in Consulting,
+-- Management & Training."); background/experience are the two mandatory
+-- prose sections. The photo reuses trainers.avatar_file rather than a
+-- second upload.
+CREATE TABLE IF NOT EXISTS trainer_profiles (
+    trainer_id INTEGER PRIMARY KEY REFERENCES trainers(id) ON DELETE CASCADE,
+    credentials_line TEXT,
+    background_text TEXT,
+    experience_text TEXT,
+    generated_at TEXT,              -- when a PDF was last built and saved into trainers.profile_file
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Left-sidebar "Areas of Expertise" bullet list - shown on the profile's
+-- first content page.
+CREATE TABLE IF NOT EXISTS trainer_profile_expertise (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Left-sidebar "Companies Trained" bullet list - shown on every content
+-- page after the first (continuing across pages if the list is long,
+-- repeating in full on any further pages once it's been shown once).
+CREATE TABLE IF NOT EXISTS trainer_profile_companies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Academic Qualifications - one entry per degree/diploma.
+CREATE TABLE IF NOT EXISTS trainer_profile_academic (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    qualification TEXT NOT NULL,   -- e.g. "Doctor of Philosophy (Electrical Computer Communication Engineering)"
+    institution TEXT,
+    year TEXT,
+    location TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Professional Certifications - one short line each, e.g. "Accredited TTT
+-- Trainer | HRD Corp Malaysia". issuer is optional (rendered joined with
+-- " | " when present, title shown alone otherwise).
+CREATE TABLE IF NOT EXISTS trainer_profile_certifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    issuer TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Professional Experience - job history (company, the period worked
+-- there, and the role/title held).
+CREATE TABLE IF NOT EXISTS trainer_profile_experience (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    company TEXT NOT NULL,
+    period TEXT,
+    role TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Custom sections a trainer's profile can add beyond the fixed sections
+-- above (e.g. "Development Training Program", "Corporate Training
+-- Program") - each one a heading plus its own bullet list.
+CREATE TABLE IF NOT EXISTS trainer_profile_sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS trainer_profile_section_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_id INTEGER NOT NULL REFERENCES trainer_profile_sections(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS courses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT UNIQUE,
@@ -849,6 +937,13 @@ CREATE INDEX IF NOT EXISTS idx_t3_day_attendance_participant ON t3_day_attendanc
 CREATE INDEX IF NOT EXISTS idx_company_files_pinned ON company_files(pinned);
 CREATE INDEX IF NOT EXISTS idx_training_reports_session ON training_reports(session_id);
 CREATE INDEX IF NOT EXISTS idx_full_training_reports_session ON full_training_reports(session_id);
+CREATE INDEX IF NOT EXISTS idx_tp_expertise_trainer ON trainer_profile_expertise(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_companies_trainer ON trainer_profile_companies(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_academic_trainer ON trainer_profile_academic(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_certifications_trainer ON trainer_profile_certifications(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_experience_trainer ON trainer_profile_experience(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_sections_trainer ON trainer_profile_sections(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_section_items_section ON trainer_profile_section_items(section_id);
 """
 
 

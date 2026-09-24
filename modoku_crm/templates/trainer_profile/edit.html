@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Trainer Profile — {{ trainer.name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Trainer Profile</h4>
+    <small class="text-muted">{{ trainer.name }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if trainer.profile_file %}
+    <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='profile_file') }}" target="_blank" class="btn btn-outline-secondary btn-sm">View current PDF</a>
+    {% endif %}
+    <a href="{{ url_for('trainers.view', trainer_id=trainer.id) }}" class="btn btn-outline-secondary btn-sm">Back</a>
+  </div>
+</div>
+
+{% if profile.generated_at %}
+<p class="text-muted small">Last generated {{ profile.generated_at|fmtdate }}. The photo used is this trainer's
+  <a href="{{ url_for('trainers.edit', trainer_id=trainer.id) }}">display picture</a> — update it there if it needs changing.</p>
+{% else %}
+<p class="text-muted small">Not generated yet. The photo used will be this trainer's
+  <a href="{{ url_for('trainers.edit', trainer_id=trainer.id) }}">display picture</a> — set one there first if there isn't one on file.</p>
+{% endif %}
+
+<div class="card p-3 mb-3">
+  <h6 class="mb-2">Roughly how much to write</h6>
+  <p class="small text-muted mb-2">Guidance only, not enforced — for a profile that fits the layout cleanly without
+    looking empty or overflowing:</p>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 small">
+      <tbody>
+        <tr><td class="text-muted" style="width:220px">Background</td><td>60–90 words (one solid paragraph)</td></tr>
+        <tr><td class="text-muted">Experience</td><td>90–150 words (one or two short paragraphs)</td></tr>
+        <tr><td class="text-muted">Academic Qualifications</td><td>3–6 entries — degree, institution, year, location; no prose</td></tr>
+        <tr><td class="text-muted">Professional Certifications</td><td>5–20 short one-line entries — long lists are fine, they're compact</td></tr>
+        <tr><td class="text-muted">Professional Experience</td><td>3–6 roles, each a one-line title plus one short bullet</td></tr>
+        <tr><td class="text-muted">Areas of Expertise (sidebar)</td><td>6–16 short phrases (2–4 words each)</td></tr>
+        <tr><td class="text-muted">Companies Trained (sidebar)</td><td>practically unlimited — splits across pages on its own if long</td></tr>
+        <tr><td class="text-muted">Custom sections</td><td>4–10 bullets each, kept under ~8 words per bullet</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<form method="post">
+  {{ csrf_field()|safe }}
+
+  <div class="card p-3 mb-3">
+    <h6>Name line</h6>
+    <div class="mb-0">
+      <label class="form-label">Credentials / subtitle (under the trainer's name)</label>
+      <input type="text" name="credentials_line" class="form-control" value="{{ profile.credentials_line or '' }}"
+             placeholder="e.g. PhD, MAITD  —  or  —  16 Years of Experience in Consulting, Management &amp; Training.">
+      <small class="text-muted">The trainer's name itself comes from the Trainer record — edit it on the trainer's own Edit page.</small>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Background <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <textarea name="background_text" class="form-control" rows="4" placeholder="I've been an engineer, consultant, trainer...">{{ profile.background_text or '' }}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Experience <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <p class="small text-muted mb-1">Free text. Leave a blank line between paragraphs if you want more than one.</p>
+    <textarea name="experience_text" class="form-control" rows="6" placeholder="Since 2016, I conduct training and workshops in...">{{ profile.experience_text or '' }}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Areas of Expertise <span class="badge bg-light text-muted fw-normal">sidebar, page 1</span></h6>
+    <p class="small text-muted mb-1">One per line.</p>
+    <textarea name="expertise" class="form-control" rows="6" placeholder="Artificial Intelligence
+Machine Learning
+Cyber Security">{{ expertise|map(attribute='label')|join('\n') }}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Companies Trained <span class="badge bg-light text-muted fw-normal">sidebar, page 2 onward</span></h6>
+    <p class="small text-muted mb-1">One per line. Leave empty if this trainer's client list isn't for publishing — the sidebar
+      then just keeps repeating Areas of Expertise on every page instead.</p>
+    <textarea name="companies" class="form-control" rows="6" placeholder="Toyota
+RapidKL
+BP">{{ companies|map(attribute='name')|join('\n') }}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Academic Qualifications <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <p class="small text-muted mb-1">One per line: <code>Degree or Diploma | Institution | Year | Location</code> — the last three are optional.</p>
+    <textarea name="academic" class="form-control" rows="5" placeholder="Doctor of Philosophy (Electrical Computer Communication Engineering) | London South Bank University | 2012 | London, United Kingdom
+Master of Science in Information Technology | Charles Sturt University | 2003 | Wagga Wagga, Australia">{% for a in academic %}{{ a.qualification }} | {{ a.institution or '' }} | {{ a.year or '' }} | {{ a.location or '' }}
+{% endfor %}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Professional Certifications <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <p class="small text-muted mb-1">One per line: <code>Title | Issuer</code> — issuer is optional.</p>
+    <textarea name="certifications" class="form-control" rows="6" placeholder="Accredited TTT Trainer | HRD Corp Malaysia
+Generative AI for Educators | Google Inc.">{% for c in certifications %}{{ c.title }} | {{ c.issuer or '' }}
+{% endfor %}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <h6>Professional Experience <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <p class="small text-muted mb-1">One per line: <code>Company | Period | Role</code> — e.g. <code>AIA Bhd | May 2019-Oct 2020 | Head Of Training and Development</code>.
+      Leave empty if this trainer's profile doesn't need a job-history table (Background + Experience above already cover the narrative).</p>
+    <textarea name="experience" class="form-control" rows="5" placeholder="AIA Bhd | May 2019-Oct 2020 | Head Of Training and Development
+Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e in experience %}{{ e.company }} | {{ e.period or '' }} | {{ e.role or '' }}
+{% endfor %}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0">Custom sections <span class="badge bg-light text-muted fw-normal">optional</span></h6>
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="addSectionBtn">+ Add section</button>
+    </div>
+    <p class="small text-muted mb-2">E.g. "Development Training Program", "Corporate Training Program" — a heading plus its own bullet list.
+      An empty section (no title, or no bullets) is skipped when the PDF is built.</p>
+    <div id="sectionsContainer">
+      {% for s in sections %}
+      <div class="border rounded p-2 mb-2 section-block">
+        <div class="d-flex gap-2 mb-2">
+          <input type="text" name="section_title" class="form-control form-control-sm" placeholder="Section title" value="{{ s.title }}">
+          <button type="button" class="btn btn-outline-danger btn-sm remove-section-btn">Remove</button>
+        </div>
+        <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One bullet per line">{{ s.bullets|join('\n') }}</textarea>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <template id="sectionTemplate">
+    <div class="border rounded p-2 mb-2 section-block">
+      <div class="d-flex gap-2 mb-2">
+        <input type="text" name="section_title" class="form-control form-control-sm" placeholder="Section title" value="">
+        <button type="button" class="btn btn-outline-danger btn-sm remove-section-btn">Remove</button>
+      </div>
+      <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One bullet per line"></textarea>
+    </div>
+  </template>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-success">Save &amp; Generate PDF</button>
+    <a href="{{ url_for('trainers.view', trainer_id=trainer.id) }}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+</form>
+
+<script>
+document.getElementById('addSectionBtn').addEventListener('click', function () {
+  var tpl = document.getElementById('sectionTemplate');
+  var clone = tpl.content.cloneNode(true);
+  document.getElementById('sectionsContainer').appendChild(clone);
+});
+document.getElementById('sectionsContainer').addEventListener('click', function (e) {
+  if (e.target.classList.contains('remove-section-btn')) {
+    e.target.closest('.section-block').remove();
+  }
+});
+</script>
+{% endblock %}
