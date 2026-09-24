@@ -80,7 +80,10 @@ WHITE = (255, 255, 255)
 # Every piece of right-column body content (paragraphs, entry titles and
 # details, certifications, bullets) uses this one colour - Erik's spec
 # R 34% G 50% B 78%. Section headings stay NAVY so they read as distinct.
-BODY = (round(0.34 * 255), round(0.50 * 255), round(0.78 * 255))  # (87, 128, 199)
+# Fix86: body text is #595959; the blue (Erik's R34% G50% B78%) is kept
+# only for the "Institution | Year | Location" and "Company | Period" lines.
+BODY = (0x59, 0x59, 0x59)
+META = (0xA9, 0xA9, 0xA9)  # Fix87: was R34% G50% B78% (87, 128, 199)
 PURPLE_ACCENT = (109, 76, 148)
 TRIANGLE_ICON_FILL = (243, 244, 249)
 
@@ -136,6 +139,67 @@ def _wrap(text, font, max_width):
     return lines or [""]
 
 
+try:  # optional - justified text still works without it, just looser
+    import pyphen
+    _HYPHENATOR = pyphen.Pyphen(lang="en_US")
+except Exception:  # noqa: BLE001
+    _HYPHENATOR = None
+
+
+def _hyphen_splits(word):
+    """Candidate (head, tail) splits for a word, longest head first. Only
+    plain lowercase words of 7+ letters are hyphenated - never names,
+    acronyms or anything with digits - and each side keeps 3+ letters."""
+    if _HYPHENATOR is None:
+        return []
+    core = word.rstrip(",.;:)!?")
+    if len(core) < 7 or not core.isalpha() or not core.islower():
+        return []
+    trail = word[len(core):]
+    return [(head, tail + trail) for head, tail in _HYPHENATOR.iterate(core)
+            if len(head) >= 3 and len(tail) >= 3]
+
+
+def _wrap_justified(text, font, max_width):
+    """Greedy wrap for justified paragraphs, with hyphenation. Without it,
+    a long word like "manufacturing" that just misses the end of a line
+    gets pushed down whole, and that line is left with wide gaps once it's
+    stretched to the column - that's what looked broken. Hyphenating the
+    word that doesn't fit (as Adobe does with justify on) keeps each line
+    close to full so the stretch stays small."""
+    words = (text or "").split()
+    if not words:
+        return [""]
+    lines, line = [], ""
+    queue = list(words)
+    while queue:
+        word = queue.pop(0)
+        candidate = f"{line} {word}".strip()
+        if _MEASURE.textlength(candidate, font=font) <= max_width:
+            line = candidate
+            continue
+        placed = False
+        # At most 2 hyphenated line-ends in a row (a ladder of hyphens
+        # down the right edge looks worse than one slightly loose line).
+        ladder = len(lines) >= 2 and lines[-1].endswith("-") and lines[-2].endswith("-")
+        if line and not ladder:
+            for head, tail in _hyphen_splits(word):
+                if _MEASURE.textlength(f"{line} {head}-", font=font) <= max_width:
+                    lines.append(f"{line} {head}-")
+                    queue.insert(0, tail)
+                    line = ""
+                    placed = True
+                    break
+        if placed:
+            continue
+        if line:
+            lines.append(line)
+        line = word
+    if line:
+        lines.append(line)
+    return lines
+
+
 def _line_height(font, leading=1.28):
     ascent, descent = font.getmetrics()
     return round((ascent + descent) * leading)
@@ -179,11 +243,13 @@ def _paragraph_block(text, width):
     # to the column width except its last line, which stays left-aligned
     # (standard justified-text behaviour, same as Adobe's "justify left").
     lines = []
-    for para in (text or "").split("\n\n"):
+    # Every line break typed in the form starts a new paragraph in the PDF
+    # (blank lines in between are ignored, so one or two Enters look the same).
+    for para in (text or "").splitlines():
         para = " ".join(para.split())
         if not para:
             continue
-        wrapped = _wrap(para, font, width)
+        wrapped = _wrap_justified(para, font, width)
         lines.extend((ln, i < len(wrapped) - 1) for i, ln in enumerate(wrapped))
         lines.append(("", False))  # blank line between paragraphs
     while lines and lines[-1][0] == "":
@@ -202,11 +268,9 @@ def _draw_justified(draw, x, y, text, font, width, fill):
         return
     word_w = [draw.textlength(w, font=font) for w in words]
     gap = (width - sum(word_w)) / (len(words) - 1)
-    # Guard: a line with very few words would get huge gaps - fall back to
-    # left-aligned rather than stretch it absurdly.
-    if gap > draw.textlength(" ", font=font) * 4:
-        draw.text((x, y), text, font=font, fill=fill)
-        return
+    # Always stretch to the full column (as Adobe's justify does). Fix85 fell
+    # back to left-aligned when gaps got wide, which left ragged short lines
+    # in the middle of a paragraph.
     cx = x
     for w, ww in zip(words, word_w):
         draw.text((round(cx), y), w, font=font, fill=fill)
@@ -271,7 +335,7 @@ def _draw_block(canvas, draw, block, x, y, width):
         if block["title_lines"] and block["detail_lines"]:
             y += round(mm(0.8))
         for line in block["detail_lines"]:
-            draw.text((x, y), line, font=block["dfont"], fill=BODY)
+            draw.text((x, y), line, font=block["dfont"], fill=META)
             y += block["dlh"]
     elif kind == "oneline":
         for line in block["lines"]:
@@ -328,8 +392,10 @@ def _build_right_blocks(profile, academic, certifications, experience, sections,
     if experience:
         blocks.append(_heading_block("Professional Experience"))
         for i, row in enumerate(experience):
-            title = _joined(row["company"], f"({row['period']})" if row.get("period") else None)
-            blocks.append(_entry_block(title, row.get("role"), width,
+            # Role is the prominent line; "Company | Period" sits under it.
+            meta = _joined(row["company"], row.get("period"))
+            role = (row.get("role") or "").strip()
+            blocks.append(_entry_block(role or None, meta, width,
                                         before=0 if i == 0 else round(mm(4))))
 
     for section in sections:
@@ -386,6 +452,13 @@ def _paginate_right(blocks, top_y, bottom_y, first_page_extra_top=0):
 
 # --- Sidebar --------------------------------------------------------------
 
+# Fix86: yellow triangle raised 15% and the logo 10% (vertical positions
+# scaled toward the top of the page), giving the logo room below it.
+# Fix87: both then lowered 8% together (x 1.08) - Fix86 left the logo too high.
+_TRIANGLE_RAISE = 0.85 * 1.08
+_TRI_TOP_MM = 202.4 * _TRIANGLE_RAISE
+_LOGO_TOP_MM = 281 * 0.90 * 1.08
+
 def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     draw.rectangle([0, 0, SIDEBAR_W_PX, PAGE_H_PX], fill=NAVY)
 
@@ -393,9 +466,9 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     # (see module docstring).
     draw.polygon(
         [
-            (mm(SIDEBAR_W_MM), mm(202.4)),
-            (mm(8.3), mm(271.1)),
-            (mm(SIDEBAR_W_MM), mm(277.4)),
+            (mm(SIDEBAR_W_MM), mm(_TRI_TOP_MM)),
+            (mm(8.3), mm(271.1 * _TRIANGLE_RAISE)),
+            (mm(SIDEBAR_W_MM), mm(277.4 * _TRIANGLE_RAISE)),
         ],
         fill=ORANGE,
     )
@@ -414,7 +487,7 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
         logo_w = round(mm(26))
         logo_h = round(logo_w * logo.height / logo.width)
         logo = logo.resize((logo_w, logo_h), Image.LANCZOS)
-        canvas.paste(logo, (round(mm(7)), round(mm(281))), logo)
+        canvas.paste(logo, (round(mm(7)), round(mm(_LOGO_TOP_MM))), logo)
     except Exception:  # noqa: BLE001 - a missing logo shouldn't break the whole page
         current_app.logger.exception("Failed to composite logo onto trainer profile sidebar")
 
@@ -468,7 +541,7 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     list_x = round(mm(6))
     list_width = SIDEBAR_W_PX - round(mm(10))
     y = pill_y + th + 2 * pad_y + round(mm(4))
-    triangle_top = round(mm(202.4))
+    triangle_top = round(mm(_TRI_TOP_MM))
     max_y = triangle_top - round(mm(4))
     for item in list_items:
         for line in _wrap(f"• {item}", list_font, list_width):
@@ -683,7 +756,7 @@ def _chunk_companies(names, max_per_page=None):
     font = _font(_MORION_REGULAR, 10.2)  # must match _draw_sidebar's list_font
     lh = _line_height(font, 1.35)
     list_width = SIDEBAR_W_PX - round(mm(10))
-    available = round(mm(202.4)) - round(mm(4)) - (round(mm(70)) + round(mm(9.5)) + round(mm(4)))
+    available = round(mm(_TRI_TOP_MM)) - round(mm(4)) - (round(mm(70)) + round(mm(9.5)) + round(mm(4)))
     if max_per_page is None:
         # how many single-line items fit, conservatively (each name may
         # itself wrap onto 2 lines, but company names are normally short)
