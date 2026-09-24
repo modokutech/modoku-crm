@@ -83,7 +83,7 @@ WHITE = (255, 255, 255)
 # Fix86: body text is #595959; the blue (Erik's R34% G50% B78%) is kept
 # only for the "Institution | Year | Location" and "Company | Period" lines.
 BODY = (0x59, 0x59, 0x59)
-META = (0xA9, 0xA9, 0xA9)  # Fix87: was R34% G50% B78% (87, 128, 199)
+META = (0xA6, 0xA4, 0xA4)  # #a6a4a4 (Fix88; was #a9a9a9 in Fix87, blue before that)
 PURPLE_ACCENT = (109, 76, 148)
 TRIANGLE_ICON_FILL = (243, 244, 249)
 
@@ -774,5 +774,10 @@ def generate_trainer_profile_pdf(subject, profile, expertise, companies,
                                          academic, certifications, experience, sections,
                                          photo_path=photo_path)
     buf = BytesIO()
-    pages[0].save(buf, format="PDF", resolution=DPI, save_all=True, append_images=pages[1:])
+    # Pillow stores each page as a JPEG. Its defaults (quality 75, 4:2:0
+    # chroma subsampling) shifted exact brand colours on thin text: #a6a4a4
+    # came out as a neutral #a3a3a3. High quality with no subsampling keeps
+    # the specified colours (and sharper text), at roughly twice the size.
+    pages[0].save(buf, format="PDF", resolution=DPI, save_all=True, append_images=pages[1:],
+                  quality=95, subsampling=0)
     return buf.getvalue()
