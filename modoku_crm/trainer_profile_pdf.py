@@ -403,8 +403,13 @@ def _build_right_blocks(profile, academic, certifications, experience, sections,
         if not bullets:
             continue
         blocks.append(_heading_block(section["title"]))
+        # Fix89: no bullet markers. Each line typed in the form is its own
+        # paragraph, set exactly like Background/Experience (justified, last
+        # line left-aligned), with a small gap between them.
         for i, item in enumerate(bullets):
-            blocks.append(_bullet_block(item, width, before=0 if i == 0 else round(mm(1.6))))
+            block = _paragraph_block(item, width)
+            block["before"] = 0 if i == 0 else round(mm(1.6))
+            blocks.append(block)
 
     return blocks
 

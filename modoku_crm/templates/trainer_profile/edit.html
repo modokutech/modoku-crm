@@ -38,7 +38,7 @@
         <tr><td class="text-muted">Professional Experience</td><td>3–6 roles, each a one-line title plus one short bullet</td></tr>
         <tr><td class="text-muted">Areas of Expertise (sidebar)</td><td>6–16 short phrases (2–4 words each)</td></tr>
         <tr><td class="text-muted">Companies Trained (sidebar)</td><td>practically unlimited — splits across pages on its own if long</td></tr>
-        <tr><td class="text-muted">Custom sections</td><td>4–10 bullets each, kept under ~8 words per bullet</td></tr>
+        <tr><td class="text-muted">Custom sections</td><td>A few short lines or paragraphs each</td></tr>
       </tbody>
     </table>
   </div>
@@ -80,12 +80,13 @@
 
   <div class="card p-3 mb-3">
     <h6>Background <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
+    <p class="small text-muted mb-1">Free text. Press Enter to start a new paragraph.</p>
     <textarea name="background_text" class="form-control" rows="4" placeholder="I've been an engineer, consultant, trainer...">{{ profile.background_text or '' }}</textarea>
   </div>
 
   <div class="card p-3 mb-3">
     <h6>Experience <span class="badge bg-light text-muted fw-normal">mandatory</span></h6>
-    <p class="small text-muted mb-1">Free text. Leave a blank line between paragraphs if you want more than one.</p>
+    <p class="small text-muted mb-1">Free text. Press Enter to start a new paragraph.</p>
     <textarea name="experience_text" class="form-control" rows="6" placeholder="Since 2016, I conduct training and workshops in...">{{ profile.experience_text or '' }}</textarea>
   </div>
 
@@ -136,8 +137,8 @@ Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e
       <h6 class="mb-0">Custom sections <span class="badge bg-light text-muted fw-normal">optional</span></h6>
       <button type="button" class="btn btn-outline-secondary btn-sm" id="addSectionBtn">+ Add section</button>
     </div>
-    <p class="small text-muted mb-2">E.g. "Development Training Program", "Corporate Training Program" — a heading plus its own bullet list.
-      An empty section (no title, or no bullets) is skipped when the PDF is built.</p>
+    <p class="small text-muted mb-2">E.g. "Development Training Program", "Corporate Training Program" — a heading plus its own text.
+      Press Enter to start a new line/paragraph (no bullet points are added). An empty section (no title, or no text) is skipped when the PDF is built.</p>
     <div id="sectionsContainer">
       {% for s in sections %}
       <div class="border rounded p-2 mb-2 section-block">
@@ -145,7 +146,7 @@ Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e
           <input type="text" name="section_title" class="form-control form-control-sm" placeholder="Section title" value="{{ s.title }}">
           <button type="button" class="btn btn-outline-danger btn-sm remove-section-btn">Remove</button>
         </div>
-        <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One bullet per line">{{ s.bullets|join('\n') }}</textarea>
+        <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One line or paragraph per Enter">{{ s.bullets|join('\n') }}</textarea>
       </div>
       {% endfor %}
     </div>
@@ -157,7 +158,7 @@ Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e
         <input type="text" name="section_title" class="form-control form-control-sm" placeholder="Section title" value="">
         <button type="button" class="btn btn-outline-danger btn-sm remove-section-btn">Remove</button>
       </div>
-      <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One bullet per line"></textarea>
+      <textarea name="section_items" class="form-control form-control-sm" rows="3" placeholder="One line or paragraph per Enter"></textarea>
     </div>
   </template>
 
