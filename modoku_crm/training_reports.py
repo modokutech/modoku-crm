@@ -27,6 +27,15 @@ it re-reads every response from Google and re-runs the AI summary, which
 isn't cheap. A class page's report shows whatever was last generated,
 with a "Refresh Report" button to regenerate on demand.
 
+The one exception: the very first visit to a class's Training Report page
+(before anything has ever been generated for it) builds it automatically —
+see the view() route — rather than landing on an empty "click Generate"
+page. There's nothing cached to overwrite yet at that point, so it costs
+nothing a first manual click wouldn't have, and it matches what a class
+page's evaluation-form section already implies once a Form is linked.
+Every visit after that first one is back to the plain cache-read described
+above; only "Refresh Report" rebuilds from then on.
+
 Only available for classes with an auto-generated Form
 (course_sessions.evaluation_form_id) — that's the only case where Modoku
 Hub controls a Google Form ID it can call the Forms API against. A class
@@ -538,6 +547,27 @@ def view(session_id):
     if session_row is None:
         flash("Class not found.", "danger")
         return redirect(url_for("training_reports.index"))
+
+    report = get_report(session_id)
+    if report is None and session_row["evaluation_form_id"]:
+        # First-ever visit to this class's Training Report: build it once
+        # automatically instead of landing on an empty "click Generate
+        # Report" page. Erik's own expectation was that the report would
+        # "just appear" once participants had filled the Form; the manual
+        # Refresh Report button (see the module docstring's "deliberately a
+        # cache" note) still governs every visit AFTER this one — there's
+        # nothing to overwrite on a page that's never been generated
+        # before, so building it once here costs nothing a first manual
+        # click wouldn't have. Never raises to the page — a real failure
+        # (e.g. the Google connection needs reconnecting) is flashed and
+        # falls back to the same empty state Generate Report would have
+        # left it in.
+        try:
+            build_report(session_id, user_id=g.user["id"] if g.user else None)
+            report = get_report(session_id)
+        except (TrainingReportError, evaluation_forms.EvaluationFormError) as exc:
+            flash(str(exc), "danger")
+
     # Local import to avoid a circular import — full_reports.py imports this
     # module at the top level (it reuses _call_claude_json/get_report), so
     # this module can't import full_reports back at the top level too.
@@ -545,7 +575,7 @@ def view(session_id):
     return render_template(
         "training_reports/view.html",
         s=session_row,
-        report=get_report(session_id),
+        report=report,
         ai_configured=is_ai_configured(),
         full_report=full_reports.get_full_report(session_id),
     )

@@ -103,7 +103,27 @@ def submit(token):
         # documents. The link is shared by every trainer on the class (it
         # isn't trainer-specific), so the notification names the class
         # rather than a particular trainer.
-        session_url = url_for("sessions.view", session_id=session_row["id"], _external=True)
+        #
+        # Points at the trainer's Purchase Order page (where these very
+        # documents are actually displayed — see purchase_orders.view's
+        # trainer_invoice_documents query), not the class page — that's
+        # where staff actually go to review an invoice, per this module's
+        # own docstring. Picks whichever PO for this class comes first if
+        # more than one trainer is assigned (each of their PO pages shows
+        # the exact same shared document list, since these documents were
+        # never attributed to one trainer — see purchase_orders.py's own
+        # comment on this), and falls back to the class page only for the
+        # unusual case of a class with no PO created yet at all.
+        po_row = db.query(
+            "SELECT id FROM purchase_orders WHERE session_id = ? ORDER BY id LIMIT 1",
+            (session_row["id"],), one=True,
+        )
+        if po_row:
+            review_url = url_for("purchase_orders.view", po_id=po_row["id"], _external=True)
+            review_link = url_for("purchase_orders.view", po_id=po_row["id"])
+        else:
+            review_url = url_for("sessions.view", session_id=session_row["id"], _external=True)
+            review_link = url_for("sessions.view", session_id=session_row["id"])
         sanity_line = ""
         if sanity_warnings:
             sanity_line = "\n\nNote (AI sanity-check):\n" + "\n".join(
@@ -116,7 +136,7 @@ def submit(token):
                     notify_to,
                     f"Trainer invoice documents submitted - {session_row['course_title']}",
                     f"A trainer has submitted {saved} invoice/claim document(s) for "
-                    f"{session_row['course_title']}.\n\nReview them here:\n{session_url}" + sanity_line,
+                    f"{session_row['course_title']}.\n\nReview them here:\n{review_url}" + sanity_line,
                     related_type="course_session", related_id=session_row["id"],
                 )
         except Exception:  # noqa: BLE001 - notification must never break the trainer's upload
@@ -126,7 +146,7 @@ def submit(token):
             "trainer_invoice_submitted",
             f"Invoice documents submitted - {session_row['course_title']}",
             body=f"{saved} document(s) uploaded." + (" AI sanity-check flagged a possible issue. See email." if sanity_warnings else ""),
-            link=url_for("sessions.view", session_id=session_row["id"]),
+            link=review_link,
         )
     elif not files or not files[0].filename:
         flash("Choose at least one file first.", "danger")
