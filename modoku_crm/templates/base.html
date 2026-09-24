@@ -112,6 +112,7 @@
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='sessions' }}" href="{{ url_for('sessions.index') }}"><i class="bi bi-calendar-event me-2"></i>Classes</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='enrollments' }}" href="{{ url_for('enrollments.index') }}"><i class="bi bi-person-check me-2"></i>Enrollments</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainers' }}" href="{{ url_for('trainers.index') }}"><i class="bi bi-person-badge me-2"></i>Trainers</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainer_profiles' }}" href="{{ url_for('trainer_profiles.index') }}"><i class="bi bi-file-earmark-person me-2"></i>Generate Trainer Profile</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='cert_admin' }}" href="{{ url_for('cert_admin.index') }}"><i class="bi bi-patch-check me-2"></i>Certificates</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='jd14' }}" href="{{ url_for('jd14.index') }}"><i class="bi bi-file-earmark-check me-2"></i>JD14 Forms</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='training_reports' }}" href="{{ url_for('training_reports.index') }}"><i class="bi bi-clipboard-data me-2"></i>Training Report</a></li>

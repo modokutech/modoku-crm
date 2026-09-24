@@ -186,10 +186,18 @@ def view(trainer_id):
         (trainer_id,),
     )
     scorecard = trainer_scores.for_trainer(trainer_id)
+    # Most-recently-updated Trainer Profile module record linked to this
+    # trainer, if any (see trainer_profile.py) - just to point the
+    # Documents list's "Trainer Profile" row at the right place to build
+    # or edit it; the module itself lives on its own page, not here.
+    linked_profile = db.query(
+        "SELECT id FROM trainer_profiles WHERE trainer_id = ? ORDER BY updated_at DESC LIMIT 1",
+        (trainer_id,), one=True)
     return render_template("trainers/view.html", trainer=trainer, sessions=sessions,
                             purchase_orders=purchase_orders, document_fields=DOCUMENT_FIELDS,
                             rate_history=rate_history, qualified_courses=qualified_courses,
-                            scorecard=scorecard, score_badge=trainer_scores.badge_class)
+                            scorecard=scorecard, score_badge=trainer_scores.badge_class,
+                            linked_profile_id=linked_profile["id"] if linked_profile else None)
 
 
 @bp.route("/<int:trainer_id>/edit", methods=("GET", "POST"))

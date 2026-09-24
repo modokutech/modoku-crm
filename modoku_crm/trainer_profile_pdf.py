@@ -38,9 +38,11 @@ measurements.
 
 Two typefaces, matching what Erik specified: Morion (attached by him -
 Morion Beta Regular / Morion Bold) for every section heading and every
-paragraph/entry of body content on the right-hand column, and Poppins
-(already Modoku's brand face elsewhere in this app) for the trainer's
-name, the sidebar's pill labels, and the sidebar's own bullet lists.
+paragraph/entry of body content on the right-hand column, the credentials
+line under the name, and the sidebar's own Areas of Expertise / Companies
+Trained list content - and Poppins (already Modoku's brand face elsewhere
+in this app) for just the trainer's name itself and the sidebar's pill
+labels ("AREAS OF EXPERTISE" / "COMPANIES TRAINED").
 """
 import os
 from io import BytesIO
@@ -381,21 +383,33 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     except Exception:  # noqa: BLE001 - a missing logo shouldn't break the whole page
         current_app.logger.exception("Failed to composite logo onto trainer profile sidebar")
 
-    # Circular photo.
+    # Circular photo - contain-fit, not cropped: the whole photo stays
+    # visible, scaled down (preserving aspect ratio) to fit within the
+    # circle and centered, rather than center-cropped to fill it (which
+    # could cut off the top of a head or the sides of a wider shot). Any
+    # gap around the photo within the circle is filled with the sidebar's
+    # own navy, so it reads as the photo floating on the sidebar rather
+    # than sitting in a visible box.
     photo_d = round(mm(40))
     photo_cx = SIDEBAR_W_PX / 2
     photo_top = mm(16)
     if photo_img is not None:
         photo = photo_img.copy().convert("RGB")
-        side = min(photo.size)
-        photo = photo.crop(((photo.width - side) // 2, (photo.height - side) // 2,
-                             (photo.width + side) // 2, (photo.height + side) // 2))
-        photo = photo.resize((photo_d, photo_d), Image.LANCZOS)
+        scale = photo_d / max(photo.size)
+        fit_w = max(1, round(photo.width * scale))
+        fit_h = max(1, round(photo.height * scale))
+        photo = photo.resize((fit_w, fit_h), Image.LANCZOS)
+        square = Image.new("RGB", (photo_d, photo_d), NAVY)
+        square.paste(photo, ((photo_d - fit_w) // 2, (photo_d - fit_h) // 2))
         mask = Image.new("L", (photo_d, photo_d), 0)
         ImageDraw.Draw(mask).ellipse([0, 0, photo_d, photo_d], fill=255)
-        canvas.paste(photo, (round(photo_cx - photo_d / 2), round(photo_top)), mask)
-    ring_bbox = [photo_cx - photo_d / 2 - 3, photo_top - 3, photo_cx + photo_d / 2 + 3, photo_top + photo_d + 3]
-    draw.ellipse(ring_bbox, outline=ORANGE, width=3)
+        canvas.paste(square, (round(photo_cx - photo_d / 2), round(photo_top)), mask)
+    # A single ring, drawn straddling the photo circle's own edge (not
+    # offset outward with a gap) so it reads as one clean boundary.
+    ring_w = 4
+    ring_bbox = [photo_cx - photo_d / 2 - ring_w / 2, photo_top - ring_w / 2,
+                 photo_cx + photo_d / 2 + ring_w / 2, photo_top + photo_d + ring_w / 2]
+    draw.ellipse(ring_bbox, outline=ORANGE, width=ring_w)
 
     # Pill label + list.
     pill_font = _font(_POPPINS_BOLD, 9.5)
@@ -407,7 +421,11 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     draw.rectangle([pill_x, pill_y, pill_x + tw + 2 * pad_x, pill_y + th + 2 * pad_y], fill=ORANGE)
     draw.text((pill_x + pad_x, pill_y + pad_y), pill_text, font=pill_font, fill=NAVY)
 
-    list_font = _font(_POPPINS_REGULAR, 10.2)
+    # Content is Morion (the pill label above stays Poppins) - per Erik's
+    # request. Bullet char is U+2022, not U+00B7: Morion has no middle-dot
+    # glyph (same issue already found and fixed for the right column's own
+    # bullet lists - see _draw_block's "bullet" case).
+    list_font = _font(_MORION_REGULAR, 10.2)
     list_lh = _line_height(list_font, 1.35)
     list_x = round(mm(6))
     list_width = SIDEBAR_W_PX - round(mm(10))
@@ -415,7 +433,7 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     triangle_top = round(mm(202.4))
     max_y = triangle_top - round(mm(4))
     for item in list_items:
-        for line in _wrap(f"· {item}", list_font, list_width):
+        for line in _wrap(f"• {item}", list_font, list_width):
             if y + list_lh > max_y:
                 return
             draw.text((list_x, y), line, font=list_font, fill=WHITE)
@@ -438,13 +456,13 @@ def _corner_diamond(canvas, size_mm, top_mm, left_mm, color):
 # --- Name header (repeats on every content page) --------------------------
 
 def _draw_name_header(canvas, draw, x, top_y, width, full_name, credentials_line):
-    name_font = _font(_POPPINS_BOLD, 27)
+    name_font = _font(_POPPINS_BOLD, 33.75)  # 27 * 1.25, per Erik's request
     parts = (full_name or "").split()
     if len(parts) > 1:
         line1, line2 = " ".join(parts[:-1]).upper(), parts[-1].upper()
     else:
         line1, line2 = (full_name or "").upper(), ""
-    lh = _line_height(name_font, 1.05)
+    lh = _line_height(name_font, 0.9)  # tightened from 1.05 - lines sat too far apart
     y = top_y
     for line in _wrap(line1, name_font, width):
         draw.text((x, y), line, font=name_font, fill=NAVY)
@@ -453,7 +471,7 @@ def _draw_name_header(canvas, draw, x, top_y, width, full_name, credentials_line
         draw.text((x, y), line, font=name_font, fill=ORANGE)
         y += lh
     if credentials_line:
-        cred_font = _font(_POPPINS_REGULAR, 12)
+        cred_font = _font(_MORION_REGULAR, 12)  # was Poppins - Erik wants Morion here too
         y += round(mm(2))
         for line in _wrap(credentials_line, cred_font, width):
             draw.text((x, y), line, font=cred_font, fill=MID)
@@ -519,7 +537,7 @@ def _build_cover_page():
 
 # --- Public entry point --------------------------------------------------
 
-def build_trainer_profile_pages(trainer_row, profile, expertise, companies,
+def build_trainer_profile_pages(subject, profile, expertise, companies,
                                  academic, certifications, experience, sections,
                                  photo_path=None):
     """Returns a list of Pillow RGB Image pages (cover + content pages)."""
@@ -547,7 +565,7 @@ def build_trainer_profile_pages(trainer_row, profile, expertise, companies,
     scratch = Image.new("RGB", (PAGE_W_PX, PAGE_H_PX))
     scratch_draw = ImageDraw.Draw(scratch)
     header_bottom = _draw_name_header(scratch, scratch_draw, content_x, top_y, content_width,
-                                       trainer_row["name"], profile.get("credentials_line"))
+                                       subject["name"], profile.get("credentials_line"))
     header_height = header_bottom - top_y + round(mm(8))
 
     about_pill_height = round(mm(9.5)) + round(mm(3))  # pill box + gap before Background
@@ -584,7 +602,7 @@ def build_trainer_profile_pages(trainer_row, profile, expertise, companies,
         _draw_sidebar(canvas, draw, pill_label, list_items, photo_img)
 
         y = _draw_name_header(canvas, draw, content_x, top_y, content_width,
-                               trainer_row["name"], profile.get("credentials_line"))
+                               subject["name"], profile.get("credentials_line"))
         y += round(mm(8))
         if page_index == 0:
             y = _draw_about_pill(draw, content_x, y)
@@ -634,11 +652,11 @@ def _chunk_companies(names, max_per_page=None):
     return [names[i:i + max_per_page] for i in range(0, len(names), max_per_page)]
 
 
-def generate_trainer_profile_pdf(trainer_row, profile, expertise, companies,
+def generate_trainer_profile_pdf(subject, profile, expertise, companies,
                                   academic, certifications, experience, sections,
                                   photo_path=None):
     """Returns the finished PDF as bytes."""
-    pages = build_trainer_profile_pages(trainer_row, profile, expertise, companies,
+    pages = build_trainer_profile_pages(subject, profile, expertise, companies,
                                          academic, certifications, experience, sections,
                                          photo_path=photo_path)
     buf = BytesIO()

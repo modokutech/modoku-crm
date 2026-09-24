@@ -119,21 +119,34 @@ CREATE TABLE IF NOT EXISTS trainer_rate_history (
 );
 
 -- Structured data behind the auto-generated, multi-page "Trainer Profile"
--- brochure (trainer_profile_pdf.py) - the branded document that lands in
--- trainers.profile_file (see DOCUMENT_FIELDS in trainers.py), the same slot
--- a manually-uploaded profile used before this module existed, and which a
--- class's HRDCorp Grant Documents pack already pulls in automatically. One
--- row per trainer; credentials_line is the short line under the trainer's
--- name (e.g. "PhD, MAITD" or "16 Years of Experience in Consulting,
--- Management & Training."); background/experience are the two mandatory
--- prose sections. The photo reuses trainers.avatar_file rather than a
--- second upload.
+-- brochure (trainer_profile_pdf.py), built from its own standalone
+-- "Generate Trainer Profile" module (trainer_profile.py) rather than from
+-- a specific trainer's own page - a profile can be created, edited and
+-- regenerated entirely on its own (its own display_name/photo_file, not a
+-- trainer's), which is the point: it's meant as an in-house fallback for
+-- producing a finished profile document (e.g. while whoever normally
+-- designs these by hand is on leave), independent of whether the subject
+-- is even in the Trainers list yet. trainer_id is therefore optional and
+-- set only once a profile is deliberately linked to an existing trainer -
+-- at which point its generated PDF is copied into that trainer's own
+-- profile_file slot (see DOCUMENT_FIELDS in trainers.py, the same slot a
+-- manual upload used before this module existed, and which a class's
+-- HRDCorp Grant Documents pack already pulls in automatically) and kept
+-- in sync there on every later regeneration, until unlinked.
+-- credentials_line is the short line under the name (e.g. "PhD, MAITD" or
+-- "16 Years of Experience in Consulting, Management & Training.");
+-- background/experience are the two mandatory prose sections.
 CREATE TABLE IF NOT EXISTS trainer_profiles (
-    trainer_id INTEGER PRIMARY KEY REFERENCES trainers(id) ON DELETE CASCADE,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trainer_id INTEGER REFERENCES trainers(id) ON DELETE SET NULL,
+    display_name TEXT NOT NULL,
+    photo_file TEXT,                -- this profile's own photo upload - never a trainer's avatar
     credentials_line TEXT,
     background_text TEXT,
     experience_text TEXT,
-    generated_at TEXT,              -- when a PDF was last built and saved into trainers.profile_file
+    profile_file TEXT,              -- this profile's own generated PDF (independent of trainers.profile_file)
+    generated_at TEXT,              -- when a PDF was last built
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -141,7 +154,7 @@ CREATE TABLE IF NOT EXISTS trainer_profiles (
 -- first content page.
 CREATE TABLE IF NOT EXISTS trainer_profile_expertise (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     label TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
@@ -151,7 +164,7 @@ CREATE TABLE IF NOT EXISTS trainer_profile_expertise (
 -- repeating in full on any further pages once it's been shown once).
 CREATE TABLE IF NOT EXISTS trainer_profile_companies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
@@ -159,7 +172,7 @@ CREATE TABLE IF NOT EXISTS trainer_profile_companies (
 -- Academic Qualifications - one entry per degree/diploma.
 CREATE TABLE IF NOT EXISTS trainer_profile_academic (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     qualification TEXT NOT NULL,   -- e.g. "Doctor of Philosophy (Electrical Computer Communication Engineering)"
     institution TEXT,
     year TEXT,
@@ -172,7 +185,7 @@ CREATE TABLE IF NOT EXISTS trainer_profile_academic (
 -- " | " when present, title shown alone otherwise).
 CREATE TABLE IF NOT EXISTS trainer_profile_certifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     issuer TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
@@ -182,19 +195,19 @@ CREATE TABLE IF NOT EXISTS trainer_profile_certifications (
 -- there, and the role/title held).
 CREATE TABLE IF NOT EXISTS trainer_profile_experience (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     company TEXT NOT NULL,
     period TEXT,
     role TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- Custom sections a trainer's profile can add beyond the fixed sections
--- above (e.g. "Development Training Program", "Corporate Training
--- Program") - each one a heading plus its own bullet list.
+-- Custom sections a profile can add beyond the fixed sections above (e.g.
+-- "Development Training Program", "Corporate Training Program") - each
+-- one a heading plus its own bullet list.
 CREATE TABLE IF NOT EXISTS trainer_profile_sections (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    trainer_id INTEGER NOT NULL REFERENCES trainers(id) ON DELETE CASCADE,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0
 );
@@ -937,12 +950,13 @@ CREATE INDEX IF NOT EXISTS idx_t3_day_attendance_participant ON t3_day_attendanc
 CREATE INDEX IF NOT EXISTS idx_company_files_pinned ON company_files(pinned);
 CREATE INDEX IF NOT EXISTS idx_training_reports_session ON training_reports(session_id);
 CREATE INDEX IF NOT EXISTS idx_full_training_reports_session ON full_training_reports(session_id);
-CREATE INDEX IF NOT EXISTS idx_tp_expertise_trainer ON trainer_profile_expertise(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_tp_companies_trainer ON trainer_profile_companies(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_tp_academic_trainer ON trainer_profile_academic(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_tp_certifications_trainer ON trainer_profile_certifications(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_tp_experience_trainer ON trainer_profile_experience(trainer_id);
-CREATE INDEX IF NOT EXISTS idx_tp_sections_trainer ON trainer_profile_sections(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_trainer_profiles_trainer ON trainer_profiles(trainer_id);
+CREATE INDEX IF NOT EXISTS idx_tp_expertise_profile ON trainer_profile_expertise(profile_id);
+CREATE INDEX IF NOT EXISTS idx_tp_companies_profile ON trainer_profile_companies(profile_id);
+CREATE INDEX IF NOT EXISTS idx_tp_academic_profile ON trainer_profile_academic(profile_id);
+CREATE INDEX IF NOT EXISTS idx_tp_certifications_profile ON trainer_profile_certifications(profile_id);
+CREATE INDEX IF NOT EXISTS idx_tp_experience_profile ON trainer_profile_experience(profile_id);
+CREATE INDEX IF NOT EXISTS idx_tp_sections_profile ON trainer_profile_sections(profile_id);
 CREATE INDEX IF NOT EXISTS idx_tp_section_items_section ON trainer_profile_section_items(section_id);
 """
 
@@ -1131,9 +1145,39 @@ _COLUMN_MIGRATIONS = [
 ]
 
 
+def _table_columns(db, table):
+    return {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def _drop_stale_trainer_profile_tables(db):
+    """The Trainer Profile module's first shape (one row per trainer,
+    trainer_id as the table's own primary key) was restructured into a
+    standalone module before it ever went live — trainer_id is now optional
+    (a profile links to a trainer only once someone deliberately does so)
+    and every child table's foreign key moved from trainer_id to a new
+    profile_id. If that original shape is still on disk (no display_name
+    column — the tell for the old schema), drop it here so the SCHEMA
+    script that runs right after this can recreate it in the new shape —
+    SCHEMA can't do this itself, since its own CREATE TABLE IF NOT EXISTS
+    is a no-op against an already-existing (old-shape) table, and the
+    CREATE INDEX statements right after it would then fail referencing a
+    profile_id column the old child tables don't have. Since the module
+    never shipped as a live feature before this correction landed, there's
+    no real profile data to carry across — anything already there (e.g.
+    from testing) is simply dropped and recreated empty by SCHEMA."""
+    existing_tp_columns = _table_columns(db, "trainer_profiles")
+    if existing_tp_columns and "display_name" not in existing_tp_columns:
+        for _t in ("trainer_profile_section_items", "trainer_profile_sections",
+                   "trainer_profile_experience", "trainer_profile_certifications",
+                   "trainer_profile_academic", "trainer_profile_companies",
+                   "trainer_profile_expertise", "trainer_profiles"):
+            db.execute(f"DROP TABLE IF EXISTS {_t}")
+        db.commit()
+
+
 def _apply_light_migrations(db):
     for table, column, coltype in _COLUMN_MIGRATIONS:
-        existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
+        existing = _table_columns(db, table)
         if column not in existing:
             db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
     db.commit()
@@ -1274,6 +1318,7 @@ def _apply_light_migrations(db):
 def init_db(app):
     with app.app_context():
         db = get_db()
+        _drop_stale_trainer_profile_tables(db)
         db.executescript(SCHEMA)
         db.commit()
         _apply_light_migrations(db)

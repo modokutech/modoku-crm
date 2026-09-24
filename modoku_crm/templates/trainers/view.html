@@ -126,30 +126,27 @@
         <a href="{{ url_for('courses.index') }}">Add this trainer on a course's Edit page</a>.</p>
       {% endif %}
     </div>
-    <div class="card p-3 mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0">Trainer Profile</h6>
-        <a href="{{ url_for('trainer_profile.edit', trainer_id=trainer.id) }}" class="btn btn-sm btn-outline-secondary">
-          {{ 'Edit' if trainer.profile_file else 'Build' }}
-        </a>
-      </div>
-      {% if trainer.profile_file %}
-      <p class="small text-muted mb-0">Branded multi-page profile on file.
-        <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field='profile_file') }}" target="_blank">View PDF</a>.</p>
-      {% else %}
-      <p class="small text-muted mb-0">Not built yet — fills the same "Trainer Profile" document slot below.</p>
-      {% endif %}
-    </div>
     <div class="card p-3">
       <h6>Documents</h6>
       <ul class="list-unstyled mb-0">
         {% for form_field, column, label in document_fields %}
-        <li class="d-flex justify-content-between align-items-center mb-2">
-          <span>{{ label }}</span>
-          {% if trainer[column] %}
-          <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field=column) }}" target="_blank" class="btn btn-sm btn-outline-secondary">View</a>
-          {% else %}
-          <span class="badge bg-light text-muted">Not uploaded</span>
+        <li class="mb-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>{{ label }}</span>
+            {% if trainer[column] %}
+            <a href="{{ url_for('trainers.download_document', trainer_id=trainer.id, field=column) }}" target="_blank" class="btn btn-sm btn-outline-secondary">View</a>
+            {% else %}
+            <span class="badge bg-light text-muted">Not uploaded</span>
+            {% endif %}
+          </div>
+          {% if column == 'profile_file' %}
+          <div class="small text-muted mt-1">
+            {% if linked_profile_id %}
+            <a href="{{ url_for('trainer_profiles.edit', profile_id=linked_profile_id) }}">Edit via Generate Trainer Profile</a>
+            {% else %}
+            <a href="{{ url_for('trainer_profiles.new', trainer_id=trainer.id) }}">Build one via Generate Trainer Profile</a>
+            {% endif %}
+          </div>
           {% endif %}
         </li>
         {% endfor %}

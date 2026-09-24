@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Generate Trainer Profile{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Generate Trainer Profile</h4>
+    <small class="text-muted">Build the branded, multi-page Trainer Profile brochure in-house - useful whenever it can't go through the designer as usual.</small>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('trainer_profiles.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Trainer Profile</a>
+  </div>
+</div>
+
+<div class="card p-3">
+  {% if profiles %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead><tr><th>Name</th><th>Linked Trainer</th><th>Last Generated</th><th style="width:220px"></th></tr></thead>
+      <tbody>
+      {% for p in profiles %}
+        <tr onclick="window.location='{{ url_for('trainer_profiles.edit', profile_id=p.id) }}'" style="cursor:pointer">
+          <td>{{ p.display_name }}</td>
+          <td>
+            {% if p.trainer_name %}
+            <span class="badge bg-secondary-subtle text-secondary-emphasis">Linked to {{ p.trainer_name }}</span>
+            {% else %}
+            <span class="badge bg-light text-muted">Not linked</span>
+            {% endif %}
+          </td>
+          <td>{{ p.generated_at|fmtdate if p.generated_at else 'Not generated yet' }}</td>
+          <td onclick="event.stopPropagation()">
+            <div class="d-flex gap-2">
+              <a href="{{ url_for('trainer_profiles.edit', profile_id=p.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              {% if p.profile_file %}
+              <a href="{{ url_for('trainer_profiles.download', profile_id=p.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">PDF</a>
+              {% endif %}
+              <form method="post" action="{{ url_for('trainer_profiles.delete', profile_id=p.id) }}" onsubmit="return confirm('Delete this Trainer Profile? Any copy already linked to a trainer\'s Documents is left in place.');">
+                {{ csrf_field()|safe }}
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0 small">No Trainer Profiles generated yet. Click <strong>New Trainer Profile</strong> to build one.</p>
+  {% endif %}
+</div>
+{% endblock %}
