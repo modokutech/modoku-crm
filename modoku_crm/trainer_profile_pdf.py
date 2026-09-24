@@ -77,6 +77,10 @@ ORANGE = pdfgen._CERT_ORANGE
 DARK = pdfgen._CERT_DARK
 MID = pdfgen._CERT_GRAY
 WHITE = (255, 255, 255)
+# Every piece of right-column body content (paragraphs, entry titles and
+# details, certifications, bullets) uses this one colour - Erik's spec
+# R 34% G 50% B 78%. Section headings stay NAVY so they read as distinct.
+BODY = (round(0.34 * 255), round(0.50 * 255), round(0.78 * 255))  # (87, 128, 199)
 PURPLE_ACCENT = (109, 76, 148)
 TRIANGLE_ICON_FILL = (243, 244, 249)
 
@@ -86,6 +90,7 @@ _MORION_REGULAR = os.path.join(_FONT_DIR, "Morion-Regular.ttf")
 _MORION_BOLD = os.path.join(_FONT_DIR, "Morion-Bold.ttf")
 _POPPINS_REGULAR = os.path.join(_FONT_DIR, "Poppins-Regular.ttf")
 _POPPINS_MEDIUM = os.path.join(_FONT_DIR, "Poppins-Medium.ttf")
+_POPPINS_SEMIBOLD = os.path.join(_FONT_DIR, "Poppins-SemiBold.ttf")  # Latin subset
 _POPPINS_BOLD = os.path.join(_FONT_DIR, "Poppins-Bold.ttf")
 
 _font_cache = {}
@@ -143,10 +148,16 @@ def _line_height(font, leading=1.28):
 # kept separate only so a block could special-case drawing later).
 
 _H_FONT = lambda: _font(_MORION_BOLD, 15.5)
+# 11pt is a true 11pt (the PDF is saved at DPI, so px/pt conversion is
+# exact) - measured identical to the 11pt Morion in the reference PDFs.
 _BODY_FONT = lambda: _font(_MORION_REGULAR, 11)
-_ENTRY_TITLE_FONT = lambda: _font(_MORION_BOLD, 11.3)
+# Body content never uses Morion Bold - only section headings do.
+_ENTRY_TITLE_FONT = lambda: _font(_MORION_REGULAR, 11.3)
 _ENTRY_DETAIL_FONT = lambda: _font(_MORION_REGULAR, 10)
 _BULLET_FONT = lambda: _font(_MORION_REGULAR, 10.8)
+
+# Body line spacing +10% over the original leadings, per Erik.
+_BODY_LEADING = 1.1
 
 _SECTION_GAP = round(mm(7))    # space before a new section heading
 _PARA_GAP = round(mm(3.2))     # space between paragraphs / entries
@@ -164,20 +175,42 @@ def _heading_block(title):
 
 def _paragraph_block(text, width):
     font = _BODY_FONT()
+    # Each entry is (text, justify). Every line of a paragraph is justified
+    # to the column width except its last line, which stays left-aligned
+    # (standard justified-text behaviour, same as Adobe's "justify left").
     lines = []
     for para in (text or "").split("\n\n"):
-        para = para.strip()
+        para = " ".join(para.split())
         if not para:
             continue
-        lines.extend(_wrap(para, font, width))
-        lines.append("")  # blank line between paragraphs
-    while lines and lines[-1] == "":
+        wrapped = _wrap(para, font, width)
+        lines.extend((ln, i < len(wrapped) - 1) for i, ln in enumerate(wrapped))
+        lines.append(("", False))  # blank line between paragraphs
+    while lines and lines[-1][0] == "":
         lines.pop()
-    lh = _line_height(font)
+    lh = _line_height(font, 1.28 * _BODY_LEADING)
     return {
-        "kind": "paragraph", "lines": lines, "font": font,
+        "kind": "paragraph", "lines": lines, "font": font, "width": width,
         "height": lh * max(1, len(lines)), "line_height": lh, "before": 0,
     }
+
+
+def _draw_justified(draw, x, y, text, font, width, fill):
+    words = text.split()
+    if len(words) < 2:
+        draw.text((x, y), text, font=font, fill=fill)
+        return
+    word_w = [draw.textlength(w, font=font) for w in words]
+    gap = (width - sum(word_w)) / (len(words) - 1)
+    # Guard: a line with very few words would get huge gaps - fall back to
+    # left-aligned rather than stretch it absurdly.
+    if gap > draw.textlength(" ", font=font) * 4:
+        draw.text((x, y), text, font=font, fill=fill)
+        return
+    cx = x
+    for w, ww in zip(words, word_w):
+        draw.text((round(cx), y), w, font=font, fill=fill)
+        cx += ww + gap
 
 
 def _entry_block(title, detail, width, before=_PARA_GAP):
@@ -185,8 +218,8 @@ def _entry_block(title, detail, width, before=_PARA_GAP):
     dfont = _ENTRY_DETAIL_FONT()
     title_lines = _wrap(title, tfont, width) if title else []
     detail_lines = _wrap(detail, dfont, width) if detail else []
-    tlh = _line_height(tfont, 1.2)
-    dlh = _line_height(dfont, 1.25)
+    tlh = _line_height(tfont, 1.2 * _BODY_LEADING)
+    dlh = _line_height(dfont, 1.25 * _BODY_LEADING)
     height = tlh * len(title_lines) + (round(mm(0.8)) if title_lines and detail_lines else 0) + dlh * len(detail_lines)
     return {
         "kind": "entry", "title_lines": title_lines, "detail_lines": detail_lines,
@@ -198,7 +231,7 @@ def _entry_block(title, detail, width, before=_PARA_GAP):
 def _oneline_entry_block(text, width, before=round(mm(2.4))):
     font = _ENTRY_DETAIL_FONT()
     lines = _wrap(text, font, width)
-    lh = _line_height(font, 1.25)
+    lh = _line_height(font, 1.25 * _BODY_LEADING)
     return {
         "kind": "oneline", "lines": lines, "font": font, "lh": lh,
         "height": lh * len(lines), "before": before,
@@ -209,7 +242,7 @@ def _bullet_block(text, width, before=round(mm(1.6))):
     font = _BULLET_FONT()
     indent = round(mm(4.5))
     lines = _wrap(text, font, width - indent)
-    lh = _line_height(font, 1.25)
+    lh = _line_height(font, 1.25 * _BODY_LEADING)
     return {
         "kind": "bullet", "lines": lines, "font": font, "lh": lh, "indent": indent,
         "height": lh * len(lines), "before": before,
@@ -225,22 +258,24 @@ def _draw_block(canvas, draw, block, x, y, width):
         draw.text((x, y), block["title"], font=block["font"], fill=NAVY)
         y += block["height"]
     elif kind == "paragraph":
-        for line in block["lines"]:
-            if line:
-                draw.text((x, y), line, font=block["font"], fill=DARK)
+        for line, justify in block["lines"]:
+            if line and justify:
+                _draw_justified(draw, x, y, line, block["font"], block["width"], BODY)
+            elif line:
+                draw.text((x, y), line, font=block["font"], fill=BODY)
             y += block["line_height"]
     elif kind == "entry":
         for line in block["title_lines"]:
-            draw.text((x, y), line, font=block["tfont"], fill=NAVY)
+            draw.text((x, y), line, font=block["tfont"], fill=BODY)
             y += block["tlh"]
         if block["title_lines"] and block["detail_lines"]:
             y += round(mm(0.8))
         for line in block["detail_lines"]:
-            draw.text((x, y), line, font=block["dfont"], fill=MID)
+            draw.text((x, y), line, font=block["dfont"], fill=BODY)
             y += block["dlh"]
     elif kind == "oneline":
         for line in block["lines"]:
-            draw.text((x, y), line, font=block["font"], fill=DARK)
+            draw.text((x, y), line, font=block["font"], fill=BODY)
             y += block["lh"]
     elif kind == "bullet":
         first = True
@@ -252,7 +287,7 @@ def _draw_block(canvas, draw, block, x, y, width):
                 # (U+00B7) - confirmed via its cmap - so this uses the
                 # bullet glyph (U+2022) instead, which it does have.
                 draw.text((prefix_x, y), "•", font=block["font"], fill=NAVY)
-            draw.text((text_x, y), line, font=block["font"], fill=DARK)
+            draw.text((text_x, y), line, font=block["font"], fill=BODY)
             y += block["lh"]
             first = False
     return y
@@ -393,6 +428,15 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     photo_d = round(mm(40))
     photo_cx = SIDEBAR_W_PX / 2
     photo_top = mm(16)
+    # A single gold ring the same size as the photo, offset down-right and
+    # drawn BEHIND it - so only its lower-right arc peeks out, matching the
+    # reference design. Drawn first; the photo is pasted over it.
+    ring_offset = round(mm(2.1))
+    ring_w = max(3, round(mm(0.45)))
+    photo_left = round(photo_cx - photo_d / 2)
+    draw.ellipse([photo_left + ring_offset, round(photo_top) + ring_offset,
+                  photo_left + ring_offset + photo_d, round(photo_top) + ring_offset + photo_d],
+                 outline=ORANGE, width=ring_w)
     if photo_img is not None:
         photo = photo_img.copy().convert("RGB")
         scale = photo_d / max(photo.size)
@@ -403,16 +447,10 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
         square.paste(photo, ((photo_d - fit_w) // 2, (photo_d - fit_h) // 2))
         mask = Image.new("L", (photo_d, photo_d), 0)
         ImageDraw.Draw(mask).ellipse([0, 0, photo_d, photo_d], fill=255)
-        canvas.paste(square, (round(photo_cx - photo_d / 2), round(photo_top)), mask)
-    # A single ring, drawn straddling the photo circle's own edge (not
-    # offset outward with a gap) so it reads as one clean boundary.
-    ring_w = 4
-    ring_bbox = [photo_cx - photo_d / 2 - ring_w / 2, photo_top - ring_w / 2,
-                 photo_cx + photo_d / 2 + ring_w / 2, photo_top + photo_d + ring_w / 2]
-    draw.ellipse(ring_bbox, outline=ORANGE, width=ring_w)
+        canvas.paste(square, (photo_left, round(photo_top)), mask)
 
     # Pill label + list.
-    pill_font = _font(_POPPINS_BOLD, 9.5)
+    pill_font = _font(_POPPINS_SEMIBOLD, 9.5)  # 600, one step below Bold, per Erik
     pill_text = pill_label.upper()
     pad_x, pad_y = round(mm(3)), round(mm(1.6))
     tw = draw.textlength(pill_text, font=pill_font)
@@ -462,7 +500,7 @@ def _draw_name_header(canvas, draw, x, top_y, width, full_name, credentials_line
         line1, line2 = " ".join(parts[:-1]).upper(), parts[-1].upper()
     else:
         line1, line2 = (full_name or "").upper(), ""
-    lh = _line_height(name_font, 0.9)  # tightened from 1.05 - lines sat too far apart
+    lh = _line_height(name_font, 0.72)  # 0.9 -> 0.72 (-20%), per Erik
     y = top_y
     for line in _wrap(line1, name_font, width):
         draw.text((x, y), line, font=name_font, fill=NAVY)
@@ -472,9 +510,12 @@ def _draw_name_header(canvas, draw, x, top_y, width, full_name, credentials_line
         y += lh
     if credentials_line:
         cred_font = _font(_MORION_REGULAR, 12)  # was Poppins - Erik wants Morion here too
-        y += round(mm(2))
+        # The tighter name leading pulls the line box up; add that back
+        # here so the credentials line keeps its breathing room below the
+        # name instead of butting against it.
+        y += round(mm(2)) + _line_height(name_font, 0.9) - lh
         for line in _wrap(credentials_line, cred_font, width):
-            draw.text((x, y), line, font=cred_font, fill=MID)
+            draw.text((x, y), line, font=cred_font, fill=BODY)
             y += _line_height(cred_font, 1.3)
     return y
 
@@ -524,7 +565,7 @@ def _build_cover_page():
     subtitle_font = _font(_POPPINS_REGULAR, 44)
     y = mm(250)
     draw.text((mm(18), y), "Trainer", font=title_font, fill=WHITE)
-    y += _line_height(title_font, 1.05)
+    y += _line_height(title_font, 1.05 * 0.7)  # -30%, per Erik
     draw.text((mm(18), y), "Profile", font=subtitle_font, fill=WHITE)
 
     site_font = _font(_POPPINS_REGULAR, 11)
@@ -639,7 +680,7 @@ def _companies_for_page(companies, page_index):
 
 
 def _chunk_companies(names, max_per_page=None):
-    font = _font(_POPPINS_REGULAR, 10.2)
+    font = _font(_MORION_REGULAR, 10.2)  # must match _draw_sidebar's list_font
     lh = _line_height(font, 1.35)
     list_width = SIDEBAR_W_PX - round(mm(10))
     available = round(mm(202.4)) - round(mm(4)) - (round(mm(70)) + round(mm(9.5)) + round(mm(4)))
