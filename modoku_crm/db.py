@@ -901,6 +901,7 @@ CREATE TABLE IF NOT EXISTS full_training_reports (
     session_id INTEGER NOT NULL UNIQUE REFERENCES course_sessions(id) ON DELETE CASCADE,
     foreword_text TEXT,
     objective_text TEXT,
+    key_findings_text TEXT,
     conclusion_text TEXT,
     generated_at TEXT NOT NULL DEFAULT (datetime('now')),
     generated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -982,6 +983,7 @@ def close_db(e=None):
 # _apply_light_migrations adds any that are missing — existing data (and
 # whatever the user has already entered) is left untouched.
 _COLUMN_MIGRATIONS = [
+    ("full_training_reports", "key_findings_text", "TEXT"),  # Fix90
     ("leads", "role", "TEXT"),
     ("enrollments", "ic_no", "TEXT"),
     ("enrollments", "gender", "TEXT"),

@@ -503,10 +503,29 @@ def _answer_table_html(title, answers, respondent_names=None):
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
+def _key_findings_html(text):
+    """Fix90: one bullet per line. A short "Label:" at the start of a line
+    (as the AI writes them - "Strengths: ...") is set in bold."""
+    items = []
+    for line in (text or "").splitlines():
+        line = line.strip().lstrip("-\u2022\u00b7 ").strip()
+        if not line:
+            continue
+        label, sep, rest = line.partition(":")
+        if sep and rest.strip() and 0 < len(label) <= 30:
+            items.append(f"<li><strong>{escape(label.strip())}:</strong> {escape(rest.strip())}</li>")
+        else:
+            items.append(f"<li>{escape(line)}</li>")
+    if not items:
+        return ""
+    return _section_heading("Key Findings") + f'<ul class="key-findings">{"".join(items)}</ul>'
+
+
 def _build_content_html(ctx):
     """ctx keys: course_title, date_range, client_name, trainer_name, venue,
     total_participants, total_responded, participants (list of names),
-    foreword_text, objective_text, conclusion_text, numeric_summary (list,
+    foreword_text, objective_text, key_findings_text (optional),
+    conclusion_text, numeric_summary (list,
     each already carrying 'group'), text_summary (list)."""
     performance_rows = [
         ("Trainer Name", ctx["trainer_name"] or "TBC"),
@@ -586,6 +605,9 @@ def _build_content_html(ctx):
         + '<div style="page-break-before:always">'
         + _section_heading("Training Performance Details, Overall Evaluation")
         + f'<table class="plain performance">{performance_table}</table>'
+        # Key Findings right under the headline numbers, before the charts
+        # that back them up - the part a client manager actually reads.
+        + _key_findings_html(ctx.get("key_findings_text"))
         + "".join(chart_sections)
         + "</div>"
         + "".join(text_sections)
@@ -618,6 +640,9 @@ table.answers td {{ border:1px solid #cfcdc6; padding:6px 10px; font-size:11.5px
 table.answers td.num {{ width:34px; text-align:center; }}
 table.answers td.resp-name {{ width:32%; font-weight:600; }}
 .chart-group {{ margin:0 0 18px; page-break-inside:avoid; }}
+ul.key-findings {{ margin:0 0 28px; padding-left:18px; page-break-inside:avoid; }}
+ul.key-findings li {{ line-height:1.6; margin:0 0 7px; }}
+ul.key-findings strong {{ color:{NAVY}; }}
 .chart-block {{ margin:0 0 14px; page-break-inside:avoid; }}
 .chart-question {{ font-size:12px; font-weight:600; margin-bottom:4px; }}
 </style></head>

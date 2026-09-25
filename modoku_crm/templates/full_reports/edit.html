@@ -54,6 +54,12 @@
   <h6 class="mb-2">Objective</h6>
   <p class="mb-0" style="white-space: pre-wrap;">{{ full_report.objective_text }}</p>
 </div>
+{% if full_report.key_findings_text %}
+<div class="card p-3 mb-3">
+  <h6 class="mb-2">Key Findings</h6>
+  <p class="mb-0" style="white-space: pre-wrap;">{{ full_report.key_findings_text }}</p>
+</div>
+{% endif %}
 <div class="card p-3 mb-3">
   <h6 class="mb-2">Conclusion</h6>
   <p class="mb-0" style="white-space: pre-wrap;">{{ full_report.conclusion_text }}</p>
@@ -62,7 +68,7 @@
 {% else %}
 
 <p class="small text-muted mb-3">
-  Review and edit the three sections below. Everything else (participant list, ratings, charts, open-text
+  Review and edit the four sections below. Everything else (participant list, ratings, charts, open-text
   feedback) is pulled fresh from the evaluation data when the PDF is built, not written by AI.
   Your edits are kept: clicking Generate Full Report again from the class page never overwrites text you've
   already saved here, and only "Rewrite with AI" replaces a section on purpose.
@@ -95,6 +101,22 @@
 
   <div class="card p-3 mb-3">
     <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0">Key Findings</h6>
+      <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='key_findings') }}"
+              class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
+        <i class="bi bi-stars me-1"></i>Rewrite with AI
+      </button>
+    </div>
+    <p class="small text-muted mb-1">
+      The short, scannable summary clients actually read. It sits right under the Training Performance Details
+      table, before the charts. One point per line (each becomes a bullet); a short label before a colon
+      ("Strengths: ...") is shown in bold. Leave it empty to leave the section out.
+    </p>
+    <textarea name="key_findings_text" class="form-control" rows="6">{{ full_report.key_findings_text or '' }}</textarea>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Conclusion</h6>
       <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='conclusion') }}"
               class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
@@ -117,7 +139,7 @@
   <div class="card p-3">
     <h6 class="mb-3">Approve &amp; Send</h6>
     <p class="small text-muted mb-3">
-      Sending renders the final PDF from whatever's currently in the three boxes above (unsaved changes are
+      Sending renders the final PDF from whatever's currently in the four boxes above (unsaved changes are
       saved first automatically), emails it to the address below, and locks this report. It can no longer
       be regenerated or edited after that.
     </p>

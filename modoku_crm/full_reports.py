@@ -47,7 +47,9 @@ from .auth import login_required
 
 bp = Blueprint("full_reports", __name__, url_prefix="/training-report")
 
-DRAFT_SECTIONS = ("foreword", "objective", "conclusion")
+DRAFT_SECTIONS = ("foreword", "objective", "key_findings", "conclusion")
+SECTION_LABELS = {"foreword": "Foreword", "objective": "Objective",
+                  "key_findings": "Key Findings", "conclusion": "Conclusion"}
 
 
 class FullReportError(Exception):
@@ -320,13 +322,84 @@ def _generate_conclusion(session_row, report):
         "a number or claim not supported here; if it says there's no feedback yet, write a more general "
         "closing paragraph without specific results claims):\n" + data_block + "\n\n"
         "Write a new Conclusion, 3-5 sentences, in a similar warm/professional style to the examples "
-        "but reflecting this training's own actual results/sentiment above. Vary your wording and "
+        "but reflecting this training's own actual results/sentiment above. The report already has a "
+        "Key Findings section that lists the exact scores, percentages, strongest/weakest criteria and "
+        "specific participant concerns, so do NOT repeat any number, percentage or criterion name here. "
+        "Refer to the results only in general terms (e.g. \"strongly positive feedback\"). Vary your wording and "
         "structure naturally rather than reusing a fixed template every time. Avoid bombastic or "
         "obviously AI-generated language. Reply with ONLY a JSON object, nothing else: {\"text\": \"...\"}"
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=500)
     text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
     return text or None
+
+
+def _has_feedback(report):
+    return bool(report and (report.get("numeric_summary") or report.get("text_summary")))
+
+
+def _generate_key_findings(session_row, report):
+    """Fix90: the one-glance "Key Findings" list that sits under the
+    Training Performance Details table. Built from what the Training Report
+    page already shows (exact combined ratings + per-criterion averages,
+    the AI ratings narrative, the AI open-text overall and per-question
+    summaries) but condensed into a handful of short, non-overlapping
+    points. Those source summaries repeat each other (e.g. both quote the
+    same "93% Good or Excellent"), so the prompt makes each fact appear
+    exactly once. Returns newline-separated points, or None when the class
+    has no feedback yet."""
+    if not _has_feedback(report):
+        return None
+    lines = []
+    for combined in (report.get("combined_ratings") or []):
+        lines.append(f"- Combined: {combined['summary_text']}")
+    rated = [q for q in (report.get("numeric_summary") or []) if "average" in q]
+    if rated:
+        lines.append("- Per-criterion averages (exact):")
+        for q in sorted(rated, key=lambda q: q["average"], reverse=True):
+            lines.append(f"    {q['question']}: {q['average']}/{q.get('scale_max', 5)}")
+    ai_summary = report.get("ai_summary") or {}
+    if ai_summary.get("ratings_summary"):
+        lines.append(f"- Ratings narrative: {ai_summary['ratings_summary']}")
+    if ai_summary.get("overall"):
+        lines.append(f"- Open-text overall: {ai_summary['overall']}")
+    for item in (ai_summary.get("by_question") or []):
+        if item.get("summary"):
+            lines.append(f"- Open-text, \"{item.get('question', '')}\": {item['summary']}")
+    if not ai_summary:
+        # No AI summaries cached - fall back to a sample of the raw answers.
+        for q in (report.get("text_summary") or []):
+            answers = [a for a in q.get("answers", []) if a and a.strip()][:15]
+            if answers:
+                lines.append(f"- Answers to \"{q['question']}\": " + " | ".join(a[:200] for a in answers))
+    prompt = (
+        "You write the \"Key Findings\" section of Modoku Tech Sdn Bhd's post-training evaluation report, "
+        "which is sent to the CLIENT company (the employer who paid for the training). Busy managers "
+        "read only this part, so it must be short and scannable.\n\n"
+        f"Course: {session_row['course_title']}\nTrainer: {session_row['trainer_name'] or 'TBC'}\n\n"
+        "Evaluation data (numbers are exact; the narratives are earlier AI summaries of the same data "
+        "and overlap each other heavily):\n" + "\n".join(lines) + "\n\n"
+        "Rules:\n"
+        "- 4 to 6 points. Each point is ONE sentence, max 25 words, starting with a short label and a "
+        "colon. Use labels such as \"Overall\", \"Strengths\", \"Areas to improve\", \"Participant "
+        "feedback\", \"Recommendation\" (only the ones the data supports).\n"
+        "- Every fact appears ONCE. Never repeat a number, percentage or criterion across points.\n"
+        "- Only use numbers given above; never invent or recompute one. Don't restate the participant "
+        "or response counts (already shown in the table above this section).\n"
+        "- Include concrete, actionable items the client can act on (e.g. a tool/licence gap, duration "
+        "requests, departments that would benefit), phrased constructively and professionally. Never "
+        "name individual participants.\n"
+        "- Plain, professional English. No fluff, no marketing language, no \"overall this was a highly "
+        "successful\" style filler.\n"
+        "Reply with ONLY a JSON object, nothing else: {\"points\": [\"Label: sentence\", ...]}"
+    )
+    parsed = training_reports._call_claude_json(prompt, max_tokens=700)
+    points = parsed.get("points") if isinstance(parsed, dict) else None
+    if not isinstance(points, list):
+        return None
+    points = [" ".join(str(p).split()).lstrip("-•· ").strip() for p in points]
+    points = [p for p in points if p]
+    return "\n".join(points) or None
 
 
 def build_or_refresh_draft(session_id, user_id=None):
@@ -357,6 +430,7 @@ def build_or_refresh_draft(session_id, user_id=None):
     current = {
         "foreword_text": existing["foreword_text"] if existing else None,
         "objective_text": existing["objective_text"] if existing else None,
+        "key_findings_text": existing["key_findings_text"] if existing else None,
         "conclusion_text": existing["conclusion_text"] if existing else None,
     }
     errors = []
@@ -372,6 +446,17 @@ def build_or_refresh_draft(session_id, user_id=None):
         except Exception:  # noqa: BLE001
             current_app.logger.exception("AI objective generation failed for session %s", session_id)
             errors.append("Objective")
+    # Key Findings only when there's feedback to summarize - a class with no
+    # evaluation data yet just leaves it empty (not an error; the PDF omits
+    # the section), and a later Generate fills it in once data arrives.
+    if not current["key_findings_text"] and _has_feedback(report):
+        try:
+            current["key_findings_text"] = _generate_key_findings(session_row, report)
+            if not current["key_findings_text"]:
+                errors.append("Key Findings")
+        except Exception:  # noqa: BLE001
+            current_app.logger.exception("AI key findings generation failed for session %s", session_id)
+            errors.append("Key Findings")
     if not current["conclusion_text"]:
         try:
             current["conclusion_text"] = _generate_conclusion(session_row, report)
@@ -380,16 +465,18 @@ def build_or_refresh_draft(session_id, user_id=None):
             errors.append("Conclusion")
 
     db.execute(
-        """INSERT INTO full_training_reports (session_id, foreword_text, objective_text, conclusion_text,
-                                               generated_at, generated_by)
-           VALUES (?, ?, ?, ?, datetime('now'), ?)
+        """INSERT INTO full_training_reports (session_id, foreword_text, objective_text, key_findings_text,
+                                               conclusion_text, generated_at, generated_by)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
            ON CONFLICT(session_id) DO UPDATE SET
                foreword_text = excluded.foreword_text,
                objective_text = excluded.objective_text,
+               key_findings_text = excluded.key_findings_text,
                conclusion_text = excluded.conclusion_text,
                generated_at = datetime('now'),
                generated_by = excluded.generated_by""",
-        (session_id, current["foreword_text"], current["objective_text"], current["conclusion_text"], user_id),
+        (session_id, current["foreword_text"], current["objective_text"], current["key_findings_text"],
+         current["conclusion_text"], user_id),
     )
     if errors:
         raise FullReportError(
@@ -421,8 +508,16 @@ def rewrite_section(session_id, section, user_id=None):
             text = _generate_foreword(session_row)
         elif section == "objective":
             text = _generate_objective(session_row)
+        elif section == "key_findings":
+            report = training_reports.get_report(session_id)
+            if not _has_feedback(report):
+                raise FullReportError("No evaluation feedback for this class yet, so there's nothing to "
+                                      "summarize into Key Findings. Refresh the Training Report first.")
+            text = _generate_key_findings(session_row, report)
         else:
             text = _generate_conclusion(session_row, training_reports.get_report(session_id))
+    except FullReportError:
+        raise
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("AI rewrite (%s) failed for session %s", section, session_id)
         raise FullReportError("AI couldn't write a new draft just now, try again in a moment.") from exc
@@ -440,7 +535,7 @@ def rewrite_section(session_id, section, user_id=None):
     return get_full_report(session_id)
 
 
-def save_draft(session_id, foreword_text, objective_text, conclusion_text):
+def save_draft(session_id, foreword_text, objective_text, conclusion_text, key_findings_text=""):
     """Saves the three text boxes verbatim, no AI involved — always
     allowed pre-approval (both the Save Draft button and, as its first
     step, Approve & Send, so whatever's currently in the textareas is what
@@ -452,9 +547,9 @@ def save_draft(session_id, foreword_text, objective_text, conclusion_text):
     if is_locked(existing):
         raise FullReportError("This class's report has already been sent. It can no longer be edited.")
     db.execute(
-        "UPDATE full_training_reports SET foreword_text = ?, objective_text = ?, conclusion_text = ? "
-        "WHERE session_id = ?",
-        (foreword_text, objective_text, conclusion_text, session_id),
+        "UPDATE full_training_reports SET foreword_text = ?, objective_text = ?, key_findings_text = ?, "
+        "conclusion_text = ? WHERE session_id = ?",
+        (foreword_text, objective_text, key_findings_text, conclusion_text, session_id),
     )
 
 
@@ -538,6 +633,7 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
         "participants": participants,
         "foreword_text": existing["foreword_text"] or "",
         "objective_text": existing["objective_text"] or "",
+        "key_findings_text": existing["key_findings_text"] or "",
         "conclusion_text": existing["conclusion_text"] or "",
         "numeric_summary": report["numeric_summary"],
         "text_summary": report["text_summary"],
@@ -569,6 +665,13 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
         (user_id, to_email, session_id),
     )
     activity.log("send_email", "session", session_id, f"Approved and emailed Full Training Report to {to_email}")
+
+
+def _save_draft_from_form(session_id):
+    """Saves all four text boxes exactly as currently on screen."""
+    save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
+               request.form.get("conclusion_text", ""),
+               key_findings_text=request.form.get("key_findings_text", ""))
 
 
 # --- Routes --------------------------------------------------------------
@@ -606,8 +709,7 @@ def generate(session_id):
 @login_required
 def save(session_id):
     try:
-        save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
-                   request.form.get("conclusion_text", ""))
+        _save_draft_from_form(session_id)
     except FullReportError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("full_reports.edit", session_id=session_id))
@@ -623,13 +725,12 @@ def rewrite(session_id, section):
     # side — save them first from the submitted form (same "save whatever
     # is on screen" rule as save()/approve() below).
     try:
-        save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
-                   request.form.get("conclusion_text", ""))
+        _save_draft_from_form(session_id)
         rewrite_section(session_id, section, user_id=g.user["id"] if g.user else None)
     except FullReportError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("full_reports.edit", session_id=session_id))
-    flash(f"{section.title()} rewritten by AI.", "success")
+    flash(f"{SECTION_LABELS.get(section, section.title())} rewritten by AI.", "success")
     return redirect(url_for("full_reports.edit", session_id=session_id))
 
 
@@ -648,8 +749,7 @@ def preview(session_id):
         # preview always matches what's on screen, not just the last
         # explicit Save Draft click.
         try:
-            save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
-                       request.form.get("conclusion_text", ""))
+            _save_draft_from_form(session_id)
             full_report = get_full_report(session_id)
         except FullReportError:
             pass  # e.g. locked by another tab just now — preview whatever's already on file instead
@@ -667,6 +767,7 @@ def preview(session_id):
         "participants": participants,
         "foreword_text": full_report["foreword_text"] or "",
         "objective_text": full_report["objective_text"] or "",
+        "key_findings_text": full_report["key_findings_text"] or "",
         "conclusion_text": full_report["conclusion_text"] or "",
         "numeric_summary": report["numeric_summary"],
         "text_summary": report["text_summary"],
@@ -688,8 +789,7 @@ def approve(session_id):
         flash("Class not found.", "danger")
         return redirect(url_for("training_reports.index"))
     try:
-        save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
-                   request.form.get("conclusion_text", ""))
+        _save_draft_from_form(session_id)
         to_email = (request.form.get("to_email") or session_row["pic_email"] or session_row["client_email"] or "").strip()
         subject = (request.form.get("subject") or "").strip() or _default_full_report_email_subject(session_row)
         body = (request.form.get("body") or "").strip() or _default_full_report_email_body(session_row)
