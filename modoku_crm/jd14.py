@@ -21,7 +21,7 @@ changing both.
 """
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
-from . import db, fmtaddress, mailer, settings
+from . import activity, db, fmtaddress, mailer, settings
 from .auth import admin_required, login_required
 from .pdfgen import generate_jd14_pdf
 from .sessions import ensure_jd14_return_token
@@ -33,10 +33,11 @@ def _session_or_none(session_id):
     return db.query(
         """SELECT cs.*, c.title AS course_title, co.name AS company_name, co.address AS company_address,
                   co.city AS company_city, co.state AS company_state, co.postcode AS company_postcode,
-                  co.email AS company_email
+                  co.email AS company_email, pic.name AS pic_name, pic.email AS pic_email
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN companies co ON co.id = cs.client_company_id
+           LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
            WHERE cs.id = ?""",
         (session_id,), one=True,
     )
@@ -225,6 +226,25 @@ def index():
     return render_template("jd14/index.html", sessions=sessions, q=q, sort=sort, direction=direction)
 
 
+def _default_send_subject(session_row):
+    return f"JD14 Form - {session_row['course_title']}"
+
+
+def _default_send_body(session_row, return_url):
+    greeting = session_row["pic_name"] if session_row["pic_name"] else "there"
+    return (
+        f"Hi {greeting},\n\nPlease find attached the JD14 Joint Declaration Form (PSMB/SBL-KHAS/JD/14) for "
+        f"{session_row['course_title']}, with our part completed and signed.\n\n"
+        "Please fill in your part, sign and stamp it, then upload the signed copy directly here "
+        f"for our reference - no need to email it separately:\n{return_url}\n\n"
+        "Thank you."
+    )
+
+
+def _return_url(session_id):
+    return url_for("jd14_return.details", token=ensure_jd14_return_token(session_id), _external=True)
+
+
 @bp.route("/sessions/<int:session_id>")
 @login_required
 def edit(session_id):
@@ -241,10 +261,20 @@ def edit(session_id):
     # one on file - purely a preview convenience, sign() is what actually
     # records who signed.
     preview_user = signed_by_user or g.user
+    # Fix92: once signed, the page shows the actual email that "Send to
+    # PIC" will send (to/CC/subject/message, all editable) before sending.
+    email_defaults = None
+    is_admin = bool(g.user and g.user["role"] == "admin")
+    if jd14_row["signed_at"] and is_admin:
+        email_defaults = {
+            "to_email": session_row["pic_email"] or "",
+            "subject": _default_send_subject(session_row),
+            "body": _default_send_body(session_row, _return_url(session_id)),
+        }
     return render_template(
         "jd14/edit.html", s=session_row, f=jd14_row, signed_by_user=signed_by_user,
         preview_user=preview_user, company_stamp_file=settings.get_company_stamp_file(),
-        is_admin=(g.user and g.user["role"] == "admin"),
+        is_admin=is_admin, email_defaults=email_defaults,
         jd14_stage_value=jd14_stage(session_row, jd14_row),
     )
 
@@ -359,10 +389,15 @@ def send(session_id):
         flash("Sign the JD14 Form first, then send it.", "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
 
-    to_email = (session_row["company_email"] or "").strip()
+    # Fix92: goes to the class's PIC (the person handling it on the client
+    # side), not the company's general email - and whatever was typed in
+    # the email preview box on the page wins over the defaults.
+    to_email = (request.form.get("to_email") or session_row["pic_email"] or "").strip()
     if not to_email:
-        flash("This class's client company has no email on file to send the JD14 Form to.", "danger")
+        flash("No PIC email on file for this class. Select a PIC on the class's Edit page, "
+              "or type an address to send to.", "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
+    cc_email = (request.form.get("cc_email") or "").strip() or None
 
     signed_by_user = db.query("SELECT * FROM users WHERE id = ?", (jd14_row["signed_by_user_id"],), one=True)
     try:
@@ -372,20 +407,12 @@ def send(session_id):
         flash("Could not generate the JD14 Form PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
 
-    return_token = ensure_jd14_return_token(session_id)
-    return_url = url_for("jd14_return.details", token=return_token, _external=True)
-    subject = f"JD14 Form - {session_row['course_title']}"
-    body = (
-        f"Hi,\n\nPlease find attached the JD14 Joint Declaration Form (PSMB/SBL-KHAS/JD/14) for "
-        f"{session_row['course_title']}, with our part completed and signed.\n\n"
-        "Please fill in your part, sign and stamp it, then upload the signed copy directly here "
-        f"for our reference - no need to email it separately:\n{return_url}\n\n"
-        "Thank you."
-    )
+    subject = (request.form.get("subject") or "").strip() or _default_send_subject(session_row)
+    body = (request.form.get("body") or "").strip() or _default_send_body(session_row, _return_url(session_id))
     attachments = [("JD14_Form.pdf", pdf_bytes, "application/pdf")]
     try:
         mailer.send_email(to_email, subject, body, attachments=attachments,
-                           related_type="course_session", related_id=session_id)
+                           related_type="course_session", related_id=session_id, cc_email=cc_email)
     except mailer.MailNotConfigured as exc:
         flash(str(exc), "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
@@ -402,5 +429,6 @@ def send(session_id):
         (to_email, session_id),
     )
 
+    activity.log("send_email", "session", session_id, f"Sent JD14 Form to {to_email}")
     flash(f"JD14 Form emailed to {to_email}.", "success")
     return redirect(url_for("jd14.edit", session_id=session_id))
