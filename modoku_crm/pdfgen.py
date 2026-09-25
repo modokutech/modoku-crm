@@ -1386,70 +1386,182 @@ def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_r
 
 # --- JD14 Form (PSMB/SBL-KHAS/JD/14) - OUR side ---------------------------
 #
-# NOTE - kept in sync by hand with the on-screen preview fragment in
-# templates/jd14/edit.html: both render the exact same table-based layout
-# from a shared design (see jd14.py's module docstring), one as inline CSS
-# for wkhtmltopdf, one as Jinja/Bootstrap for the live page. Changing this
-# layout means changing that template's preview markup to match, and vice
-# versa - there is no single source of truth to edit once and have both
-# follow, the same discipline already used for the T3 Attendance Form.
+# NOTE (Fix91): the PDF is now laid out by absolute position to match the
+# official form almost exactly (see _JD14_PX_PER_MM below). The live
+# on-screen preview in templates/jd14/edit.html is still its own
+# table-based approximation - same fields, same order, updated live as you
+# type - and is not meant to be pixel-identical; the "PDF Preview" button
+# on that page shows the exact output.
 #
-# This layout is a VERBATIM reproduction of the official HRDCorp reference
-# (PSMB/SBL-KHAS/JD/14) - extracted with `pdftotext -layout` and checked
-# against a 150dpi render of the real PDF, not a paraphrase. Section order,
-# box/border structure, wording and bold/label placement below all mirror
-# that reference exactly; don't "clean up" the wording, spacing or the
+# Wording is VERBATIM from the official HRDCorp reference
+# (PSMB/SBL-KHAS/JD/14) - don't "clean up" the wording, spacing or the
 # double-colon in the footer's "REMINDER: :" - that is how the source form
 # has it. See jd14.py's module docstring for the receiving half of this
 # workflow, which this function never touches.
 _JD14_MYCOID_CELLS = list("1390352-H") + [""] * 11  # one char per cell, + blank cells to fill out the row
 
+# Fix91: the layout below is placed by absolute position, measured directly
+# off the official HRDCorp JD14 form (Erik's reference, rendered at 1200px
+# wide = 5.714px/mm), so it lands on the page where the real form's boxes,
+# labels and lines are - not just "the same sections in the same order".
+#
+# Units: this app's wkhtmltopdf (0.12.6, unpatched Qt - same on the server)
+# always renders 1 CSS px as 0.2032mm on the PDF page (measured: a 400px box
+# prints 81.3mm wide, independent of page margins), so real millimetres are
+# converted to CSS px with _JD14_PX_PER_MM, and points to px with _jd14_pt.
+# The typeface is Liberation Sans Narrow - metrically identical to the Arial
+# Narrow the official form uses - embedded in the HTML so the output doesn't
+# depend on what fonts the server has (it had none of Arial's family, which
+# is why the old version fell back to a much wider face).
+_JD14_PX_PER_MM = 1 / 0.2032
+_JD14_PAGE_LEFT_MM = 4.5   # wkhtmltopdf margins used by generate_jd14_pdf
+_JD14_PAGE_TOP_MM = 4.0
+_JD14_FONT_REGULAR = os.path.join(_DOC_FONT_DIR, "LiberationSansNarrow-Regular.ttf")
+_JD14_FONT_BOLD = os.path.join(_DOC_FONT_DIR, "LiberationSansNarrow-Bold.ttf")
+_jd14_measure_cache = {}
 
-def _jd14_decl_block(letter, paragraph, signature_html, name_html, mykad_html,
-                      designation_html, stamp_html, note_text, date_html, date_gap):
-    """The (a)/(b) declaration block inside Part 3 - identical structure for
-    both the Training Provider (a, our side, may be filled in) and the
-    Employer (b, always blank - filled in by hand by the client). A single
-    helper avoids the two blocks silently drifting apart from each other
-    inside this one file (templates/jd14/edit.html still repeats this
-    markup by hand for the live preview, per the module note above).
 
-    date_gap adds extra vertical space above the DATE row, matching the
-    reference: in (a) there's a visible gap between MYKAD NO and DATE
-    (room for a physical stamp over the printed COMPANY STAMP line); (b)
-    has none since every field in it is left blank anyway.
+def _jd14_x(mm):
+    """Page x (mm from the paper's left edge, as measured off the reference)
+    -> CSS px inside the printable area."""
+    return f"{(mm - _JD14_PAGE_LEFT_MM) * _JD14_PX_PER_MM:.1f}px"
 
-    SIGNATURE/DESIGNATION (row 1) and NAME/COMPANY STAMP (row 2) both get
-    the same extra row height on BOTH sides, even though only the left
-    (signature) and right (stamp) side of each pair actually holds an
-    embedded image - the two columns are independent tables, so giving
-    only one side extra height would push its row out of line with its
-    counterpart, which the reference does not do (every row lines up
-    across both columns)."""
-    return f"""
-    <table class="jd14-hang">
-      <tr><td class="jd14-hang-mark">({letter})</td><td class="jd14-hang-body">{paragraph}</td></tr>
-    </table>
-    <table class="jd14-decl-cols">
-      <tr>
-        <td style="width:50%">
-          <table class="jd14-decl-kv">
-            <tr><td class="dlabel">SIGNATURE</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{signature_html}</td></tr>
-            <tr><td class="dlabel">NAME</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{name_html}</td></tr>
-            <tr><td class="dlabel">MYKAD NO</td><td class="dcolon">:</td><td class="dvalue">{mykad_html}</td></tr>
-          </table>
-        </td>
-        <td style="width:50%">
-          <table class="jd14-decl-kv">
-            <tr><td class="dlabel">DESIGNATION</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{designation_html}</td></tr>
-            <tr><td class="dlabel">COMPANY STAMP</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{stamp_html}</td></tr>
-            <tr><td colspan="2"></td><td class="jd14-decl-note">{note_text}</td></tr>
-            <tr style="height:{date_gap}px"><td colspan="3"></td></tr>
-            <tr><td class="dlabel">DATE</td><td class="dcolon">:</td><td class="dvalue">{date_html}</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>"""
+
+def _jd14_y(mm):
+    return f"{(mm - _JD14_PAGE_TOP_MM) * _JD14_PX_PER_MM:.1f}px"
+
+
+def _jd14_len(mm):
+    return f"{mm * _JD14_PX_PER_MM:.1f}px"
+
+
+def _jd14_pt(pt):
+    return f"{pt * 25.4 / 72 * _JD14_PX_PER_MM:.2f}px"
+
+
+def _jd14_text_mm(text, pt, bold=False):
+    """Printed width (mm) of text in Liberation Sans Narrow at pt."""
+    path = _JD14_FONT_BOLD if bold else _JD14_FONT_REGULAR
+    font = _jd14_measure_cache.get(path)
+    if font is None:
+        try:
+            font = ImageFont.truetype(path, 1000)
+        except OSError:
+            return len(text or "") * pt * 0.16  # rough fallback if the font file is missing
+        _jd14_measure_cache[path] = font
+    return font.getlength(text or "") / 1000 * pt * 25.4 / 72
+
+
+def _jd14_fit_pt(text, width_mm, base_pt=11, min_pt=7):
+    """Largest size <= base_pt at which a one-line value fits its underline
+    (a long course title or venue shrinks rather than running off the line)."""
+    pt = base_pt
+    while pt > min_pt and _jd14_text_mm(text, pt) > width_mm:
+        pt -= 0.25
+    return pt
+
+
+def _jd14_font_face_css():
+    rules = []
+    for weight, path in ((400, _JD14_FONT_REGULAR), (700, _JD14_FONT_BOLD)):
+        uri = _font_data_uri(path)
+        if uri:
+            rules.append(f"@font-face {{ font-family:'JD14 Narrow'; src:url({uri}) format('truetype'); "
+                         f"font-weight:{weight}; font-style:normal; }}")
+    return "\n".join(rules)
+
+
+def _jd14_text(x_mm, top_mm, text_html, pt=11, bold=False, width_mm=None, align="left", extra=""):
+    """A text run whose cap-height top sits at top_mm (the measurements are
+    of visible text tops; the 0.18em offset accounts for the font's own
+    internal leading above the capitals)."""
+    size = pt * 25.4 / 72
+    style = (f"left:{_jd14_x(x_mm)};top:{_jd14_y(top_mm - size * 0.18)};font-size:{_jd14_pt(pt)};"
+             f"font-weight:{700 if bold else 400};text-align:{align};")
+    if width_mm is not None:
+        style += f"width:{_jd14_len(width_mm)};"
+    else:
+        style += "white-space:nowrap;"
+    return f'<div class="t" style="{style}{extra}">{text_html}</div>'
+
+
+def _jd14_hline(x1_mm, x2_mm, y_mm):
+    return (f'<div class="hl" style="left:{_jd14_x(x1_mm)};top:{_jd14_y(y_mm)};'
+            f'width:{_jd14_len(x2_mm - x1_mm)}"></div>')
+
+
+def _jd14_value(x1_mm, x2_mm, line_y_mm, value, base_pt=11):
+    """An underlined field: the line itself plus its value sitting just on
+    top of it, shrunk to fit if it's too long for the line."""
+    out = _jd14_hline(x1_mm, x2_mm, line_y_mm)
+    value = value or ""
+    if value:
+        pt = _jd14_fit_pt(value, x2_mm - x1_mm - 1.5, base_pt=base_pt)
+        size = pt * 25.4 / 72
+        out += _jd14_text(x1_mm + 1.2, line_y_mm - size * 0.95 - 0.5, escape(value), pt=pt)
+    return out
+
+
+def _jd14_box(x1_mm, y1_mm, x2_mm, y2_mm):
+    return (f'<div class="bx" style="left:{_jd14_x(x1_mm)};top:{_jd14_y(y1_mm)};'
+            f'width:{_jd14_len(x2_mm - x1_mm)};height:{_jd14_len(y2_mm - y1_mm)}"></div>')
+
+
+def _jd14_decl(y, letter, mark_x, text_x, paragraph, lines_pitch, n_lines, rows, note_lines,
+               note_top, date_top, values=None, signature_uri=None, stamp_uri=None, text_right=191.6,
+               date_line=True, para_pt=11.0):
+    """One Part 3 declaration - (a) Training Provider or (b) Employer - at
+    the reference's measured positions. rows = (label_top, line_y) for the
+    SIGNATURE/NAME/MYKAD rows (left) which DESIGNATION/COMPANY STAMP share
+    on the right."""
+    values = values or {}
+    parts = [
+        _jd14_text(mark_x, y, f"({letter})", pt=para_pt),
+        _jd14_text(text_x, y, paragraph, pt=para_pt, width_mm=text_right - text_x, align="justify",
+                   extra=f"white-space:normal;line-height:{_jd14_len(lines_pitch)};"),
+    ]
+    labels_left = ("SIGNATURE", "NAME", "MYKAD NO")
+    for (label_top, line_y), label, key in zip(rows, labels_left, ("signature", "name", "mykad")):
+        parts.append(_jd14_text(21.0, label_top, label, pt=10, bold=True))
+        parts.append(_jd14_text(43.6, label_top, ":", pt=10))
+        if key == "signature":
+            parts.append(_jd14_hline(45.9, 94.5, line_y))
+        else:
+            parts.append(_jd14_value(45.9, 94.5, line_y, values.get(key)))
+    for (label_top, line_y), label, key in zip(rows[:2], ("DESIGNATION", "COMPANY STAMP"), ("designation", "stamp")):
+        parts.append(_jd14_text(102.7, label_top, label, pt=10, bold=True))
+        parts.append(_jd14_text(138.9, label_top, ":", pt=10))
+        if key == "stamp":
+            parts.append(_jd14_hline(143.9, 199.9, line_y))
+        else:
+            parts.append(_jd14_value(143.9, 199.9, line_y, values.get(key)))
+    parts.append(_jd14_text(143.9, note_top, note_lines, pt=10, width_mm=56, align="center",
+                            extra="white-space:normal;line-height:" + _jd14_len(4.2) + ";"))
+    parts.append(_jd14_text(102.7, date_top, "DATE", pt=10, bold=True))
+    parts.append(_jd14_text(138.9, date_top, ":", pt=10))
+    if date_line:
+        parts.append(_jd14_value(143.9, 199.9, date_top + 5.1, values.get("date")))
+    # (b)'s DATE sits on the Part 3 box's own bottom edge in the reference,
+    # so it has no separate underline.
+
+    # Signature: centred over the SIGNATURE line and allowed to cross it,
+    # the way a hand signature does, filling the blank band between the
+    # declaration paragraph and the NAME row.
+    if signature_uri:
+        sig_line = rows[0][1]
+        parts.append(
+            f'<div class="img" style="left:{_jd14_x(47)};top:{_jd14_y(sig_line - 9.5)};'
+            f'width:{_jd14_len(46)};height:{_jd14_len(12.5)}">'
+            f'<img src="{signature_uri}" style="max-width:100%;max-height:100%"></div>')
+    # Company stamp: the empty area under the COMPANY STAMP label, left of
+    # the (Managing Director/...) caption, so neither covers the other.
+    if stamp_uri:
+        stamp_line = rows[1][1]
+        parts.append(
+            f'<div class="img" style="left:{_jd14_x(103)};top:{_jd14_y(stamp_line + 1.5)};'
+            f'width:{_jd14_len(46)};height:{_jd14_len(17)}">'
+            f'<img src="{stamp_uri}" style="max-width:100%;max-height:100%"></div>')
+    return "".join(parts)
 
 
 def _build_jd14_html(session_row, jd14_row, signed_by_user):
@@ -1457,205 +1569,174 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
     (PSMB/SBL-KHAS/JD/14) - OUR half of it, filled in and signed by an
     admin, ready to send to the client to countersign and return (which
     lands via the EXISTING jd14_return.py flow - this module never touches
-    that). Built entirely with <table> layout (no flexbox/grid - wkhtmltopdf
-    doesn't support either), mirroring the approach already used for the T3
-    Attendance Form above.
+    that).
 
-    A plain black-and-white bureaucratic form reproduced as-is - no Modoku
-    branding, colours or logo, since the real HRDCorp document has none of
-    those either.
+    Fix91: every box, label, line and paragraph is absolutely positioned at
+    the coordinates measured off the official form (see the notes above
+    _JD14_PX_PER_MM), wording verbatim, in Arial-Narrow-metric type, so the
+    output is a near-exact match of the real form rather than an
+    approximation of it. A plain black-and-white form - no Modoku branding.
 
-    signed_by_user is None until the form is signed - in that case Part
-    3(a)'s signature/stamp/mykad/designation/date cells render blank so
-    staff can preview the unsigned version too. Part 3(b) (the Employer's
-    side) is ALWAYS left blank here - it's filled in by hand by the client
-    after they receive the form."""
-    employer_address_html = (jd14_row["employer_address"] or "").replace("\n", "<br>")
-
+    signed_by_user is None until the form is signed - Part 3(a)'s signature/
+    stamp/mykad/designation/date then render blank. Part 3(b) (the
+    Employer's side) is ALWAYS left blank - the client fills it in by hand."""
     commenced = _fmtdate(jd14_row["training_date_commenced"])
     ended = _fmtdate(jd14_row["training_date_ended"])
 
-    signature_html = ""
-    stamp_html = ""
-    mykad = ""
-    designation = ""
-    signed_date = ""
-    signed_name = ""
+    sig_uri = stamp_uri = None
+    a_values = {}
     if signed_by_user is not None:
         sig_uri = _user_signature_data_uri(signed_by_user["signature_file"], signed_by_user["id"])
-        signature_html = f"<img src='{sig_uri}' style='max-height:64px;max-width:100%'>" if sig_uri else ""
         stamp_uri = _company_stamp_data_uri()
-        stamp_html = f"<img src='{stamp_uri}' style='max-height:64px;max-width:100%'>" if stamp_uri else ""
-        mykad = escape(signed_by_user["mykad_no"] or "")
-        designation = escape(signed_by_user["position"] or "")
-        signed_date = _fmtdate(jd14_row["signed_at"].split(" ")[0]) if jd14_row["signed_at"] else ""
-        signed_name = escape(signed_by_user["name"] or "")
+        a_values = {
+            "name": signed_by_user["name"] or "",
+            "mykad": signed_by_user["mykad_no"] or "",
+            "designation": signed_by_user["position"] or "",
+            "date": _fmtdate(jd14_row["signed_at"].split(" ")[0]) if jd14_row["signed_at"] else "",
+        }
 
-    mycoid_cells = "".join(f'<td class="mycoid-cell">{c}</td>' for c in _JD14_MYCOID_CELLS)
+    p = []
+    # --- MyCoID comb box + form code -------------------------------------
+    cell_w = (98.9 - 9.6) / 20
+    p.append(_jd14_box(9.6, 4.4, 98.9, 14.0))
+    p.append(_jd14_hline(9.6, 98.9, 9.1))
+    for i in range(1, 20):
+        x = 9.6 + i * cell_w
+        p.append(f'<div class="vl" style="left:{_jd14_x(x)};top:{_jd14_y(9.1)};height:{_jd14_len(4.9)}"></div>')
+    p.append(_jd14_text(9.6, 5.7, "TRAINING PROVIDER MYCOID(ROC/ROB/ROS)", bold=True, width_mm=89.3, align="center"))
+    for i, ch in enumerate(_JD14_MYCOID_CELLS):
+        if ch:
+            p.append(_jd14_text(9.6 + i * cell_w, 10.4, escape(ch), pt=10, bold=True, width_mm=cell_w, align="center"))
+    p.append(_jd14_box(9.6, 16.3, 60.7, 21.0))
+    p.append(_jd14_text(11.4, 17.2, "PSMB/SBL-KHAS /JD/14", bold=True))
 
-    decl_a = _jd14_decl_block(
-        "a",
+    # --- Title + intro ----------------------------------------------------
+    p.append(_jd14_text(18.0, 26.4, "EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME "
+                                    "CLAIMS (FEES)", pt=11.2, bold=True, width_mm=192.4, align="center"))
+    p.append(_jd14_text(18.0, 30.8, "UNDER THE PEMBANGUNAN SUMBER MANUSIA BERHAD ACT 2001", pt=11.2, bold=True,
+                        width_mm=192.4, align="center"))
+    p.append(_jd14_text(
+        17.5, 35.4,
+        "This declaration is to certify that employer involved in the training program had agreed with the "
+        "training program conducted, fees charged and allow training provider to claim with PSMB. This "
+        "declaration should only be signed by employers after the training completed. This form must be "
+        "attached when submitting online SBL &ndash;KHAS claim. This form must be kept at training providers "
+        "premises and available for future verification by PSMB.",
+        pt=10, width_mm=204.4 - 17.5, align="justify",
+        extra=f"white-space:normal;text-indent:{_jd14_len(-12.6)};line-height:{_jd14_len(3.94)};"))
+
+    # --- Part 1 -----------------------------------------------------------
+    p.append(_jd14_text(17.0, 50.8, "PART 1 &ndash; EMPLOYER&rsquo;S PARTICULAR", bold=True,
+                        width_mm=192.4, align="center"))
+    p.append(_jd14_box(11.0, 54.6, 199.9, 106.4))
+    p.append(_jd14_text(13.1, 57.6, "Registered Name and Address of Employer:"))
+    # Employer name + address in the blank area under that label, shrunk
+    # if a long address would otherwise run into the Course Title row.
+    employer_lines = [jd14_row["employer_name"] or ""] + (jd14_row["employer_address"] or "").splitlines()
+    employer_text = "<br>".join(escape(l) for l in employer_lines if l.strip())
+    if employer_text:
+        area_w, area_h = 97.0, 84.0 - 63.0
+        pt = 11
+        while pt > 7:
+            line_h = pt * 25.4 / 72 * 1.18
+            n = sum(max(1, -(-_jd14_text_mm(l, pt) // area_w)) for l in employer_lines if l.strip())
+            if n * line_h <= area_h:
+                break
+            pt -= 0.5
+        p.append(_jd14_text(13.1, 63.0, employer_text, pt=pt, width_mm=area_w,
+                            extra=f"white-space:normal;line-height:{_jd14_len(pt * 25.4 / 72 * 1.18)};"))
+    for top, label, key in ((57.6, "Employer Code", "employer_code"), (64.4, "Approval No", "approval_no"),
+                            (71.2, "Group Approved", "group_approved"), (78.1, "Group Claimed", "group_claimed")):
+        p.append(_jd14_text(113.8, top, label))
+        p.append(_jd14_text(144.2, top, ":"))
+        p.append(_jd14_value(147.0, 199.9, top + 3.7, jd14_row[key]))
+    p.append(_jd14_text(13.1, 84.9, "Course Title"))
+    p.append(_jd14_text(46.7, 84.9, ":"))
+    p.append(_jd14_value(50.8, 192.0, 88.4, jd14_row["course_title"]))
+    p.append(_jd14_text(13.1, 91.7, "Training Dates"))
+    p.append(_jd14_text(46.7, 91.7, ":"))
+    p.append(_jd14_text(62.7, 91.7, "Commenced:"))
+    p.append(_jd14_value(86.3, 121.3, 95.2, commenced))
+    p.append(_jd14_text(123.6, 91.7, "Ended&nbsp;:"))
+    p.append(_jd14_value(140.9, 192.0, 95.2, ended))
+    p.append(_jd14_text(13.1, 98.5, "Training Venue"))
+    p.append(_jd14_text(46.7, 98.5, ":"))
+    p.append(_jd14_value(50.8, 199.9, 102.0, jd14_row["training_venue"]))
+
+    # --- Part 2 -----------------------------------------------------------
+    p.append(_jd14_text(17.0, 107.8, "PART 2 &ndash; CLAIM FOR COURSE FEE", bold=True, width_mm=192.4, align="center"))
+    p.append(_jd14_box(11.0, 111.3, 199.9, 128.3))
+    p.append(_jd14_hline(11.0, 199.9, 120.4))
+    for x in (65.6, 140.9):
+        p.append(f'<div class="vl" style="left:{_jd14_x(x)};top:{_jd14_y(111.3)};height:{_jd14_len(17.0)}"></div>')
+    cols = ((11.0, 65.6), (65.6, 140.9), (140.9, 199.9))
+    for (x1, x2), head in zip(cols, ("Number of Trainee(s)*", "Total Fee Approved<br>(RM)", "Total Fee Claimed<br>(RM)")):
+        p.append(_jd14_text(x1, 112.4, head, bold=True, width_mm=x2 - x1, align="center",
+                            extra=f"white-space:normal;line-height:{_jd14_len(4.1)};"))
+    for (x1, x2), key in zip(cols, ("num_trainees", "total_fee_approved", "total_fee_claimed")):
+        value = jd14_row[key] or ""
+        if value:
+            p.append(_jd14_text(x1, 122.6, escape(value), pt=_jd14_fit_pt(value, x2 - x1 - 3),
+                                width_mm=x2 - x1, align="center"))
+
+    # --- Part 3 -----------------------------------------------------------
+    p.append(_jd14_text(5.5, 132.1, "PART 3 &ndash; JOINT DECLARATION OF THE TRAINING PROVIDER AND THE EMPLOYER",
+                        bold=True, width_mm=182.2, align="center"))
+    p.append(_jd14_box(11.0, 135.1, 199.9, 271.3))
+    p.append(_jd14_decl(
+        141.4, "a", 13.1, 19.3,
         "I certify that all information declared above is true and correct and the training program claimed "
         "above has been conducted with all terms and condition under this scheme has been complied. I also "
         "declared that apart from this claim, there is no other claim has been made for these expenses. All "
         "relevant documents pertaining to this claim are with us and can be inspected by the Secretariat of "
         "the Pembangunan Sumber Manusia Berhad. (Training Provider)",
-        signature_html, signed_name, mykad, designation, stamp_html,
-        "(Managing Director/General Manager/Centre Manager/Principal)",
-        signed_date, date_gap=10,
-    )
-    decl_b = _jd14_decl_block(
-        "b",
+        4.55, 4,
+        rows=((164.8, 168.0), (171.3, 175.0), (178.1, 181.3)),
+        note_lines="(Managing Director/General<br>Manager/Centre Manager/Principal)",
+        note_top=178.1, date_top=197.5, values=a_values, signature_uri=sig_uri, stamp_uri=stamp_uri,
+        text_right=190.6,
+    ))
+    p.append(_jd14_decl(
+        209.0, "b", 19.3, 25.7,
         "I certify that the training had been completed and agreed with the fees charged above.&nbsp; I am "
-        "responsible to the claimed above and certify all information provided here is true and correct. (Employer)",
-        "", "", "", "", "",
-        "(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance "
-        "Director of Employer)",
-        "", date_gap=2,
-    )
+        "responsible to the claimed above and certify all information provided here is true and correct. "
+        "(Employer)",
+        4.55, 2,
+        rows=((226.3, 230.8), (234.0, 239.0), (242.4, 245.5)),
+        note_lines="(Shall only be certified by either<br>Managing Director/General<br>Manager/Financial "
+                   "Controller/Finance<br>Director of Employer)",
+        note_top=242.4, date_top=267.3, text_right=194.3, date_line=False,
+    ))
+
+    # --- Reminder -----------------------------------------------------------
+    p.append(_jd14_text(
+        25.7, 273.4,
+        "<b>REMINDER: :</b>&nbsp; You are reminded that, if you should give false or misleading statements, or "
+        "makes in writing, or signs any declaration which is untrue or incorrect in any particular, you will be "
+        "prosecuted under <b>Section 40 and / or Section 41 of Pembangunan Sumber Manusia Berhad Act 2001</b> "
+        "and shall be liable to a fine not exceeding twenty thousand ringgit or to imprisonment for a term not "
+        "exceeding two years or to both. Besides, Pembangunan Sumber Manusia Berhad may, at its discretion, "
+        "withdraw the grant and recover immediately any amount of the grant that may have been disbursed.",
+        pt=8.9, width_mm=198.7 - 25.7,
+        extra=f"white-space:normal;line-height:{_jd14_len(3.7)};"))
 
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
-  * {{ box-sizing: border-box; }}
-  body {{ font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; margin: 0; padding: 8px 12px; }}
-  table {{ border-collapse: collapse; width: 100%; }}
-  td, th {{ vertical-align: top; }}
-
-  /* Top strip: the pre-printed MyCoID comb box and the small form-code box
-     below it - TABLEs, not flexbox, so they render the same under
-     wkhtmltopdf as on screen (see the T3 form's own note on this above).
-     Neither is full page width in the reference, so both get an explicit
-     width instead of inheriting the 100% default above. Kept close to
-     their original small size on purpose - the reference itself keeps
-     this pre-printed strip and the footer disclaimer small while the
-     Part 1/2/3 body content is noticeably larger. */
-  .jd14-mycoid {{ width: 48%; table-layout: fixed; }}
-  .jd14-mycoid td {{ border: 1px solid #000; }}
-  .jd14-mycoid .mycoid-label {{ text-align: center; font-weight: 700; font-size: 11px; padding: 4px 2px; }}
-  .jd14-mycoid .mycoid-cell {{ text-align: center; font-weight: 700; font-size: 9.5px; height: 16px; padding: 2px 0; }}
-  .jd14-formcode {{ width: auto; margin: 4px 0 0; }}
-  .jd14-formcode td {{ border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 4px 9px; }}
-
-  .jd14-title-main {{ text-align: center; font-weight: 700; font-size: 16px; margin: 6px 0 2px; }}
-  .jd14-title-sub {{ text-align: center; font-weight: 700; font-size: 13px; margin: 0 0 4px; }}
-  .jd14-intro {{ text-align: center; font-size: 10.5px; line-height: 1.3; margin: 0 0 7px; }}
-
-  .jd14-part-heading {{ text-align: center; font-weight: 700; font-size: 13px; margin: 6px 0 4px; }}
-
-  /* Part 1: ONE outer bordered box, open layout inside it - fields are
-     underlined (border-bottom on the value cell) rather than boxed in
-     their own bordered grid, matching the reference. */
-  .jd14-box-outer {{ border: 1px solid #000; padding: 5px 10px 6px; margin-bottom: 6px; }}
-  .jd14-p1-top td {{ padding: 0; }}
-  .jd14-field-label {{ font-size: 11px; margin-bottom: 3px; }}
-  .jd14-employer-area {{ font-size: 11px; min-height: 40px; padding-top: 3px; }}
-
-  .jd14-kv td {{ padding: 2px 6px; font-size: 11px; vertical-align: bottom; }}
-  .jd14-kv td.kvlabel {{ white-space: nowrap; width: 150px; }}
-  .jd14-kv td.kvcolon {{ white-space: nowrap; width: 12px; }}
-  .jd14-kv td.kvvalue {{ border-bottom: 1px solid #000; }}
-  .jd14-kv td.kvsub {{ white-space: nowrap; padding-right: 4px; }}
-  .jd14-kv-full td.kvlabel {{ width: 165px; }}
-
-  /* Part 2: a proper bordered grid, unlike Part 1's open underlines - the
-     reference draws visible cell borders all round here. */
-  .jd14-part2 {{ margin-bottom: 4px; }}
-  .jd14-part2 th, .jd14-part2 td {{ border: 1px solid #000; text-align: center; padding: 6px; font-size: 11.5px; }}
-  .jd14-part2 th {{ font-weight: 700; font-size: 11.5px; }}
-
-  /* Part 3: ONE outer box holding both (a) and (b) declarations, each a
-     hanging-indent paragraph (its own small table, so wrapped lines align
-     under the paragraph text rather than under the "(a)"/"(b)" mark - the
-     same reason a <table> is used instead of CSS text-indent, which
-     wkhtmltopdf's older WebKit does not apply consistently across wrapped
-     lines) followed by a two-column label/value grid. */
-  .jd14-hang {{ margin: 4px 0 5px; }}
-  .jd14-hang td {{ padding: 0; font-size: 11px; }}
-  .jd14-hang-mark {{ width: 22px; white-space: nowrap; }}
-  .jd14-hang-body {{ text-align: justify; }}
-  .jd14-decl-cols td {{ padding: 0; vertical-align: top; }}
-  .jd14-decl-kv td {{ padding: 1px 6px; font-size: 11px; }}
-  .jd14-decl-kv td.dlabel {{ font-weight: 700; white-space: nowrap; width: 130px; }}
-  .jd14-decl-kv td.dcolon {{ white-space: nowrap; width: 12px; }}
-  .jd14-decl-kv td.dvalue {{ border-bottom: 1px solid #000; }}
-  .jd14-decl-note {{ font-size: 9.5px; font-style: italic; text-align: right; padding: 2px 4px 0 !important; }}
-
-  .jd14-footer {{ font-size: 8.5px; line-height: 1.2; margin-top: 3px; }}
+  {_jd14_font_face_css()}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'JD14 Narrow', 'Arial Narrow', Arial, Helvetica, sans-serif; color: #000; }}
+  .page {{ position: relative; width: {_jd14_len(201.0)}; height: {_jd14_len(288.0)}; overflow: hidden; }}
+  .t {{ position: absolute; line-height: 1.15; }}
+  .hl {{ position: absolute; height: 0; border-top: 1px solid #000; }}
+  .vl {{ position: absolute; width: 0; border-left: 1px solid #000; }}
+  .bx {{ position: absolute; border: 1px solid #000; }}
+  .img {{ position: absolute; text-align: center; }}
+  .img img {{ vertical-align: middle; }}
 </style></head>
-<body>
-
-  <table class="jd14-mycoid">
-    <tr><td class="mycoid-label" colspan="20">TRAINING PROVIDER MYCOID(ROC/ROB/ROS)</td></tr>
-    <tr>{mycoid_cells}</tr>
-  </table>
-  <table class="jd14-formcode">
-    <tr><td>PSMB/SBL-KHAS /JD/14</td></tr>
-  </table>
-
-  <div class="jd14-title-main">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
-  <div class="jd14-title-sub">UNDER THE PEMBANGUNAN SUMBER MANUSIA BERHAD ACT 2001</div>
-  <div class="jd14-intro">This declaration is to certify that employer involved in the training program had agreed with the training program conducted, fees charged and
-    allow training provider to claim with PSMB. This declaration should only be signed by employers after the training completed. This form must be attached when
-    submitting online SBL &ndash;KHAS claim. This form must be kept at training providers premises and available for future verification by PSMB.</div>
-
-  <div class="jd14-part-heading">PART 1 &ndash; EMPLOYER&rsquo;S PARTICULAR</div>
-  <div class="jd14-box-outer">
-    <table class="jd14-p1-top">
-      <tr>
-        <td style="width:55%;padding-right:10px">
-          <div class="jd14-field-label">Registered Name and Address of Employer:</div>
-          <div class="jd14-employer-area">{escape(jd14_row['employer_name'] or '')}<br>{employer_address_html}</div>
-        </td>
-        <td style="width:45%">
-          <table class="jd14-kv">
-            <tr><td class="kvlabel">Employer Code</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['employer_code'] or '')}</td></tr>
-            <tr><td class="kvlabel">Approval No</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['approval_no'] or '')}</td></tr>
-            <tr><td class="kvlabel">Group Approved</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['group_approved'] or '')}</td></tr>
-            <tr><td class="kvlabel">Group Claimed</td><td class="kvcolon">:</td><td class="kvvalue">{escape(jd14_row['group_claimed'] or '')}</td></tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-    <table class="jd14-kv jd14-kv-full" style="margin-top:4px">
-      <tr><td class="kvlabel">Course Title</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4">{escape(jd14_row['course_title'] or '')}</td></tr>
-      <tr>
-        <td class="kvlabel">Training Dates</td><td class="kvcolon">:</td>
-        <td class="kvsub">Commenced:</td><td class="kvvalue" style="width:26%">{commenced}</td>
-        <td class="kvsub" style="padding-left:10px">Ended&nbsp;:</td><td class="kvvalue">{ended}</td>
-      </tr>
-      <tr><td class="kvlabel">Training Venue</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4">{escape(jd14_row['training_venue'] or '')}</td></tr>
-    </table>
-  </div>
-
-  <div class="jd14-part-heading">PART 2 &ndash; CLAIM FOR COURSE FEE</div>
-  <table class="jd14-part2">
-    <tr>
-      <th>Number of Trainee(s)*</th>
-      <th>Total Fee Approved<br>(RM)</th>
-      <th>Total Fee Claimed<br>(RM)</th>
-    </tr>
-    <tr>
-      <td>{escape(jd14_row['num_trainees'] or '')}</td>
-      <td>{escape(jd14_row['total_fee_approved'] or '')}</td>
-      <td>{escape(jd14_row['total_fee_claimed'] or '')}</td>
-    </tr>
-  </table>
-
-  <div class="jd14-part-heading">PART 3 &ndash; JOINT DECLARATION OF THE TRAINING PROVIDER AND THE EMPLOYER</div>
-  <div class="jd14-box-outer">
-    {decl_a}
-    {decl_b}
-  </div>
-
-  <div class="jd14-footer">
-    <strong>REMINDER: :</strong> You are reminded that, if you should give false or misleading statements, or makes in writing, or signs any declaration which is
-    untrue or incorrect in any particular, you will be prosecuted under <strong>Section 40 and / or Section 41 of Pembangunan Sumber Manusia Berhad Act 2001</strong>
-    and shall be liable to a fine not exceeding twenty thousand ringgit or to imprisonment for a term not exceeding two years or to both. Besides, Pembangunan
-    Sumber Manusia Berhad may, at its discretion, withdraw the grant and recover immediately any amount of the grant that may have been disbursed.
-  </div>
-
-</body></html>"""
+<body><div class="page">
+{"".join(p)}
+</div></body></html>"""
 
 
 def generate_jd14_pdf(session_row, jd14_row, signed_by_user):
@@ -1671,8 +1752,8 @@ def generate_jd14_pdf(session_row, jd14_row, signed_by_user):
     try:
         result = subprocess.run(
             ["wkhtmltopdf", "--page-size", "A4",
-             "--margin-top", "10mm", "--margin-bottom", "10mm",
-             "--margin-left", "10mm", "--margin-right", "10mm",
+             "--margin-top", "4mm", "--margin-bottom", "4mm",  # = _JD14_PAGE_TOP_MM (Fix91)
+             "--margin-left", "4.5mm", "--margin-right", "4.5mm",  # = _JD14_PAGE_LEFT_MM
              html_path, pdf_path],
             check=True, timeout=30, capture_output=True, text=True,
         )
