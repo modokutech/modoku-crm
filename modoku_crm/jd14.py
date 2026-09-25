@@ -13,17 +13,15 @@ existing flow exactly as it always has, since jd14_file/jd14_return_token
 just accept "a signed JD14 file" and don't care who generated the outgoing
 one.
 
-NOTE - the on-screen live preview in templates/jd14/edit.html and
-pdfgen._build_jd14_html render the SAME table-based layout by hand, kept in
-sync manually (the same discipline the T3 Attendance Form already uses
-between its on-screen and PDF renderings). Changing the layout means
-changing both.
+NOTE (Fix93) - the on-screen live preview in templates/jd14/edit.html is
+rendered by pdfgen._build_jd14_html itself (see live_preview()), so there
+is ONE layout to maintain; the preview and the PDF can't drift apart.
 """
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
 from . import activity, db, fmtaddress, mailer, settings
 from .auth import admin_required, login_required
-from .pdfgen import generate_jd14_pdf
+from .pdfgen import _build_jd14_html, generate_jd14_pdf
 from .sessions import ensure_jd14_return_token
 
 bp = Blueprint("jd14", __name__, url_prefix="/jd14")
@@ -323,6 +321,32 @@ def preview_pdf(session_id):
     )
 
 
+@bp.route("/sessions/<int:session_id>/live-preview", methods=("POST",))
+@login_required
+def live_preview(session_id):
+    """Fix93: the edit page's live preview. Returns the exact HTML the PDF
+    is built from (pdfgen._build_jd14_html), using the values currently
+    typed on the page (not yet saved), so the on-screen preview IS the PDF
+    layout. Before anyone has signed, the logged-in user's own signature/
+    name/stamp are shown as a preview of what signing will produce -
+    sign() is what actually records who signed."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        return Response("Session not found.", status=404)
+    stored = _jd14_row_or_derived(session_row)
+    row = {key: stored[key] for key in stored.keys()}
+    for field in _FORM_FIELDS:
+        if field in request.form:
+            row[field] = request.form.get(field, "")
+    signer = None
+    if row.get("signed_by_user_id"):
+        signer = db.query("SELECT * FROM users WHERE id = ?", (row["signed_by_user_id"],), one=True)
+    elif g.user is not None and g.user["signature_file"]:
+        signer = g.user
+    html = _build_jd14_html(session_row, row, signer, for_browser=True)
+    return Response(html, mimetype="text/html")
+
+
 @bp.route("/sessions/<int:session_id>/download")
 @login_required
 def download(session_id):
@@ -387,6 +411,13 @@ def send(session_id):
     jd14_row = db.query("SELECT * FROM jd14_forms WHERE session_id = ?", (session_id,), one=True)
     if jd14_row is None or not jd14_row["signed_at"]:
         flash("Sign the JD14 Form first, then send it.", "danger")
+        return redirect(url_for("jd14.edit", session_id=session_id))
+    # Fix93: guard against double sending - once sent, a resend has to come
+    # from the page's explicit "send it again" box (which carries
+    # confirm_resend), never from a stray double-click or re-submitted form.
+    if jd14_row["sent_at"] and request.form.get("confirm_resend") != "1":
+        flash(f"Not sent again: this JD14 Form was already emailed to {jd14_row['sent_to']}. "
+              "Use \"Need to send it again?\" if you really want to resend.", "warning")
         return redirect(url_for("jd14.edit", session_id=session_id))
 
     # Fix92: goes to the class's PIC (the person handling it on the client

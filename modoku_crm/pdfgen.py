@@ -1386,12 +1386,10 @@ def generate_t3_form_pdf(session_row, participants, training_days, extra_blank_r
 
 # --- JD14 Form (PSMB/SBL-KHAS/JD/14) - OUR side ---------------------------
 #
-# NOTE (Fix91): the PDF is now laid out by absolute position to match the
+# NOTE (Fix91/93): the PDF is laid out by absolute position to match the
 # official form almost exactly (see _JD14_PX_PER_MM below). The live
-# on-screen preview in templates/jd14/edit.html is still its own
-# table-based approximation - same fields, same order, updated live as you
-# type - and is not meant to be pixel-identical; the "PDF Preview" button
-# on that page shows the exact output.
+# on-screen preview on the JD14 page is this same HTML (jd14.live_preview,
+# for_browser=True), so there is only one layout to maintain.
 #
 # Wording is VERBATIM from the official HRDCorp reference
 # (PSMB/SBL-KHAS/JD/14) - don't "clean up" the wording, spacing or the
@@ -1461,10 +1459,18 @@ def _jd14_fit_pt(text, width_mm, base_pt=11, min_pt=7):
     return pt
 
 
-def _jd14_font_face_css():
+def _jd14_font_face_css(for_browser=False):
+    """Embedded fonts for the PDF (wkhtmltopdf has no server URL to fetch
+    from); plain static-file URLs for the on-screen live preview, so the
+    browser caches them instead of receiving ~300KB of base64 on every
+    keystroke."""
     rules = []
     for weight, path in ((400, _JD14_FONT_REGULAR), (700, _JD14_FONT_BOLD)):
-        uri = _font_data_uri(path)
+        if for_browser:
+            from flask import url_for
+            uri = url_for("static", filename="fonts/" + os.path.basename(path))
+        else:
+            uri = _font_data_uri(path)
         if uri:
             rules.append(f"@font-face {{ font-family:'JD14 Narrow'; src:url({uri}) format('truetype'); "
                          f"font-weight:{weight}; font-style:normal; }}")
@@ -1564,7 +1570,7 @@ def _jd14_decl(y, letter, mark_x, text_x, paragraph, lines_pitch, n_lines, rows,
     return "".join(parts)
 
 
-def _build_jd14_html(session_row, jd14_row, signed_by_user):
+def _build_jd14_html(session_row, jd14_row, signed_by_user, for_browser=False):
     """Self-contained HTML for the outgoing HRDCorp Joint Declaration Form
     (PSMB/SBL-KHAS/JD/14) - OUR half of it, filled in and signed by an
     admin, ready to send to the client to countersign and return (which
@@ -1723,9 +1729,9 @@ def _build_jd14_html(session_row, jd14_row, signed_by_user):
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
-  {_jd14_font_face_css()}
+  {_jd14_font_face_css(for_browser)}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: 'JD14 Narrow', 'Arial Narrow', Arial, Helvetica, sans-serif; color: #000; }}
+  body {{ font-family: 'JD14 Narrow', 'Arial Narrow', Arial, Helvetica, sans-serif; color: #000; background: #fff; }}
   .page {{ position: relative; width: {_jd14_len(201.0)}; height: {_jd14_len(288.0)}; overflow: hidden; }}
   .t {{ position: absolute; line-height: 1.15; }}
   .hl {{ position: absolute; height: 0; border-top: 1px solid #000; }}

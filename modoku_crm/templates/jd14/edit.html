@@ -14,6 +14,13 @@
   <i class="bi bi-check-circle me-1"></i>Signed by {{ signed_by_user.name if signed_by_user else 'someone' }} on {{ f.signed_at|fmtdate }}.
 </div>
 {% endif %}
+{% if f.sent_at %}
+{# Fix93: make "already sent" impossible to miss, so it isn't sent twice. #}
+<div class="alert alert-primary py-2 mb-3">
+  <i class="bi bi-envelope-check me-1"></i><strong>Already emailed</strong> to {{ f.sent_to }} on {{ f.sent_at|fmtdatetime }}.
+  No need to send again unless the PIC asks for it.
+</div>
+{% endif %}
 
 {# Sent -> Awaiting Return -> Received status tracker - purely additive,
    derived-state display. See jd14.py's jd14_stage() for how the stage is
@@ -144,10 +151,19 @@
         <div class="border rounded p-3 mb-3 bg-light">
           <h6 class="mb-1"><i class="bi bi-envelope me-1"></i>Email to PIC</h6>
           {% if f.sent_at %}
-          <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>Sent to {{ f.sent_to }} on {{ f.sent_at|fmtdatetime }}. Sending again resends it.</p>
+          <p class="small mb-2">
+            <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Sent</span>
+            to {{ f.sent_to }} on {{ f.sent_at|fmtdatetime }}.
+          </p>
+          <button class="btn btn-sm btn-outline-secondary w-100" type="button" data-bs-toggle="collapse"
+                  data-bs-target="#jd14ResendBox" aria-expanded="false" aria-controls="jd14ResendBox">
+            Need to send it again?
+          </button>
+          <div class="collapse mt-2" id="jd14ResendBox">
           {% endif %}
-          <form method="post" action="{{ url_for('jd14.send', session_id=s.id) }}">
+          <form method="post" action="{{ url_for('jd14.send', session_id=s.id) }}" id="jd14SendForm">
             {{ csrf_field()|safe }}
+            {% if f.sent_at %}<input type="hidden" name="confirm_resend" value="1">{% endif %}
             <div class="mb-2">
               <label class="form-label small mb-0">To
                 {% if s.pic_name %}<span class="text-muted fw-normal">(PIC: {{ s.pic_name }})</span>{% endif %}
@@ -176,234 +192,95 @@
             </div>
             <p class="small mb-2"><i class="bi bi-paperclip"></i> Attachment:
               <a href="{{ url_for('jd14.preview_pdf', session_id=s.id) }}" target="_blank">JD14_Form.pdf</a></p>
-            <button class="btn btn-sm btn-success w-100" type="submit"
-                    onclick="return confirm('Send the JD14 Form to ' + this.form.to_email.value + '?');">
+            <button class="btn btn-sm {{ 'btn-warning' if f.sent_at else 'btn-success' }} w-100" type="submit" id="jd14SendBtn"
+                    data-confirm="{% if f.sent_at %}This JD14 Form was already emailed to {{ f.sent_to }} on {{ f.sent_at|fmtdatetime }}. Send it again to {to}?{% else %}Send the JD14 Form to {to}?{% endif %}">
               <i class="bi bi-send me-1"></i>{{ 'Resend to PIC' if f.sent_at else 'Send to PIC' }}
             </button>
           </form>
+          {% if f.sent_at %}</div>{% endif %}
         </div>
+        <script>
+        (function () {
+          // Confirm first, then lock the button so a double-click can't send twice.
+          var form = document.getElementById('jd14SendForm');
+          var btn = document.getElementById('jd14SendBtn');
+          if (!form || !btn) return;
+          form.addEventListener('submit', function (e) {
+            var msg = btn.getAttribute('data-confirm').replace('{to}', form.to_email.value);
+            if (!confirm(msg)) { e.preventDefault(); return; }
+            btn.disabled = true;
+            btn.textContent = 'Sending\u2026';
+          });
+        })();
+        </script>
       {% endif %}
 
-      <!-- NOTE - kept in sync by hand with pdfgen._build_jd14_html: both
-           render the SAME table-based JD14 layout, one for the emailed/
-           downloaded PDF (inline CSS, wkhtmltopdf), one for this on-screen
-           live preview (Jinja/Bootstrap-flavoured but same table shape,
-           same section order, same verbatim text). Changing the layout
-           means changing both - see pdfgen.py's own note on this for why
-           this markup is a VERBATIM reproduction of the official HRDCorp
-           reference (PSMB/SBL-KHAS/JD/14), not a paraphrase. -->
-      {% macro jd14p_decl_block(letter, paragraph, signature_html, name_value, mykad_value,
-                                 designation_value, stamp_html, note_text, date_value, date_gap) %}
-      <table class="jd14p-hang">
-        <tr><td class="jd14p-hang-mark">({{ letter }})</td><td class="jd14p-hang-body">{{ paragraph|safe }}</td></tr>
-      </table>
-      <table class="jd14p-decl-cols">
-        <tr>
-          <td style="width:50%">
-            <table class="jd14p-decl-kv">
-              <tr><td class="dlabel">SIGNATURE</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{{ signature_html }}</td></tr>
-              <tr><td class="dlabel">NAME</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{{ name_value }}</td></tr>
-              <tr><td class="dlabel">MYKAD NO</td><td class="dcolon">:</td><td class="dvalue">{{ mykad_value }}</td></tr>
-            </table>
-          </td>
-          <td style="width:50%">
-            <table class="jd14p-decl-kv">
-              <tr><td class="dlabel">DESIGNATION</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{{ designation_value }}</td></tr>
-              <tr><td class="dlabel">COMPANY STAMP</td><td class="dcolon">:</td><td class="dvalue" style="height:70px">{{ stamp_html }}</td></tr>
-              <tr><td colspan="2"></td><td class="jd14p-decl-note">{{ note_text }}</td></tr>
-              <tr style="height:{{ date_gap }}px"><td colspan="3"></td></tr>
-              <tr><td class="dlabel">DATE</td><td class="dcolon">:</td><td class="dvalue">{{ date_value }}</td></tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-      {% endmacro %}
-
-      {% set decl_a_signature %}{% if preview_user and preview_user.signature_file %}<img src="{{ url_for('profile.signature_for', user_id=preview_user.id) }}" style="max-height:64px;max-width:100%">{% endif %}{% endset %}
-      {% set decl_a_stamp %}{% if company_stamp_file %}<img src="{{ url_for('settings.company_stamp') }}" style="max-height:64px;max-width:100%">{% endif %}{% endset %}
-
-      <div class="jd14-preview">
-        <table class="jd14p-mycoid">
-          <tr><td class="mycoid-label" colspan="20">TRAINING PROVIDER MYCOID(ROC/ROB/ROS)</td></tr>
-          <tr>
-            {% for c in ['1','3','9','0','3','5','2','-','H','','','','','','','','','','',''] %}
-            <td class="mycoid-cell">{{ c }}</td>
-            {% endfor %}
-          </tr>
-        </table>
-        <table class="jd14p-formcode">
-          <tr><td>PSMB/SBL-KHAS /JD/14</td></tr>
-        </table>
-
-        <div class="jd14p-title-main">EMPLOYER AND TRAINING PROVIDER JOINT DECLARATION FOR SBL-KHAS SCHEME CLAIMS (FEES)</div>
-        <div class="jd14p-title-sub">UNDER THE PEMBANGUNAN SUMBER MANUSIA BERHAD ACT 2001</div>
-        <div class="jd14p-intro">This declaration is to certify that employer involved in the training program had agreed with the training program conducted, fees charged and
-          allow training provider to claim with PSMB. This declaration should only be signed by employers after the training completed. This form must be attached when
-          submitting online SBL &ndash;KHAS claim. This form must be kept at training providers premises and available for future verification by PSMB.</div>
-
-        <div class="jd14p-part-heading">PART 1 &ndash; EMPLOYER&rsquo;S PARTICULAR</div>
-        <div class="jd14p-box-outer">
-          <table class="jd14p-p1-top">
-            <tr>
-              <td style="width:55%;padding-right:10px">
-                <div class="jd14p-field-label">Registered Name and Address of Employer:</div>
-                <div class="jd14p-employer-area"><span id="preview_employer_name">{{ f.employer_name or '' }}</span><br><span id="preview_employer_address" style="white-space:pre-line">{{ f.employer_address or '' }}</span></div>
-              </td>
-              <td style="width:45%">
-                <table class="jd14p-kv">
-                  <tr><td class="kvlabel">Employer Code</td><td class="kvcolon">:</td><td class="kvvalue" id="preview_employer_code">{{ f.employer_code or '' }}</td></tr>
-                  <tr><td class="kvlabel">Approval No</td><td class="kvcolon">:</td><td class="kvvalue" id="preview_approval_no">{{ f.approval_no or '' }}</td></tr>
-                  <tr><td class="kvlabel">Group Approved</td><td class="kvcolon">:</td><td class="kvvalue" id="preview_group_approved">{{ f.group_approved or '' }}</td></tr>
-                  <tr><td class="kvlabel">Group Claimed</td><td class="kvcolon">:</td><td class="kvvalue" id="preview_group_claimed">{{ f.group_claimed or '' }}</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-          <table class="jd14p-kv jd14p-kv-full" style="margin-top:4px">
-            <tr><td class="kvlabel">Course Title</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4" id="preview_course_title">{{ f.course_title or '' }}</td></tr>
-            <tr>
-              <td class="kvlabel">Training Dates</td><td class="kvcolon">:</td>
-              <td class="kvsub">Commenced:</td><td class="kvvalue" style="width:26%" id="preview_training_date_commenced">{{ f.training_date_commenced|fmtdate if f.training_date_commenced else '' }}</td>
-              <td class="kvsub" style="padding-left:10px">Ended&nbsp;:</td><td class="kvvalue" id="preview_training_date_ended">{{ f.training_date_ended|fmtdate if f.training_date_ended else '' }}</td>
-            </tr>
-            <tr><td class="kvlabel">Training Venue</td><td class="kvcolon">:</td><td class="kvvalue" colspan="4" id="preview_training_venue">{{ f.training_venue or '' }}</td></tr>
-          </table>
+      {# Fix93: the live preview is now the ACTUAL form layout - the same
+         HTML pdfgen._build_jd14_html feeds to the PDF, rendered by the
+         server (jd14.live_preview) and shown scaled down in this frame. It
+         re-renders a moment after you stop typing, so the preview and the
+         PDF can't drift apart again. #}
+      <div class="jd14-live-wrap" id="jd14LiveWrap">
+        <div class="jd14-live-scale" id="jd14LiveScale">
+          <iframe id="jd14LiveFrame" title="JD14 live preview" scrolling="no"></iframe>
         </div>
-
-        <div class="jd14p-part-heading">PART 2 &ndash; CLAIM FOR COURSE FEE</div>
-        <table class="jd14p-part2">
-          <tr>
-            <th>Number of Trainee(s)*</th>
-            <th>Total Fee Approved<br>(RM)</th>
-            <th>Total Fee Claimed<br>(RM)</th>
-          </tr>
-          <tr>
-            <td id="preview_num_trainees">{{ f.num_trainees or '' }}</td>
-            <td id="preview_total_fee_approved">{{ f.total_fee_approved or '' }}</td>
-            <td id="preview_total_fee_claimed">{{ f.total_fee_claimed or '' }}</td>
-          </tr>
-        </table>
-
-        <div class="jd14p-part-heading">PART 3 &ndash; JOINT DECLARATION OF THE TRAINING PROVIDER AND THE EMPLOYER</div>
-        <div class="jd14p-box-outer">
-          {{ jd14p_decl_block(
-            "a",
-            "I certify that all information declared above is true and correct and the training program claimed above has been conducted with all terms and condition under this scheme has been complied. I also declared that apart from this claim, there is no other claim has been made for these expenses. All relevant documents pertaining to this claim are with us and can be inspected by the Secretariat of the Pembangunan Sumber Manusia Berhad. (Training Provider)",
-            decl_a_signature,
-            (signed_by_user.name if signed_by_user else (preview_user.name if preview_user else '')),
-            ((signed_by_user.mykad_no if signed_by_user else preview_user.mykad_no) or ''),
-            ((signed_by_user.position if signed_by_user else preview_user.position) or ''),
-            decl_a_stamp,
-            "(Managing Director/General Manager/Centre Manager/Principal)",
-            (f.signed_at|fmtdate if f.signed_at else ''),
-            10
-          ) }}
-          {{ jd14p_decl_block(
-            "b",
-            "I certify that the training had been completed and agreed with the fees charged above.&nbsp; I am responsible to the claimed above and certify all information provided here is true and correct. (Employer)",
-            "", "", "", "", "",
-            "(Shall only be certified by either Managing Director/General Manager/Financial Controller/Finance Director of Employer)",
-            "",
-            2
-          ) }}
-        </div>
-
-        <div class="jd14p-footer">
-          <strong>REMINDER: :</strong> You are reminded that, if you should give false or misleading statements, or makes in writing, or signs any declaration which is
-          untrue or incorrect in any particular, you will be prosecuted under <strong>Section 40 and / or Section 41 of Pembangunan Sumber Manusia Berhad Act 2001</strong>
-          and shall be liable to a fine not exceeding twenty thousand ringgit or to imprisonment for a term not exceeding two years or to both. Besides, Pembangunan
-          Sumber Manusia Berhad may, at its discretion, withdraw the grant and recover immediately any amount of the grant that may have been disbursed.
-        </div>
+        <div class="jd14-live-status small text-muted" id="jd14LiveStatus">Loading preview&hellip;</div>
       </div>
     </div>
   </div>
 </div>
 
 <style>
-  .jd14-preview { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #000; border: 1px solid #ddd; padding: 8px 12px; background: #fff; }
-  .jd14-preview table { border-collapse: collapse; width: 100%; }
-  .jd14-preview td, .jd14-preview th { vertical-align: top; }
-
-  .jd14p-mycoid { width: 48%; table-layout: fixed; }
-  .jd14p-mycoid td { border: 1px solid #000; }
-  .jd14p-mycoid .mycoid-label { text-align: center; font-weight: 700; font-size: 11px; padding: 4px 2px; }
-  .jd14p-mycoid .mycoid-cell { text-align: center; font-weight: 700; font-size: 9.5px; height: 16px; padding: 2px 0; }
-  .jd14p-formcode { width: auto; margin: 4px 0 0; }
-  .jd14p-formcode td { border: 1px solid #000; font-weight: 700; font-size: 11px; padding: 4px 9px; }
-
-  .jd14p-title-main { text-align: center; font-weight: 700; font-size: 16px; margin: 6px 0 2px; }
-  .jd14p-title-sub { text-align: center; font-weight: 700; font-size: 13px; margin: 0 0 4px; }
-  .jd14p-intro { text-align: center; font-size: 10.5px; line-height: 1.3; margin: 0 0 7px; }
-
-  .jd14p-part-heading { text-align: center; font-weight: 700; font-size: 13px; margin: 6px 0 4px; }
-
-  .jd14p-box-outer { border: 1px solid #000; padding: 5px 10px 6px; margin-bottom: 6px; }
-  .jd14p-p1-top td { padding: 0; }
-  .jd14p-field-label { font-size: 11px; margin-bottom: 3px; }
-  .jd14p-employer-area { font-size: 11px; min-height: 40px; padding-top: 3px; }
-
-  .jd14p-kv td { padding: 2px 6px; font-size: 11px; vertical-align: bottom; }
-  .jd14p-kv td.kvlabel { white-space: nowrap; width: 150px; }
-  .jd14p-kv td.kvcolon { white-space: nowrap; width: 12px; }
-  .jd14p-kv td.kvvalue { border-bottom: 1px solid #000; }
-  .jd14p-kv td.kvsub { white-space: nowrap; padding-right: 4px; }
-  .jd14p-kv-full td.kvlabel { width: 165px; }
-
-  .jd14p-part2 { margin-bottom: 4px; }
-  .jd14p-part2 th, .jd14p-part2 td { border: 1px solid #000; text-align: center; padding: 6px; font-size: 11.5px; }
-  .jd14p-part2 th { font-weight: 700; }
-
-  .jd14p-hang { margin: 4px 0 5px; }
-  .jd14p-hang td { padding: 0; font-size: 11px; }
-  .jd14p-hang-mark { width: 22px; white-space: nowrap; }
-  .jd14p-hang-body { text-align: justify; }
-  .jd14p-decl-cols td { padding: 0; vertical-align: top; }
-  .jd14p-decl-kv td { padding: 1px 6px; font-size: 11px; }
-  .jd14p-decl-kv td.dlabel { font-weight: 700; white-space: nowrap; width: 130px; }
-  .jd14p-decl-kv td.dcolon { white-space: nowrap; width: 12px; }
-  .jd14p-decl-kv td.dvalue { border-bottom: 1px solid #000; }
-  .jd14p-decl-note { font-size: 9.5px; font-style: italic; text-align: right; padding: 2px 4px 0 !important; }
-
-  .jd14p-footer { font-size: 8.5px; line-height: 1.2; margin-top: 3px; }
+  /* The form HTML is laid out at 989 x 1417 CSS px (one A4 page at the
+     PDF renderer's scale) and shrunk to fit the column. */
+  .jd14-live-wrap { position: relative; border: 1px solid #ddd; background: #fff; overflow: hidden; }
+  .jd14-live-scale { transform-origin: 0 0; width: 989px; height: 1417px; }
+  .jd14-live-scale iframe { width: 989px; height: 1417px; border: 0; display: block; background: #fff; }
+  .jd14-live-status { position: absolute; top: 6px; right: 10px; background: rgba(255,255,255,.9); padding: 0 6px; }
 </style>
 
 <script>
 (function () {
-  // Real-time preview: as each field is typed, mirror its value straight
-  // into the matching preview cell. No AJAX, no server round-trip - the
-  // preview is just the same markup pdfgen._build_jd14_html renders,
-  // hand-kept in sync (see the NOTE above the preview block).
-  var fields = [
-    'employer_name', 'employer_address', 'employer_code', 'approval_no',
-    'group_approved', 'group_claimed', 'course_title', 'training_venue',
-    'num_trainees', 'total_fee_approved', 'total_fee_claimed',
-  ];
-  fields.forEach(function (id) {
-    var input = document.getElementById(id);
-    var preview = document.getElementById('preview_' + id);
-    if (!input || !preview) return;
-    input.addEventListener('input', function () {
-      preview.textContent = input.value;
-    });
-  });
+  var wrap = document.getElementById('jd14LiveWrap');
+  var scaleBox = document.getElementById('jd14LiveScale');
+  var frame = document.getElementById('jd14LiveFrame');
+  var status = document.getElementById('jd14LiveStatus');
+  var form = document.getElementById('jd14Form');
+  var PAGE_W = 989, PAGE_H = 1417;
+  var url = {{ url_for('jd14.live_preview', session_id=s.id)|tojson }};
 
-  function fmtDateForPreview(iso) {
-    if (!iso) return '';
-    var parts = iso.split('-');
-    if (parts.length !== 3) return iso;
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    var m = parseInt(parts[1], 10) - 1;
-    if (m < 0 || m > 11) return iso;
-    return parseInt(parts[2], 10) + ' ' + months[m] + ' ' + parts[0];
+  function fit() {
+    var scale = wrap.clientWidth / PAGE_W;
+    scaleBox.style.transform = 'scale(' + scale + ')';
+    wrap.style.height = Math.ceil(PAGE_H * scale) + 'px';
   }
-  ['training_date_commenced', 'training_date_ended'].forEach(function (id) {
-    var input = document.getElementById(id);
-    var preview = document.getElementById('preview_' + id);
-    if (!input || !preview) return;
-    input.addEventListener('input', function () {
-      preview.textContent = fmtDateForPreview(input.value);
+  window.addEventListener('resize', fit);
+  fit();
+
+  var timer = null, seq = 0;
+  function refresh() {
+    var mine = ++seq;
+    status.style.display = 'block';
+    status.textContent = 'Updating…';
+    fetch(url, { method: 'POST', body: new FormData(form), credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (html) {
+        if (mine !== seq) return;  // a newer request is already on its way
+        frame.srcdoc = html;
+        status.style.display = 'none';
+      })
+      .catch(function () {
+        if (mine !== seq) return;
+        status.textContent = 'Preview unavailable - use PDF Preview';
+      });
+  }
+  form.querySelectorAll('.jd14-input').forEach(function (el) {
+    el.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(refresh, 400);
     });
   });
+  refresh();
 })();
 </script>
 {% endblock %}
