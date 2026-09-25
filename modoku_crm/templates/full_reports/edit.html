@@ -9,11 +9,8 @@
     </small>
   </div>
   <div class="d-flex gap-2">
-    <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-arrow-left me-1"></i>Back to Class
-    </a>
     <a href="{{ url_for('training_reports.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-bar-chart me-1"></i>Training Report Data
+      <i class="bi bi-arrow-left me-1"></i>Back to Training Report Data
     </a>
   </div>
 </div>
