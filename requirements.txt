@@ -7,3 +7,4 @@ pypdf>=4.0
 python-dotenv>=1.0
 requests>=2.31
 opencv-python-headless>=4.8
+pyphen>=0.14
