@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix97 — JD14: signature another 10% larger, company stamp another 5% larger
+
+**Date:** 2026-09-26
+
+- `pdfgen.py` (`_jd14_decl`): the signature area went from 52.9 x 14.4mm to 58.2 x 15.8mm (+10%),
+  same centre on the SIGNATURE line. The company stamp area went from 50.6 x 18.7mm to 53.1 x 19.6mm
+  (+5%), grown left and down so its right edge stays where it was, clear of the
+  "(Managing Director/…)" caption.
+- The JD14 page's live preview uses the same HTML (Fix93), so it changes too.
+
+**Testing:** rendered a signed JD14 through the preview route (Flask test client) and directly,
+plus a 1.18x zoom render for the server's larger px scale: one page each, identical sizes
+(signature 57.7 x 15.6mm, stamp 52.0 x 19.5mm measured on the render), no collision with the
+labels, the caption or the DATE row.
+
 ## Fix96 — JD14: signature 15% larger, company stamp 10% larger
 
 **Date:** 2026-09-25

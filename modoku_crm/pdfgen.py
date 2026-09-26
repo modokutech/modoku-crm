@@ -1556,18 +1556,19 @@ def _jd14_decl(y, letter, mark_x, text_x, paragraph, lines_pitch, n_lines, rows,
     if signature_uri:
         sig_line = rows[0][1]
         parts.append(
-            # Fix96: +15% (was 46 x 12.5mm), still centred on the line.
-            f'<div class="img" style="left:{_jd14_x(43.8)};top:{_jd14_y(sig_line - 10.6)};'
-            f'width:{_jd14_len(52.9)};height:{_jd14_len(14.4)}">'
+            # Fix97: +10% more (Fix96: 52.9 x 14.4mm), same centre.
+            f'<div class="img" style="left:{_jd14_x(41.2)};top:{_jd14_y(sig_line - 11.3)};'
+            f'width:{_jd14_len(58.2)};height:{_jd14_len(15.8)}">'
             f'<img src="{signature_uri}" style="max-width:100%;max-height:100%"></div>')
     # Company stamp: the empty area under the COMPANY STAMP label, left of
     # the (Managing Director/...) caption, so neither covers the other.
     if stamp_uri:
         stamp_line = rows[1][1]
         parts.append(
-            # Fix96: +10% (was 46 x 17mm).
-            f'<div class="img" style="left:{_jd14_x(101.5)};top:{_jd14_y(stamp_line + 1.5)};'
-            f'width:{_jd14_len(50.6)};height:{_jd14_len(18.7)}">'
+            # Fix97: +5% more (Fix96: 50.6 x 18.7mm), grown left and down so
+            # the right edge stays clear of the caption.
+            f'<div class="img" style="left:{_jd14_x(99.0)};top:{_jd14_y(stamp_line + 1.5)};'
+            f'width:{_jd14_len(53.1)};height:{_jd14_len(19.6)}">'
             f'<img src="{stamp_uri}" style="max-width:100%;max-height:100%"></div>')
     return "".join(parts)
 
