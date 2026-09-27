@@ -17,6 +17,8 @@ NOTE (Fix93) - the on-screen live preview in templates/jd14/edit.html is
 rendered by pdfgen._build_jd14_html itself (see live_preview()), so there
 is ONE layout to maintain; the preview and the PDF can't drift apart.
 """
+import re
+
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
 from . import activity, db, fmtaddress, mailer, settings
@@ -39,6 +41,20 @@ def _session_or_none(session_id):
            WHERE cs.id = ?""",
         (session_id,), one=True,
     )
+
+
+def jd14_pdf_filename(session_row, jd14_row):
+    """Fix98: one filename for the downloaded and the emailed JD14 Form -
+    grant ID, course title and start date, e.g.
+    JD14_Form_12345_ABC_Advanced_Excel_2026-09-20.pdf. The grant ID is the
+    form's own Approval No (prefilled from the class's HRDCorp grant ID,
+    editable on the page). Anything that isn't a letter, digit, dot, dash
+    or underscore becomes "_", so a title with "/" or quotes can't break the
+    download header or the email attachment."""
+    grant_id = (jd14_row["approval_no"] if jd14_row else None) or session_row["hrdcorp_grant_id"] or ""
+    parts = ["JD14_Form", grant_id, session_row["course_title"] or "", session_row["start_date"] or ""]
+    name = "_".join(p for p in (re.sub(r"[^A-Za-z0-9.-]+", "_", str(x)).strip("_.") for x in parts) if p)
+    return f"{name}.pdf"
 
 
 def _derive_prefill(session_row):
@@ -274,6 +290,7 @@ def edit(session_id):
         preview_user=preview_user, company_stamp_file=settings.get_company_stamp_file(),
         is_admin=is_admin, email_defaults=email_defaults,
         jd14_stage_value=jd14_stage(session_row, jd14_row),
+        pdf_filename=jd14_pdf_filename(session_row, jd14_row),
     )
 
 
@@ -360,7 +377,7 @@ def download(session_id):
         current_app.logger.exception("JD14 download PDF generation failed for session %s", session_id)
         flash("Could not generate the JD14 Form PDF. Is wkhtmltopdf installed on the server?", "danger")
         return redirect(url_for("jd14.edit", session_id=session_id))
-    filename = f"JD14_Form_{session_row['course_title']}_{session_row['start_date']}.pdf".replace(" ", "_")
+    filename = jd14_pdf_filename(session_row, jd14_row)
     return Response(
         pdf_bytes, mimetype="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
@@ -440,7 +457,7 @@ def send(session_id):
 
     subject = (request.form.get("subject") or "").strip() or _default_send_subject(session_row)
     body = (request.form.get("body") or "").strip() or _default_send_body(session_row, _return_url(session_id))
-    attachments = [("JD14_Form.pdf", pdf_bytes, "application/pdf")]
+    attachments = [(jd14_pdf_filename(session_row, jd14_row), pdf_bytes, "application/pdf")]
     try:
         mailer.send_email(to_email, subject, body, attachments=attachments,
                            related_type="course_session", related_id=session_id, cc_email=cc_email)

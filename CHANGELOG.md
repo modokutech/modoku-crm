@@ -10,6 +10,24 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix98 — JD14: emailed PDF named like the download, with grant ID and course title
+
+**Date:** 2026-09-27
+
+- `jd14.py`: new `jd14_pdf_filename()` used by both Download and Send to PIC, so the emailed
+  attachment is no longer a bare `JD14_Form.pdf`. Format:
+  `JD14_Form_<Grant ID>_<Course Title>_<Start Date>.pdf`, e.g.
+  `JD14_Form_10001234567_GRANT01_Advanced_Excel_2026-10-06.pdf`. The grant ID is the form's Approval
+  No (prefilled from the class's HRDCorp grant ID); it's left out when blank.
+- Characters other than letters, digits, dots and dashes become `_`, so a course title with `/` or
+  quotes can't break the download header or the attachment name (the old download name only
+  replaced spaces).
+- `templates/jd14/edit.html`: the email preview box shows the real attachment name.
+
+**Testing:** Flask test client: download header, edit page and Send to PIC (mailer stubbed) all carry
+the new name, for a class with a grant ID and a `/`-and-quotes title, and for one with no grant ID
+and no saved JD14 row.
+
 ## Fix97 — JD14: signature another 10% larger, company stamp another 5% larger
 
 **Date:** 2026-09-26
