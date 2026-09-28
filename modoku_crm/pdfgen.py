@@ -686,11 +686,11 @@ def _build_invoice_html(invoice, items):
     <tr style="border:none">
       <td style="border:none;width:45%;vertical-align:top">
         <div style="font-weight:700;font-size:12px;margin-bottom:4px">Payable to:</div>
-        <table style="border:none;margin-top:0;width:auto">
-          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px">Name</td><td style="border:none;padding:1px 8px;font-size:12px">:</td><td style="border:none;padding:1px 0;font-size:12px">Modoku Tech Sdn Bhd</td></tr>
-          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px">Account No</td><td style="border:none;padding:1px 8px;font-size:12px">:</td><td style="border:none;padding:1px 0;font-size:12px">564490459176</td></tr>
-          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px">Bank</td><td style="border:none;padding:1px 8px;font-size:12px">:</td><td style="border:none;padding:1px 0;font-size:12px">Maybank (MBB)</td></tr>
-          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px">SWIFT</td><td style="border:none;padding:1px 8px;font-size:12px">:</td><td style="border:none;padding:1px 0;font-size:12px">MBBEMYKL</td></tr>
+        <table style="border:none;margin-top:0;width:auto">  <!-- Fix101: cells never wrap (Qt4 squeezed "Modoku Tech Sdn Bhd") -->
+          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">Name</td><td style="border:none;padding:1px 8px;font-size:12px;white-space:nowrap">:</td><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">Modoku Tech Sdn Bhd</td></tr>
+          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">Account No</td><td style="border:none;padding:1px 8px;font-size:12px;white-space:nowrap">:</td><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">564490459176</td></tr>
+          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">Bank</td><td style="border:none;padding:1px 8px;font-size:12px;white-space:nowrap">:</td><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">Maybank (MBB)</td></tr>
+          <tr style="border:none"><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">SWIFT</td><td style="border:none;padding:1px 8px;font-size:12px;white-space:nowrap">:</td><td style="border:none;padding:1px 0;font-size:12px;white-space:nowrap">MBBEMYKL</td></tr>
         </table>
       </td>
       <td style="border:none;width:55%;vertical-align:top">

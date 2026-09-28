@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix101 — Invoice PDF: "Payable to" never wraps
+
+**Date:** 2026-09-28
+
+- `pdfgen.py`: the Payable to details (Name / Account No / Bank / SWIFT) are `white-space:nowrap`, so
+  "Modoku Tech Sdn Bhd" stays on one line. The server's Qt4 WebKit sized that auto-width table too
+  narrow and wrapped the name ("Modoku Tech Sdn / Bhd"); the dev Qt5 build didn't, which is why the
+  Fix100 renders looked fine. Same `text-nowrap` on the invoice page for consistency.
+
+**Testing:** re-rendered at both scales (identical), Payable to on one line each.
+
 ## Fix100 — Invoice: A4 layout that fills the page, new filename, email pre-filled to the PIC
 
 **Date:** 2026-09-28
