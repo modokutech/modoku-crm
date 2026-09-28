@@ -520,7 +520,7 @@ def _build_invoice_html(invoice, items):
     # client's saved one, composed the same way quotations do it. Written to
     # tolerate a caller whose row doesn't carry the company columns at all
     # (audit_export passes a plain invoices row).
-    from . import fmtaddress
+    from . import address_lines, fmtaddress
     def _icol(name):
         return invoice[name] if name in invoice.keys() else ""
     bill_to_address = invoice["bill_to_address"] or fmtaddress(
@@ -649,17 +649,17 @@ def _build_invoice_html(invoice, items):
   <hr style="border:none;border-top:1px solid #d8dce3;margin:14px 0">
   <table style="border:none">
     <tr style="border:none">
-      <td style="border:none;width:34%;vertical-align:top">
+      <td style="border:none;width:36%;vertical-align:top;padding-right:26px">
         <div class="brand" style="font-size:11px;font-weight:700;text-transform:uppercase">Billed To</div>
         <strong>{invoice['bill_to_name']}</strong><br>
-        {bill_to_address}
+        {'<br>'.join(address_lines(bill_to_address))}
         {'<br>SST Reg. No: ' + invoice['sst_reg_no'] if invoice['sst_reg_no'] else ''}
         {'<br>TIN: ' + invoice['buyer_tin'] if invoice['buyer_tin'] else ''}
       </td>
       <td style="border:none;width:38%;vertical-align:top;font-size:12px">
         {meta_middle}
       </td>
-      <td style="border:none;width:28%;text-align:right;vertical-align:top">
+      <td style="border:none;width:26%;text-align:right;vertical-align:top">
         <div class="brand" style="font-size:11px;font-weight:700;text-transform:uppercase">Date</div>
         <strong>{_fmtdate(invoice['invoice_date'])}</strong>
         {'<div class="muted" style="font-size:11px">Due ' + _fmtdate(invoice['due_date']) + '</div>' if invoice['due_date'] else ''}

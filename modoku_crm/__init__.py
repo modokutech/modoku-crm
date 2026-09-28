@@ -162,6 +162,31 @@ def fmtaddress(street, city=None, postcode=None, state=None):
     return ", ".join(p for p in (street, locality, state) if p)
 
 
+def address_lines(address):
+    """Fix103: splits a one-line address into (up to) three lines for the
+    invoice's Billed To block - street / area / postcode + city (+ state),
+    e.g. 'Wisma HRD Corp, Jalan Beringin,' / 'Damansara Heights,' /
+    '50490 Kuala Lumpur.'. The line from the 5-digit postcode onwards is the
+    last line; the parts before it are split into two lines of about equal
+    length. An address typed with its own line breaks keeps them."""
+    address = (address or "").strip()
+    if not address:
+        return []
+    if "\n" in address:
+        return [line.strip() for line in address.splitlines() if line.strip()]
+    parts = [p.strip() for p in address.split(",") if p.strip()]
+    tail_at = next((i for i, p in enumerate(parts) if re.match(r"\d{5}\b", p)), len(parts) - 1)
+    head, tail = parts[:tail_at], ", ".join(parts[tail_at:])
+    if len(head) <= 1:
+        lines = [", ".join(head)] if head else []
+    else:
+        split = min(range(1, len(head)),
+                    key=lambda k: max(len(", ".join(head[:k])), len(", ".join(head[k:]))))
+        lines = [", ".join(head[:split]), ", ".join(head[split:])]
+    # The address closes with a full stop, like a letter's address block.
+    return [line + "," for line in lines] + [tail if tail.endswith(".") else tail + "."]
+
+
 def fmtdays(value):
     """Renders a course duration as '1 day' / '2.5 days' — singular only
     for exactly 1, trailing '.0' dropped ('1.0' -> '1', '2.0' -> '2 days'),
@@ -199,6 +224,7 @@ def create_app(config_object="config.Config"):
     # `fmtaddress(c.address, c.city, c.postcode, c.state)` reads better than
     # piping one of them through it.
     app.jinja_env.globals["fmtaddress"] = fmtaddress
+    app.jinja_env.globals["address_lines"] = address_lines
 
     # Cache-busted static URLs. Browsers hold onto style.css indefinitely
     # otherwise (the <link> carries no version), so a deployed CSS change can

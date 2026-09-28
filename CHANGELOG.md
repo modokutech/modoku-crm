@@ -10,6 +10,23 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix103 — Invoice: Billed To address on three lines, more space before Project
+
+**Date:** 2026-09-28
+
+- New `address_lines()` (`modoku_crm/__init__.py`, also a template global) splits the Billed To
+  address into street / area / postcode line, ending with a full stop, e.g.
+  `Wisma HRD Corp, Jalan Beringin,` / `Damansara Heights,` / `50490 Kuala Lumpur.` Everything from
+  the 5-digit postcode on is the last line; the parts before it are split at the comma that gives
+  two lines of about equal length. An address typed with its own line breaks keeps them. Used by the
+  PDF and the invoice page.
+- PDF: wider gap between Billed To and Project (Billed To column 34% → 36% with 26px right padding,
+  Date 28% → 26%) so the Bill To name still fits on one line. Page: extra right padding on Billed To.
+
+**Testing:** `address_lines` on six address shapes (with/without commas, postcode + state, typed
+line breaks, no postcode, empty); PDF rendered at both scales (identical) and checked; invoice page
+printed (one A4 page); invoice test-client suite passes.
+
 ## Fix102 — Invoice: Programme / Date / Pax / Venue aligned, new order
 
 **Date:** 2026-09-28
