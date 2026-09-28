@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix104 — Invoice: HRDCorp preset address
+
+**Date:** 2026-09-28
+
+- `templates/invoices/form.html`: choosing **HRDCorp** as the client now fills Bill To Address with
+  `Wisma HRD Corp, Jalan Beringin, Damansara Heights, 50490 Kuala Lumpur` (comma added after
+  Beringin), so the PDF splits it as `Wisma HRD Corp, Jalan Beringin,` / `Damansara Heights,` /
+  `50490 Kuala Lumpur.` Invoices already created keep the address they were issued with.
+
+**Testing:** New Invoice page (Flask test client) carries the new address; `address_lines` splits it
+as above.
+
 ## Fix103 — Invoice: Billed To address on three lines, more space before Project
 
 **Date:** 2026-09-28
