@@ -96,10 +96,13 @@
       <tr class="invoice-doc-subrow">
         <td></td>
         <td colspan="5">
-          <div class="small"><span class="text-muted" style="display:inline-block;width:92px;white-space:nowrap">Programme:</span> {{ it.description }}</div>
-          <div class="small"><span class="text-muted" style="display:inline-block;width:92px;white-space:nowrap">Pax:</span> {{ it.quantity|int if it.quantity == it.quantity|int else it.quantity }} pax</div>
-          {% if it.item_date %}<div class="small"><span class="text-muted" style="display:inline-block;width:92px;white-space:nowrap">Date:</span> {{ it.item_date|fmtdate }}{% if it.item_date_end %} &ndash; {{ it.item_date_end|fmtdate }}{% endif %}</div>{% endif %}
-          {% if it.venue %}<div class="small"><span class="text-muted" style="display:inline-block;width:92px;white-space:nowrap">Venue:</span> {{ it.venue }}</div>{% endif %}
+          {# Fix102: Programme, Date, Pax, Venue; values aligned, long venue wraps under its value. #}
+          <table class="small invoice-doc-details">
+            <tr><td>Programme:</td><td>{{ it.description }}</td></tr>
+            {% if it.item_date %}<tr><td>Date:</td><td>{{ it.item_date|fmtdaterange(it.item_date_end) }}</td></tr>{% endif %}
+            <tr><td>Pax:</td><td>{{ it.quantity|int if it.quantity == it.quantity|int else it.quantity }} pax</td></tr>
+            {% if it.venue %}<tr><td>Venue:</td><td>{{ it.venue }}</td></tr>{% endif %}
+          </table>
         </td>
       </tr>
       {% endif %}

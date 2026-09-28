@@ -542,17 +542,24 @@ def _build_invoice_html(invoice, items):
         qty_display = _fmt_qty(item["quantity"]) + (" pax" if is_training_row else "")
         sub_detail = ""
         if is_training_row:
-            date_line = ""
+            # Fix102: Programme, Date, Pax, Venue as a two-column table - the
+            # values line up, and a long venue wraps under its own value
+            # rather than back under the label. Fix100: weight 500, one
+            # lighter than the 600 description above.
+            details = [("Programme", item["description"])]
             if item["item_date"]:
-                date_line = f"<div>Date: {_fmtdaterange(item['item_date'], item['item_date_end'])}</div>"
-            venue_line = f"<div>Venue: {item['venue']}</div>" if item["venue"] else ""
-            # Fix100: one weight lighter than the 600 description above
-            # (600 rendered as Bold, since only 400/700 were embedded).
+                details.append(("Date", _fmtdaterange(item["item_date"], item["item_date_end"])))
+            details.append(("Pax", f"{_fmt_qty(item['quantity'])} pax"))
+            if item["venue"]:
+                details.append(("Venue", item["venue"]))
+            cell = "border:none;padding:2px 0;vertical-align:top;font-size:12px"
             sub_detail = (
-                "<div style='padding-top:6px;font-size:12px;color:#444;font-weight:500'>"
-                f"<div>Programme: {item['description']}</div>"
-                f"<div>Pax: {_fmt_qty(item['quantity'])} pax</div>"
-                f"{date_line}{venue_line}</div>"
+                "<table style='width:100%;margin:6px 0 0;border:none;color:#444;font-weight:500'>"
+                + "".join(
+                    f"<tr style='border:none'><td style='{cell};width:96px;white-space:nowrap'>{label}:</td>"
+                    f"<td style='{cell}'>{value}</td></tr>"
+                    for label, value in details)
+                + "</table>"
             )
         item_rows.append(
             "<tr style='page-break-inside:avoid'>"

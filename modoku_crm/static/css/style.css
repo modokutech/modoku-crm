@@ -490,6 +490,17 @@ body {
   padding-bottom: 0.75rem;
   font-weight: 500;  /* Fix100: Medium, matching the PDF */
 }
+/* Scoped under the subrow so the subrow cell's own padding-bottom (above)
+   doesn't also land on every details row. */
+.invoice-doc-subrow .invoice-doc-details td {
+  border: none;
+  padding: 0.12rem 0;
+  vertical-align: top;
+}
+.invoice-doc-subrow .invoice-doc-details td:first-child {
+  width: 6.5rem;
+  white-space: nowrap;
+}
 .invoice-doc-totals td {
   border: none;
   padding: 0.3rem 0.5rem;

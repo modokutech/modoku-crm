@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix102 — Invoice: Programme / Date / Pax / Venue aligned, new order
+
+**Date:** 2026-09-28
+
+- PDF (`pdfgen._build_invoice_html`) and invoice page (`templates/invoices/view.html`): the line
+  item's details are now a two-column table, so the values line up in one column and a long venue
+  wraps under its own value instead of back under the label. Order is Programme, Date, Pax, Venue.
+- Labels are the same colour as the values (the page had them grey), matching the reference.
+- The page's date now uses the same range format as the PDF ("25 & 26 Jun 2026").
+
+**Testing:** rendered a two-day "Beginner MySQL" invoice with a two-line venue at both scales
+(identical) and checked the image; printed the invoice page in headless Chromium (one A4 page);
+invoice test-client suite still passes.
+
 ## Fix101 — Invoice PDF: "Payable to" never wraps
 
 **Date:** 2026-09-28
