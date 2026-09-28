@@ -440,6 +440,13 @@ body {
 }
 @font-face {
   font-family: "Poppins";
+  src: url("../fonts/Poppins-Medium.subset.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
   src: url("../fonts/Poppins-Bold.subset.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
@@ -481,6 +488,7 @@ body {
 .invoice-doc-subrow td {
   padding-top: 0;
   padding-bottom: 0.75rem;
+  font-weight: 500;  /* Fix100: Medium, matching the PDF */
 }
 .invoice-doc-totals td {
   border: none;
@@ -491,6 +499,28 @@ body {
   .invoice-doc {
     border-width: 5px;
   }
+}
+/* Fix100: printing the invoice page fills one A4 sheet like the PDF: 6mm
+   margins, the frame as tall as the page, the footer pushed to its bottom. */
+@media print {
+  @page { size: A4; margin: 6mm; }
+  .invoice-doc {
+    min-height: 282mm;
+    display: flex;
+    flex-direction: column;
+    margin: 0 !important;
+  }
+  .invoice-doc-spacer { flex: 1 1 auto; }
+  .invoice-doc > .badge { align-self: flex-start; }
+  .row.invoice-doc-page { --bs-gutter-x: 0; --bs-gutter-y: 0; margin: 0; }
+  .invoice-doc-page > .col-lg-8 { width: 100%; padding: 0; }
+  /* A4 prints at ~750 CSS px, under Bootstrap's md breakpoint, which
+     stacked Billed To / Project / Date and pushed the footer to page 2. */
+  .invoice-doc .col-md-3 { flex: 0 0 auto; width: 25%; }
+  .invoice-doc .col-md-4 { flex: 0 0 auto; width: 33.3333%; }
+  .invoice-doc .col-md-5 { flex: 0 0 auto; width: 41.6667%; }
+  .invoice-doc .col-md-7 { flex: 0 0 auto; width: 58.3333%; }
+  .invoice-doc .text-md-end { text-align: right !important; }
 }
 
 /* Terms & Conditions / Trainer's Responsibilities / Quotation clauses:

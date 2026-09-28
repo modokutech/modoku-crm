@@ -8,7 +8,7 @@
     <div class="row g-3 mb-2">
       <div class="col-12">
         <label class="form-label">From Class <span class="text-muted small fw-normal">(optional, auto-fills client, description, venue and dates below)</span></label>
-        <select id="session_id" class="form-select">
+        <select id="session_id" name="session_id" class="form-select">
           <option value="">Not linked to a class / fill in manually</option>
           {% for s in classes_for_invoice %}
           <option value="{{ s.id }}" {{ 'selected' if preselect_session_id == s.id }}

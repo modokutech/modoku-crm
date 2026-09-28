@@ -10,6 +10,46 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix100 — Invoice: A4 layout that fills the page, new filename, email pre-filled to the PIC
+
+**Date:** 2026-09-28
+
+Applied to both the PDF (download/email, `pdfgen._build_invoice_html`) and the on-screen/Print page
+(`templates/invoices/view.html` + `style.css`):
+- Invoice number 20% larger.
+- Programme / Pax / Date / Venue lines one weight lighter: 500 (Poppins Medium). In the PDF they were
+  600, which rendered as Bold because only Regular and Bold were embedded; new
+  `static/fonts/Poppins-Medium.subset.ttf` (same Latin subset as the other two, 17.6KB) is embedded
+  for the PDF and served for the page. On screen they go from 400 to 500 so both match.
+- Footer phone/email centred on the page (three equal columns; before, the middle column's position
+  depended on the address width).
+- PDF "PROJECT" label styled like BILLED TO / DATE (blue, bold, uppercase).
+- No. of Pax column wider and never wraps ("22 pax" on one line).
+- **Fits A4:** the PDF now uses 6mm margins, and the gold frame fills the page with the footer
+  pinned to the bottom. The page is laid out 1000px wide, wider than wkhtmltopdf's viewport on every
+  build, so it's always shrunk to exactly the printable width: same result on the dev Qt5 build and
+  the server's Qt4 (verified identical output with and without `--zoom 1.175`). Before, the scale
+  depended on the build and the content (INV-26-00297 measured 0.211mm/px), and `min-height: 277mm`
+  came out as only ~210-250mm on paper. Sizes are scaled so text prints at the same size as before.
+  The footer uses absolute positioning, not flexbox, which the server's Qt4 WebKit lacks.
+- Browser Print: `@page` A4 with 6mm margins, the frame fills the sheet, the footer sits at the
+  bottom, and Billed To / Project / Date stay in three columns (A4 prints below Bootstrap's `md`
+  breakpoint, which stacked them and pushed the footer onto a second page).
+- **Filename** (download and email attachment):
+  `INV-26-00297_<first 2 words of client>_<first 3 words of course>_modoku_invoice.pdf`, e.g.
+  `INV-26-00297_Hong_Leong_Microsoft_Excel_Basic_modoku_invoice.pdf`. Client = Employer, else the
+  linked company, else Bill To; course = Project, else the first line item.
+- **Email pre-filled to the PIC:** the "From Class" picker on New Invoice is now saved
+  (`invoices.session_id`, added via `_COLUMN_MIGRATIONS`), and Send to Client pre-fills that class's
+  PIC (greeting uses their name). Older invoices find their class by Grant ID when exactly one class
+  has it; otherwise it falls back to the company email as before.
+
+**Testing:** rendered INV-26-00297's content old vs new and checked the images; 1-item invoice is one
+page, a 6-item one flows to page 2. Ink comparison confirms the Medium face is really used (22% more
+ink than Regular). Printed the invoice page in headless Chromium: one A4 page. Flask test client:
+create-from-class stores the class, view pre-fills the PIC, download and email use the new filename,
+Grant ID fallback, and company-email fallback.
+
 ## Fix99 — Cancelling a class (or quotation) now leads into cancelling its POs
 
 **Date:** 2026-09-28

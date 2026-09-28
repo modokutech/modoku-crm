@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import date, timedelta
 
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
@@ -100,12 +101,46 @@ def _next_invoice_no(consume=True):
     return f"{prefix}-{year}-{last_seq + 1:05d}{suffix}"
 
 
+def _invoice_pic(invoice):
+    """Fix100: the PIC (leads row: name, email) of the class this invoice is
+    for, or None. The class is the one it was created from (session_id);
+    older invoices, created before that was stored, are matched on the
+    HRDCorp Grant ID when exactly one class carries it."""
+    session_id = invoice["session_id"] if "session_id" in invoice.keys() else None
+    if not session_id and invoice["grant_id"]:
+        matches = db.query("SELECT id FROM course_sessions WHERE hrdcorp_grant_id = ?", (invoice["grant_id"],))
+        if len(matches) == 1:
+            session_id = matches[0]["id"]
+    if not session_id:
+        return None
+    pic = db.query(
+        """SELECT l.name, l.email FROM course_sessions cs JOIN leads l ON l.id = cs.pic_lead_id
+           WHERE cs.id = ?""", (session_id,), one=True)
+    return pic if pic and pic["email"] else None
+
+
+def _invoice_pdf_filename(invoice, items):
+    """Fix100: INV-26-00297_Hong_Leong_Microsoft_Excel_Basic_modoku_invoice.pdf -
+    the invoice number, the first two words of the client (the Employer,
+    falling back to the linked company, then the Bill To name), the first
+    three words of the course (the Project, falling back to the first line
+    item) - same name for the download and the emailed attachment."""
+    def words(text, n):
+        found = re.findall(r"[A-Za-z0-9]+", text or "")
+        return "_".join(found[:n])
+    company = invoice["company_name"] if "company_name" in invoice.keys() else None
+    client = invoice["employer"] or company or invoice["bill_to_name"]
+    course = invoice["project_title"] or (items[0]["description"] if items else "")
+    parts = [invoice["invoice_no"], words(client, 2), words(course, 3), "modoku_invoice"]
+    return "_".join(p for p in parts if p) + ".pdf"
+
+
 def _default_invoice_email_subject(invoice):
     return f"Invoice {invoice['invoice_no']} from Modoku Tech Sdn Bhd"
 
 
-def _default_invoice_email_body(invoice):
-    greeting_name = invoice["bill_to_name"] or "there"
+def _default_invoice_email_body(invoice, pic=None):
+    greeting_name = (pic["name"] if pic else None) or invoice["bill_to_name"] or "there"
     project_line = f"Project: {invoice['project_title']}\n" if invoice["project_title"] else ""
     return (
         f"Hi {greeting_name},\n\n"
@@ -253,8 +288,9 @@ def new():
             invoice_id = db.execute(
                 """INSERT INTO invoices (invoice_no, company_id, bill_to_name, bill_to_address,
                        project_title, employer, grant_id, sst_reg_no, buyer_tin, invoice_date, due_date,
-                       currency, subtotal, sst_rate, sst_inclusive, sst_amount, total, status, notes, created_by)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       currency, subtotal, sst_rate, sst_inclusive, sst_amount, total, status, notes, created_by,
+                       session_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     invoice_no,
                     company_id,
@@ -276,6 +312,7 @@ def new():
                     request.form.get("status") or "Draft",
                     request.form.get("notes") or None,
                     g.user["id"],
+                    request.form.get("session_id", type=int),
                 ),
             )
             for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end in items:
@@ -313,17 +350,20 @@ def view(invoice_id):
         flash("Invoice not found.", "danger")
         return redirect(url_for("invoices.index"))
     items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
+    pic = _invoice_pic(invoice)
     return render_template("invoices/view.html", invoice=invoice, items=items, statuses=STATUSES,
-                            mail_configured=mailer.is_configured(),
+                            mail_configured=mailer.is_configured(), pic=pic,
+                            default_to_email=(pic["email"] if pic else None) or invoice["company_email"] or "",
+                            pdf_filename=_invoice_pdf_filename(invoice, items),
                             default_email_subject=_default_invoice_email_subject(invoice),
-                            default_email_body=_default_invoice_email_body(invoice))
+                            default_email_body=_default_invoice_email_body(invoice, pic))
 
 
 @bp.route("/<int:invoice_id>/send-email", methods=("POST",))
 @login_required
 def send_email(invoice_id):
     invoice = db.query(
-        """SELECT i.*, co.email AS company_email FROM invoices i
+        """SELECT i.*, co.name AS company_name, co.email AS company_email FROM invoices i
            LEFT JOIN companies co ON co.id = i.company_id WHERE i.id = ?""",
         (invoice_id,), one=True,
     )
@@ -331,20 +371,22 @@ def send_email(invoice_id):
         flash("Invoice not found.", "danger")
         return redirect(url_for("invoices.index"))
 
-    to_email = (request.form.get("to_email") or invoice["company_email"] or "").strip()
+    pic = _invoice_pic(invoice)
+    to_email = (request.form.get("to_email") or (pic["email"] if pic else None)
+                or invoice["company_email"] or "").strip()
     if not to_email:
         flash("No client email on file for this invoice. Add one, or type an address to send to.", "danger")
         return redirect(url_for("invoices.view", invoice_id=invoice_id))
 
     subject = (request.form.get("subject") or "").strip() or _default_invoice_email_subject(invoice)
-    body = (request.form.get("body") or "").strip() or _default_invoice_email_body(invoice)
+    body = (request.form.get("body") or "").strip() or _default_invoice_email_body(invoice, pic)
     cc_email = (request.form.get("cc_email") or "").strip() or None
 
     items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
     try:
         from . import pdfgen
         pdf_bytes = pdfgen.generate_invoice_pdf(invoice, items)
-        attachments = [(f"{invoice['invoice_no']}.pdf", pdf_bytes, "application/pdf")]
+        attachments = [(_invoice_pdf_filename(invoice, items), pdf_bytes, "application/pdf")]
         mailer.send_email(to_email, subject, body, attachments=attachments,
                            related_type="invoice", related_id=invoice_id, cc_email=cc_email)
     except mailer.MailNotConfigured as exc:
@@ -393,7 +435,7 @@ def download(invoice_id):
         return redirect(url_for("invoices.view", invoice_id=invoice_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",
-        headers={"Content-Disposition": content_disposition(f"{invoice['invoice_no']}.pdf")},
+        headers={"Content-Disposition": content_disposition(_invoice_pdf_filename(invoice, items))},
     )
 
 

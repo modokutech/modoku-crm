@@ -47,6 +47,8 @@ _DOC_FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 _DOC_FONT_FACES = (
     ("Poppins", 400, "normal", "Poppins-Regular.subset.ttf"),
     ("Poppins", 700, "bold", "Poppins-Bold.subset.ttf"),
+    # Fix100: the invoice's Programme/Pax/Date/Venue lines use Medium.
+    ("Poppins", 500, "normal", "Poppins-Medium.subset.ttf"),
 )
 
 
@@ -544,8 +546,10 @@ def _build_invoice_html(invoice, items):
             if item["item_date"]:
                 date_line = f"<div>Date: {_fmtdaterange(item['item_date'], item['item_date_end'])}</div>"
             venue_line = f"<div>Venue: {item['venue']}</div>" if item["venue"] else ""
+            # Fix100: one weight lighter than the 600 description above
+            # (600 rendered as Bold, since only 400/700 were embedded).
             sub_detail = (
-                "<div style='padding-top:6px;font-size:12px;color:#444'>"
+                "<div style='padding-top:6px;font-size:12px;color:#444;font-weight:500'>"
                 f"<div>Programme: {item['description']}</div>"
                 f"<div>Pax: {_fmt_qty(item['quantity'])} pax</div>"
                 f"{date_line}{venue_line}</div>"
@@ -555,7 +559,7 @@ def _build_invoice_html(invoice, items):
             f"<td style='vertical-align:top'>{idx:02d}</td>"
             f"<td style='font-weight:600;vertical-align:top'>{item['description']}{sub_detail}</td>"
             f"<td style='vertical-align:top'>{item['duration'] or ''}</td>"
-            f"<td style='text-align:right;vertical-align:top'>{qty_display}</td>"
+            f"<td style='text-align:right;vertical-align:top;white-space:nowrap'>{qty_display}</td>"
             f"<td style='text-align:right;vertical-align:top'>{item['unit_price']:,.2f}</td>"
             f"<td style='text-align:right;vertical-align:top'>{item['amount']:,.2f}</td></tr>"
         )
@@ -564,7 +568,7 @@ def _build_invoice_html(invoice, items):
     meta_middle = ""
     if invoice["project_title"]:
         meta_middle += (
-            f"<div class='muted' style='font-size:11px;text-transform:uppercase'>Project</div>"
+            f"<div class='brand' style='font-size:11px;font-weight:700;text-transform:uppercase'>Project</div>"
             f"<strong>{invoice['project_title']}</strong><br><br>"
         )
     if invoice["grant_id"]:
@@ -582,11 +586,18 @@ def _build_invoice_html(invoice, items):
         f"Notes</div><p>{invoice['notes']}</p></div>"
     ) if invoice["notes"] else ""
 
-    return f"""<!doctype html>
+    # Fix100: laid out in "design px" (sized to how invoices printed before),
+    # then every px is scaled by _INV_PX_SCALE and the page is pinned at
+    # _INV_PAGE_W_PX. That width is wider than wkhtmltopdf's viewport on
+    # every build (Qt5 dev and the server's Qt4), so it always shrinks the
+    # page to exactly the printable width and the px->mm scale is the same
+    # everywhere; the frame's height is then known in px and fills the page.
+    # Fonts and the logo go in after scaling (base64 can contain "12px").
+    html = f"""<!doctype html>
 <html><head><meta charset="utf-8">
 <style>
-  html, body {{ height: 100%; margin: 0; }}
-  {font_faces}
+  html, body {{ margin: 0; width: __PAGE_W__; }}
+  __FONT_FACES__
   /* Poppins is Modoku's brand face; Arial/Helvetica remain as the fallback
      for the (unlikely) case the embedded font files are missing. */
   body {{ font-family: 'Poppins', Arial, Helvetica, sans-serif; font-size: 13px; color: #1a1a1a; }}
@@ -597,10 +608,12 @@ def _build_invoice_html(invoice, items):
      blank void underneath a floating box - that mismatch was the "distorted"
      look reported against the print/browser version, which doesn't have
      this visible border to expose the same shrink-wrapped whitespace. */
-  .frame {{ border: 8px solid {accent}; padding: 20px 30px 16px; min-height: 277mm;
-            box-sizing: border-box; display: flex; flex-direction: column; }}
-  .frame-body {{ flex: 1 1 auto; }}
-  .frame-foot {{ margin-top: auto; }}
+  .frame {{ border: 8px solid {accent}; padding: 20px 30px 16px; width: __PAGE_W__;
+            min-height: __FRAME_H__; box-sizing: border-box; position: relative; }}
+  /* The footer is pinned to the frame's bottom (absolute, not flex: the
+     server's Qt4 WebKit has no flexbox); frame-body keeps clear of it. */
+  .frame-body {{ padding-bottom: 150px; }}
+  .frame-foot {{ position: absolute; left: 30px; right: 30px; bottom: 16px; }}
   table {{ width: 100%; border-collapse: collapse; margin-top: 16px; }}
   th, td {{ padding: 8px 6px; border-bottom: 1px solid #eee; text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; color: {brand}; font-weight: 700;
@@ -616,13 +629,13 @@ def _build_invoice_html(invoice, items):
 <div class="frame-body">
   <table style="border:none;margin-top:0"><tr style="border:none">
     <td style="border:none;width:60%;vertical-align:top">
-      <img class="logo" src="{logo_uri}"><br>
+      <img class="logo" src="__LOGO_URI__"><br>
       <strong class="brand">Modoku Tech Sdn Bhd</strong><br>
       <span class="brand" style="font-size:11px">(1390352-H)</span>
     </td>
     <td style="border:none;text-align:right;vertical-align:top">
       <h2 class="brand" style="margin:0;letter-spacing:3px">INVOICE</h2>
-      <div style="font-weight:600">{invoice['invoice_no']}</div>
+      <div style="font-weight:600;font-size:15.6px">{invoice['invoice_no']}</div>
     </td>
   </tr></table>
 
@@ -649,8 +662,8 @@ def _build_invoice_html(invoice, items):
   <hr style="border:none;border-top:1px solid #d8dce3;margin:14px 0">
 
   <table>
-    <thead><tr><th style="width:5%">No.</th><th>Description</th><th>Duration</th>
-      <th style="text-align:right">No. of Pax</th><th style="text-align:right">Rate ({invoice['currency']})</th>
+    <thead><tr><th style="width:5%">No.</th><th>Description</th><th style="width:10%">Duration</th>
+      <th style="text-align:right;width:10%">No. of Pax</th><th style="text-align:right">Rate ({invoice['currency']})</th>
       <th style="text-align:right">Amount ({invoice['currency']})</th></tr></thead>
     <tbody>
       {item_rows_html}
@@ -695,14 +708,34 @@ def _build_invoice_html(invoice, items):
       This is a computer generated and no signature is required.
     </div>
     <hr style="border:none;border-top:1px solid #d8dce3;margin:14px 0">
-    <table style="border:none"><tr style="border:none" class="brand" style="font-size:11px">
-      <td style="border:none;font-size:11px">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</td>
-      <td style="border:none;font-size:11px;text-align:center">+60 3 2728 1035<br>hello@modoku.tech</td>
-      <td style="border:none;font-size:11px;text-align:right;font-weight:700">modoku.tech</td>
+    <table style="border:none;table-layout:fixed"><tr style="border:none" class="brand">
+      <td style="border:none;font-size:11px;width:33.33%">Level 30, Menara Prestige<br>1, Jalan Pinang<br>50450 Kuala Lumpur</td>
+      <td style="border:none;font-size:11px;width:33.34%;text-align:center">+60 3 2728 1035<br>hello@modoku.tech</td>
+      <td style="border:none;font-size:11px;width:33.33%;text-align:right;font-weight:700">modoku.tech</td>
     </tr></table>
   </div>
 </div>
 </body></html>"""
+    html = re.sub(r"(?<![\w.])(\d+(?:\.\d+)?)px",
+                  lambda m: f"{float(m.group(1)) * _INV_PX_SCALE:.2f}px", html)
+    frame_h = (_INV_PAGE_H_MM - 1.0) * _INV_PAGE_W_PX / _INV_PAGE_W_MM  # 1mm slack: never spill a page
+    return (html.replace("__PAGE_W__", f"{_INV_PAGE_W_PX}px")
+                .replace("__FRAME_H__", f"{frame_h:.0f}px")
+                .replace("__FONT_FACES__", font_faces)
+                .replace("__LOGO_URI__", logo_uri))
+
+
+# Fix100: invoice page geometry (see _build_invoice_html). 6mm margins all
+# round; the page is _INV_PAGE_W_PX wide, which is wider than the viewport
+# of every wkhtmltopdf build seen (at most ~974px for 198mm, Qt5), so the
+# rendered scale is always 198mm / 1000px = 0.198mm per px.
+# _INV_PX_SCALE keeps the old printed sizes: invoices measured 0.211mm/px
+# (screenshot of INV-26-00297), so 0.211 / 0.198.
+_INV_MARGIN_MM = 6
+_INV_PAGE_W_MM = 210 - 2 * _INV_MARGIN_MM
+_INV_PAGE_H_MM = 297 - 2 * _INV_MARGIN_MM
+_INV_PAGE_W_PX = 1000
+_INV_PX_SCALE = 0.211 / (_INV_PAGE_W_MM / _INV_PAGE_W_PX)
 
 
 def generate_invoice_pdf(invoice, items):
@@ -715,8 +748,8 @@ def generate_invoice_pdf(invoice, items):
     try:
         subprocess.run(
             ["wkhtmltopdf", "--quiet", "--page-size", "A4",
-             "--margin-top", "10mm", "--margin-bottom", "10mm",
-             "--margin-left", "10mm", "--margin-right", "10mm",
+             "--margin-top", f"{_INV_MARGIN_MM}mm", "--margin-bottom", f"{_INV_MARGIN_MM}mm",
+             "--margin-left", f"{_INV_MARGIN_MM}mm", "--margin-right", f"{_INV_MARGIN_MM}mm",
              html_path, pdf_path],
             check=True, timeout=30, capture_output=True,
         )

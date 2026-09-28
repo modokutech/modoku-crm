@@ -1144,6 +1144,9 @@ _COLUMN_MIGRATIONS = [
     # every request, in place of the old POST-resubmit-the-form approach
     # (which broke on mobile - see certificates.py's module docstring).
     ("certificates", "download_token", "TEXT"),
+    # Fix100: the class an invoice was started from (the form's "From Class"
+    # picker), so its email can pre-fill the class's PIC. Not a hard link.
+    ("invoices", "session_id", "INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL"),
 ]
 
 
