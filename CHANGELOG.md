@@ -10,6 +10,32 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix99 — Cancelling a class (or quotation) now leads into cancelling its POs
+
+**Date:** 2026-09-28
+
+- **Class → POs** (`sessions.py`, new `templates/sessions/cancel_pos.html`): saving a class as
+  Cancelled on Edit Class now opens a "Cancel this class's POs?" page listing its open trainer and
+  vendor POs, all ticked. Untick any to keep. For each one, "Email a cancellation notice" is ticked
+  when the PO was actually sent; the notice names the PO, class, dates and venue. Cancelled POs keep
+  their number and history; nothing is deleted. A failed email still cancels the PO and says so.
+- A cancelled class that still has open POs shows a warning with a **Review POs** button on its
+  page, so skipping the step ("Not now") isn't lost.
+- **Quotation statuses** (`quotations.py`): added **Cancelled** (agreed, then called off, so the
+  win stays on record) and **Expired** (validity date passed, no answer), with their own badges.
+  Rejected stays for "the client said no". Expired is set by hand: `valid_until` defaults to 7 days,
+  so expiring automatically would pre-empt the 14-day Follow-up nudge.
+- Marking a quotation Cancelled while its linked class is still live shows **Cancel the class too**
+  (new `sessions.cancel_class` route), which then goes to the same PO page.
+- The class Delete confirmation now warns that its trainer POs are deleted with it, and suggests
+  Cancelled instead.
+- No database changes (statuses are free text).
+
+**Testing:** Flask test client, mailer stubbed: edit-to-Cancelled redirect; page lists only open POs
+with notices pre-ticked for sent ones; cancelling a subset leaves the unticked PO open with the
+banner still showing; a failing email is reported; quotation Cancelled/Expired, the prompt, the
+cancel-class button, and the banner clearing once the class is cancelled.
+
 ## Fix98 — JD14: emailed PDF named like the download, with grant ID and course title
 
 **Date:** 2026-09-27

@@ -586,7 +586,7 @@ CREATE TABLE IF NOT EXISTS quotations (
     venue TEXT,
     valid_until TEXT,
     terms TEXT,
-    status TEXT NOT NULL DEFAULT 'Draft',    -- Draft, Sent, Follow-up, Accepted, Rejected
+    status TEXT NOT NULL DEFAULT 'Draft',    -- Draft, Sent, Follow-up, Accepted, Rejected, Cancelled, Expired
     notes TEXT,
     created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     sent_at TEXT,

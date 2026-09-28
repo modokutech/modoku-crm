@@ -28,6 +28,19 @@
   </div>
 </div>
 
+{% if q.status == 'Cancelled' and linked_session and linked_session.status != 'Cancelled' %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center d-print-none">
+  <div><i class="bi bi-exclamation-triangle me-1"></i>This quotation is cancelled, but its class
+    <a href="{{ url_for('sessions.view', session_id=linked_session.id) }}">{{ linked_session.course_title }} · {{ linked_session.start_date|fmtdaterange(linked_session.end_date) }}</a>
+    is still <strong>{{ linked_session.status }}</strong>.</div>
+  <form method="post" action="{{ url_for('sessions.cancel_class', session_id=linked_session.id) }}" class="ms-2"
+        onsubmit="return confirm('Set this class to Cancelled? You can then choose which of its POs to cancel.');">
+    {{ csrf_field()|safe }}
+    <button class="btn btn-sm btn-warning text-nowrap">Cancel the class too</button>
+  </form>
+</div>
+{% endif %}
+
 {% if not mail_configured %}
 <div class="alert alert-warning d-print-none">
   Email sending isn't set up yet. An admin needs to configure SMTP settings (see README) before
@@ -67,6 +80,8 @@
             <span class="badge badge-status
               {% if q.status == 'Accepted' %}bg-success
               {% elif q.status == 'Rejected' %}bg-danger
+              {% elif q.status == 'Cancelled' %}bg-dark
+              {% elif q.status == 'Expired' %}bg-secondary
               {% elif q.status == 'Follow-up' %}bg-danger
               {% elif q.status == 'Sent' %}bg-warning text-dark
               {% else %}bg-light text-dark{% endif %}">{% if q.status == 'Follow-up' %}<span class="badge-pulse-dot"></span>{% endif %}{{ q.status }}</span>

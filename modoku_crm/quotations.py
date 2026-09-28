@@ -18,7 +18,11 @@ from .auth import admin_required, login_required
 
 bp = Blueprint("quotations", __name__, url_prefix="/quotations")
 
-STATUSES = ["Draft", "Sent", "Follow-up", "Accepted", "Rejected"]
+# Fix100: Rejected = the client said no. Cancelled = it was agreed, then called
+# off (keeps the win on record). Expired = the validity date passed with no
+# answer. Expired is set by hand: valid_until defaults to 7 days, so expiring
+# automatically would pre-empt the 14-day Follow-up nudge.
+STATUSES = ["Draft", "Sent", "Follow-up", "Accepted", "Rejected", "Cancelled", "Expired"]
 FOLLOW_UP_AFTER_DAYS = 14
 TRAINING_TYPES = ["In-house Training", "Public Training", "Workshop", "Conference"]
 TRAINING_MODES = ["Physical", "Virtual", "Hybrid"]
@@ -618,7 +622,7 @@ def _auto_advance_quotation_statuses():
     """A 'Sent' quotation that's gone quiet for FOLLOW_UP_AFTER_DAYS with no
     client response moves to 'Follow-up' — flagging it for staff to chase up
     rather than silently sitting as 'Sent' forever — and its creator gets a
-    Notification. Never touches Draft/Accepted/Rejected, and never moves a
+    Notification. Only ever touches 'Sent', and never moves a
     quotation backwards. Runs once per request, same pattern as classes'
     _auto_advance_statuses in sessions.py.
 
@@ -916,6 +920,15 @@ def update_status(quotation_id):
     if status in STATUSES:
         db.execute("UPDATE quotations SET status = ? WHERE id = ?", (status, quotation_id))
         flash(f"Quotation marked as {status}.", "success")
+        if status == "Cancelled":
+            # Fix100: the page then offers to cancel the linked class too
+            # (and from there its POs); nothing else is cancelled on its own.
+            linked = db.query(
+                """SELECT cs.status FROM quotations q JOIN course_sessions cs ON cs.id = q.session_id
+                   WHERE q.id = ?""", (quotation_id,), one=True)
+            if linked and linked["status"] != "Cancelled":
+                flash(f"Its class is still {linked['status']}. Cancel the class too if the training is off.",
+                      "warning")
     return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
 

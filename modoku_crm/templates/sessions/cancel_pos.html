@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Cancel POs{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Cancel this class's POs?</h4>
+    <small class="text-muted">{{ s.course_title }} · {{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}</small>
+  </div>
+</div>
+<div class="card p-4" style="max-width:960px;">
+  <p>The class is now <span class="badge bg-danger">Cancelled</span>. These POs are still open. Untick any
+    you want to keep (a deposit already paid, a vendor who can't refund, and so on). Cancelled POs keep their
+    number and history; nothing is deleted.</p>
+  {% if not mail_ok %}
+  <div class="alert alert-warning small py-2">Email isn't set up, so no cancellation notices can be sent.
+    Let each trainer/vendor know directly.</div>
+  {% endif %}
+  <form method="post">
+    {{ csrf_field()|safe }}
+    <table class="table table-sm align-middle">
+      <thead><tr>
+        <th>Cancel</th><th>PO</th><th>For</th><th>Status</th><th class="text-end">Amount</th><th>Email a cancellation notice</th>
+      </tr></thead>
+      <tbody>
+      {% for po in open_pos %}
+        <tr>
+          <td><input class="form-check-input" type="checkbox" name="po" value="{{ po.key }}" checked></td>
+          <td>{{ po.po_no }}</td>
+          <td>{{ po.kind_label }}: {{ po.party_name }}</td>
+          <td>{{ po.status }}</td>
+          <td class="text-end">{{ po.currency }} {{ po.fee_amount|fmtmoney }}</td>
+          <td>
+            {% if po.email %}
+            <label class="form-check-label small">
+              <input class="form-check-input me-1" type="checkbox" name="notify" value="{{ po.key }}"
+                     {{ 'checked' if po.notify_default and mail_ok }} {{ 'disabled' if not mail_ok }}>
+              {{ po.email }}
+            </label>
+            {% if not po.sent_at %}<div class="small text-muted">Never sent, so they may not know about it.</div>{% endif %}
+            {% else %}
+            <span class="small text-muted">No email on file</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="d-flex gap-2">
+      <button class="btn btn-danger btn-sm" type="submit">Cancel ticked POs</button>
+      <a href="{{ url_for('sessions.view', session_id=s.id) }}" class="btn btn-outline-secondary btn-sm">Not now</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

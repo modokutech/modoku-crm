@@ -30,13 +30,22 @@
     {% endif %}
     <a href="{{ url_for('training_costs.view', session_id=s.id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-cash-coin me-1"></i>Training Costs</a>
     <a href="{{ url_for('sessions.edit', session_id=s.id) }}" class="btn btn-outline-secondary btn-sm">Edit</a>
-    <form method="post" action="{{ url_for('sessions.delete', session_id=s.id) }}" onsubmit="return confirm('Delete this class?');">
+    <form method="post" action="{{ url_for('sessions.delete', session_id=s.id) }}" onsubmit="return confirm('Delete this class? Its trainer POs are deleted with it. To keep the records, set the class to Cancelled instead.');">
       {{ csrf_field()|safe }}
       <button class="btn btn-outline-danger btn-sm">Delete</button>
     </form>
     <a href="{{ url_for('sessions.index') }}" class="btn btn-outline-secondary btn-sm">Back</a>
   </div>
 </div>
+{% if open_pos_after_cancel %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+  <div><i class="bi bi-exclamation-triangle me-1"></i>This class is cancelled, but
+    {{ open_pos_after_cancel|length }} PO{{ 's' if open_pos_after_cancel|length != 1 }} for it
+    {{ 'are' if open_pos_after_cancel|length != 1 else 'is' }} still open:
+    {{ open_pos_after_cancel|map(attribute='po_no')|join(', ') }}.</div>
+  <a href="{{ url_for('sessions.cancel_pos', session_id=s.id) }}" class="btn btn-sm btn-warning text-nowrap ms-2">Review POs</a>
+</div>
+{% endif %}
 <style>
 /* Class page's two-column split. Started at the Bootstrap default 33.33/66.67,
    then +10pp to the left (43.33/56.67), then -5pp back off the left

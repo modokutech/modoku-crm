@@ -989,8 +989,10 @@ def view(session_id):
     from . import quotations as _quotations
     quoted_price = _quotations.quoted_price_for_session(session_id)
 
+    open_pos_after_cancel = _open_pos_for_session(session_id) if session_row["status"] == "Cancelled" else []
+
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
-                            quoted_price=quoted_price,
+                            quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
                             ai_configured=ai_match.is_configured(),
@@ -1307,6 +1309,10 @@ def edit(session_id):
             if new_status == "Completed" and previous_status != "Completed":
                 _notify_trainers_invoice_due(session_id)
             flash("Training session updated.", "success")
+            # Fix99: cancelling a class leads straight into cancelling its POs.
+            if (new_status == "Cancelled" and previous_status != "Cancelled"
+                    and _open_pos_for_session(session_id)):
+                return redirect(url_for("sessions.cancel_pos", session_id=session_id))
             return redirect(url_for("sessions.view", session_id=session_id))
 
     selected_trainer_ids = [row["trainer_id"] for row in db.query(
@@ -1941,6 +1947,138 @@ def download_evaluation_poster(session_id):
         flash("No evaluation poster generated yet.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
     return send_from_directory(_attendance_dir(session_id), session_row["evaluation_qr_poster_file"], as_attachment=False)
+
+
+def _open_pos_for_session(session_id):
+    """Fix99: the class's trainer and vendor POs that aren't Cancelled yet,
+    as plain dicts in one shape for the cancel-POs page. email is the
+    address the PO actually went to, falling back to the trainer's/vendor's
+    contact email."""
+    rows = []
+    for po in db.query(
+        """SELECT po.id, po.po_no, po.status, po.sent_at, po.fee_amount, po.currency,
+                  t.name AS party_name, COALESCE(po.sent_to_email, t.email) AS email
+           FROM purchase_orders po JOIN trainers t ON t.id = po.trainer_id
+           WHERE po.session_id = ? AND po.status != 'Cancelled' ORDER BY po.id""",
+        (session_id,),
+    ):
+        rows.append({**dict(po), "kind": "trainer", "kind_label": "Trainer"})
+    for po in db.query(
+        """SELECT vpo.id, vpo.po_no, vpo.status, vpo.sent_at, vpo.fee_amount, vpo.currency,
+                  v.name AS party_name, COALESCE(vpo.sent_to_email, v.contact_email) AS email
+           FROM vendor_purchase_orders vpo JOIN vendors v ON v.id = vpo.vendor_id
+           WHERE vpo.session_id = ? AND vpo.status != 'Cancelled' ORDER BY vpo.id""",
+        (session_id,),
+    ):
+        rows.append({**dict(po), "kind": "vendor", "kind_label": "Vendor"})
+    for row in rows:
+        row["key"] = f"{row['kind']}:{row['id']}"
+        # Only a PO the trainer/vendor was actually sent needs a notice.
+        row["notify_default"] = bool(row["sent_at"] and row["email"])
+    return rows
+
+
+def _po_cancellation_email(session_row, po):
+    dates = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    subject = f"CANCELLED: {po['po_no']} - {session_row['course_title']} ({dates})"
+    body = (
+        f"Dear {po['party_name']},\n\n"
+        f"Please note that the training below has been cancelled, and Purchase Order {po['po_no']} "
+        "is cancelled with it:\n\n"
+        f"Training: {session_row['course_title']}\n"
+        f"Date: {dates}\n"
+        f"Venue: {session_row['venue'] or '-'}\n\n"
+        "Please release these dates. We apologise for any inconvenience caused.\n\n"
+        "Should you have any questions, please feel free to contact us.\n\n"
+        "Cheers!"
+    )
+    return subject, body
+
+
+@bp.route("/<int:session_id>/cancel-pos", methods=("GET", "POST"))
+@login_required
+def cancel_pos(session_id):
+    """Fix99: after a class is set to Cancelled, pick which of its trainer
+    and vendor POs to cancel too (all ticked by default) and whether to
+    email each one a cancellation notice. Statuses change, nothing is
+    deleted, so the PO numbers and history stay on record."""
+    session_row = db.query(
+        """SELECT cs.*, c.title AS course_title FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
+        (session_id,), one=True,
+    )
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    if session_row["status"] != "Cancelled":
+        flash("Only a Cancelled class's POs can be cancelled from here.", "warning")
+        return redirect(url_for("sessions.view", session_id=session_id))
+    open_pos = _open_pos_for_session(session_id)
+    mail_ok = mailer.is_configured()
+
+    if request.method == "POST":
+        selected = set(request.form.getlist("po"))
+        notify = set(request.form.getlist("notify"))
+        cancelled, emailed, failed = [], [], []
+        for po in open_pos:
+            if po["key"] not in selected:
+                continue
+            table = "purchase_orders" if po["kind"] == "trainer" else "vendor_purchase_orders"
+            db.execute(f"UPDATE {table} SET status = 'Cancelled' WHERE id = ?", (po["id"],))
+            activity.log("update", table[:-1], po["id"],
+                          f"Cancelled PO {po['po_no']} (class cancelled)")
+            cancelled.append(po["po_no"])
+            if po["key"] in notify and po["email"] and mail_ok:
+                subject, body = _po_cancellation_email(session_row, po)
+                try:
+                    mailer.send_email(po["email"], subject, body, related_type=table[:-1],
+                                       related_id=po["id"])
+                    activity.log("send_email", table[:-1], po["id"],
+                                  f"Emailed cancellation of {po['po_no']} to {po['email']}")
+                    emailed.append(f"{po['party_name']} ({po['email']})")
+                except Exception:  # noqa: BLE001 - one failed email must not stop the rest
+                    current_app.logger.exception("PO cancellation email failed for %s", po["po_no"])
+                    failed.append(po["po_no"])
+        if cancelled:
+            flash(f"Cancelled {len(cancelled)} PO{'s' if len(cancelled) != 1 else ''}: {', '.join(cancelled)}.",
+                  "success")
+        else:
+            flash("No POs cancelled.", "info")
+        if emailed:
+            flash(f"Cancellation notice emailed to {', '.join(emailed)}.", "success")
+        if failed:
+            flash(f"The cancellation email failed for {', '.join(failed)}. Those POs are still cancelled; "
+                  "let the trainer/vendor know directly.", "danger")
+        return redirect(url_for("sessions.view", session_id=session_id))
+
+    if not open_pos:
+        flash("This class has no open POs left to cancel.", "info")
+        return redirect(url_for("sessions.view", session_id=session_id))
+    return render_template("sessions/cancel_pos.html", s=session_row, open_pos=open_pos, mail_ok=mail_ok)
+
+
+@bp.route("/<int:session_id>/cancel", methods=("POST",))
+@login_required
+def cancel_class(session_id):
+    """Fix100: one-click "Cancel the class too" from a Cancelled quotation.
+    Sets the class to Cancelled, then goes on to its POs like the Edit
+    Class form does."""
+    session_row = db.query(
+        """SELECT cs.status, cs.start_date, c.title FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
+        (session_id,), one=True,
+    )
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    if session_row["status"] != "Cancelled":
+        db.execute("UPDATE course_sessions SET status = 'Cancelled' WHERE id = ?", (session_id,))
+        activity.log("update", "session", session_id,
+                      f"Cancelled class {session_row['title']} ({session_row['start_date']})")
+        flash("Class cancelled.", "success")
+    if _open_pos_for_session(session_id):
+        return redirect(url_for("sessions.cancel_pos", session_id=session_id))
+    return redirect(url_for("sessions.view", session_id=session_id))
 
 
 @bp.route("/<int:session_id>/delete", methods=("POST",))
