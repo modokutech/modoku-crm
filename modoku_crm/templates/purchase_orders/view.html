@@ -101,7 +101,7 @@
         {% if po.authoriser_signature %}
         <img src="{{ url_for('profile.signature_for', user_id=po.created_by) }}" alt="Signature" style="max-height:69px;" class="mb-1 d-block">
         {% else %}
-        <div style="height:60px;" class="mb-1"></div>
+        <div style="height:69px;" class="mb-1"></div>
         {% endif %}
         <div class="fw-semibold">{{ po.authoriser_name or '-' }}</div>
         {% if po.authoriser_position %}<div class="small fst-italic text-muted">{{ po.authoriser_position }}</div>{% endif %}

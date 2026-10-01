@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix109 — Vendor PO: Authorised by signature block
+
+**Date:** 2026-10-01
+
+- Vendor POs now carry the same **Authorised by** block as trainer POs: the signature (63px in the PDF,
+  69px on screen, matching Fix108), name and position of the staff member who created the PO.
+- `pdfgen._authorised_by_html()` is the one block both PO PDFs use (moved out of `_build_html`), so
+  the two can't drift. Vendor PO view/download/email (`_get_po_full`) and the audit export's vendor PO
+  query now select the authoriser's name, position and signature.
+- Trainer PO page: the blank space shown when there's no signature is 69px too, matching the image.
+
+**Testing:** downloaded signed trainer PO, quotation and vendor PO PDFs: signature 12.83mm tall on all
+three, one page each; vendor PO page shows the block; audit-export vendor PO rows produce it too;
+vendor PO PDF checked as an image.
+
 ## Fix108 — Signatures 15% larger on quotations and trainer POs
 
 **Date:** 2026-10-01

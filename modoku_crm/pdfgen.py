@@ -223,6 +223,31 @@ def _fmtdaterange(start_value, end_value):
     return f"{start_part}{joiner}{end_part}"
 
 
+def _authorised_by_html(po):
+    """The "Authorised by" block - signature, name, position of the staff
+    member who created the PO - shared by the trainer PO and (Fix109) the
+    vendor PO. Empty when the row carries no authoriser (an older caller
+    whose query doesn't select the authoriser_* columns)."""
+    if "authoriser_name" not in po.keys() or not po["authoriser_name"]:
+        return ""
+    signature_uri = ""
+    if po["authoriser_signature"] and "created_by" in po.keys() and po["created_by"]:
+        signature_uri = _user_signature_data_uri(po["authoriser_signature"], po["created_by"])
+    sig_img = (f"<img src='{signature_uri}' style='max-height:63px;display:block;margin-bottom:4px'>"
+               if signature_uri else "<div style='height:63px'></div>")  # Fix108: +15% (was 55px)
+    position = po["authoriser_position"] or ""
+    position_html = (f"<div style='font-size:11px;font-style:italic;color:#666'>{position}</div>"
+                     if position else "")
+    return (
+        f"<div style='margin-top:36px;page-break-inside:avoid'>"
+        f"<div style='font-size:11px;color:#666;text-transform:uppercase;margin-bottom:8px'>Authorised by</div>"
+        f"{sig_img}"
+        f"<div style='font-weight:700'>{po['authoriser_name']}</div>"
+        f"{position_html}"
+        f"</div>"
+    )
+
+
 def _build_html(po, items, grand_total):
     logo_uri = _logo_data_uri()
     dates = _fmtdaterange(po["start_date"], po["end_date"])
@@ -255,29 +280,7 @@ def _build_html(po, items, grand_total):
         f"Trainer's Responsibilities</div><div style='{small_style}'>{_linelist_html(po['trainer_responsibilities'])}</div></div>"
     ) if po["trainer_responsibilities"] else ""
 
-    signature_uri = ""
-    authoriser_name = ""
-    authoriser_position = ""
-    if "authoriser_name" in po.keys():
-        authoriser_name = po["authoriser_name"] or ""
-        authoriser_position = po["authoriser_position"] or ""
-        if po["authoriser_signature"] and "created_by" in po.keys() and po["created_by"]:
-            signature_uri = _user_signature_data_uri(po["authoriser_signature"], po["created_by"])
-    signature_html = ""
-    if authoriser_name:
-        sig_img = f"<img src='{signature_uri}' style='max-height:63px;display:block;margin-bottom:4px'>" if signature_uri else "<div style='height:63px'></div>"  # Fix108: +15% (was 55px)
-        position_html = (
-            f"<div style='font-size:11px;font-style:italic;color:#666'>{authoriser_position}</div>"
-            if authoriser_position else ""
-        )
-        signature_html = (
-            f"<div style='margin-top:36px'>"
-            f"<div style='font-size:11px;color:#666;text-transform:uppercase;margin-bottom:8px'>Authorised by</div>"
-            f"{sig_img}"
-            f"<div style='font-weight:700'>{authoriser_name}</div>"
-            f"{position_html}"
-            f"</div>"
-        )
+    signature_html = _authorised_by_html(po)
 
     return f"""<!doctype html>
 <html><head><meta charset="utf-8">
@@ -1927,6 +1930,7 @@ def _build_vendor_po_html(po, items, grand_total):
   </table>
 
   {terms_html}
+  {_authorised_by_html(po)}
 </body></html>"""
 
 

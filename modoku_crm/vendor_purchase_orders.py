@@ -335,11 +335,14 @@ def _get_po_full(po_id):
     return db.query(
         """SELECT vpo.*, v.name AS vendor_name, v.contact_email AS vendor_email,
                   v.contact_phone AS vendor_phone,
-                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue
+                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue,
+                  u.name AS authoriser_name, u.position AS authoriser_position,
+                  u.signature_file AS authoriser_signature
            FROM vendor_purchase_orders vpo
            JOIN vendors v ON v.id = vpo.vendor_id
            LEFT JOIN course_sessions cs ON cs.id = vpo.session_id
            LEFT JOIN courses c ON c.id = cs.course_id
+           LEFT JOIN users u ON u.id = vpo.created_by
            WHERE vpo.id = ?""",
         (po_id,), one=True,
     )
