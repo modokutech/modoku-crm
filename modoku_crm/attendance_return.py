@@ -35,14 +35,13 @@ back to it.
 """
 import os
 import uuid
-from datetime import datetime
 
 from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
 from . import ai_match, attendance_days, db, doc_sanity, image_compress, mailer, notifications, scan_enhance, uploadutil
-from . import APP_TZ, fmtdate, fmtdaterange
+from . import fmtdate, fmtdaterange
 from . import settings as settings_module
 
 bp = Blueprint("attendance_return", __name__, url_prefix="/attendance")
@@ -89,19 +88,43 @@ def _day_choices(session_row):
             for i, d in enumerate(days, start=1)]
 
 
+def _photos_needing_day(session_row, return_ids):
+    """Fix107: of the photos just submitted, the ones where knowing the
+    training day is all that's missing - a multi-day class's sheet whose
+    date (and "(Day N)") couldn't be read, or whose read failed outright.
+    The uploader is asked which day these are for, straight after
+    submitting. A sheet that reads as the wrong class, or carries a date
+    outside the class, isn't asked about: a day wouldn't fix that, so it
+    stays with the office."""
+    valid_days = attendance_days.training_days_iso_for_session(session_row)
+    if len(valid_days) < 2 or not return_ids:
+        return []
+    marks = ",".join("?" * len(return_ids))
+    rows = db.query(
+        f"""SELECT * FROM attendance_returns WHERE session_id = ? AND id IN ({marks})
+            AND declared_date IS NULL ORDER BY id""",
+        (session_row["id"], *return_ids),
+    )
+    needing = []
+    for row in rows:
+        if row["ai_analyzed_at"] is None:
+            if row["ai_error"]:
+                needing.append(row)
+        elif row["ai_action"] == "mismatch" and not row["ai_detected_date"]:
+            _, reason = ai_match.resolve_return_date(session_row, row["ai_detected_title"], None,
+                                                     declared_date=valid_days[0])
+            if reason is None:  # the title checks out; only the day is unknown
+                needing.append(row)
+    return needing
+
+
 @bp.route("/<code>")
 def details(code):
     session_row = _find_session(code)
     if session_row is None:
         flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
         return redirect(url_for("attendance_return.lookup"))
-    day_choices = _day_choices(session_row)
-    # Fix106: during the training, today's day is pre-selected - the usual
-    # case is uploading the sheet the same day it was signed.
-    today = datetime.now(APP_TZ).date().isoformat()
-    return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper(),
-                            day_choices=day_choices,
-                            preselect_day=today if today in dict(day_choices) else None)
+    return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper())
 
 
 @bp.route("/<code>/submit", methods=("POST",))
@@ -138,6 +161,7 @@ def submit(code):
             return redirect(url_for("attendance_return.details", code=code))
         declared_date = choice
     saved_count = 0
+    saved_ids = []
     sanity_warnings = []
     for file_storage in files:
         # Compress before the size check - a photo (not a PDF) gets resized/
@@ -168,12 +192,13 @@ def submit(code):
             if scan_enhance.enhance_to_scan(saved_path, candidate_path):
                 enhanced_filename = candidate_name
 
-        db.execute(
+        new_id = db.execute(
             "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note, enhanced_filename, "
             "declared_date) VALUES (?,?,?,?,?,?)",
             (session_row["id"], stored_name, file_storage.filename, note, enhanced_filename, declared_date),
         )
         saved_count += 1
+        saved_ids.append(new_id)
         warning = doc_sanity.check_document(saved_path, "t3_attendance")
         if warning:
             sanity_warnings.append((file_storage.filename, warning))
@@ -195,6 +220,7 @@ def submit(code):
             ai_summary = ai_match.auto_mark_attendance(session_row["id"])
         except Exception:  # noqa: BLE001 - AI matching must never block the trainer's submission
             current_app.logger.exception("AI auto-attendance failed for session %s", session_row["id"])
+    needing_day = _photos_needing_day(session_row, saved_ids) if ai_summary is not None else []
 
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
     ai_line = ""
@@ -207,6 +233,9 @@ def submit(code):
             ai_line += (f" {len(ai_summary['mismatches'])} photo(s) looked like the wrong sheet "
                         f"(wrong class or date) and were NOT auto-marked. Check the AI Match "
                         f"Attendance page.")
+    if needing_day:
+        ai_line += (f"\nThe uploader was asked which day {len(needing_day)} photo(s) are for, as the day "
+                    f"couldn't be read off the sheet.")
     sanity_line = ""
     if sanity_warnings:
         sanity_line = "\n\nNote (AI sanity-check):\n" + "\n".join(
@@ -244,4 +273,55 @@ def submit(code):
             link=url_for("sessions.view", session_id=session_row["id"]),
         )
 
-    return render_template("attendance_return/success.html", s=session_row, ai_summary=ai_summary)
+    return _render_success(session_row, code, ai_summary, needing_day)
+
+
+def _render_success(session_row, code, ai_summary, needing_day):
+    needing_ids = {row["id"] for row in needing_day}
+    other_mismatches = [m for m in (ai_summary or {}).get("mismatches", []) if m["return_id"] not in needing_ids]
+    return render_template("attendance_return/success.html", s=session_row, code=code.strip().upper(),
+                            ai_summary=ai_summary, other_mismatches=other_mismatches,
+                            needing_day=needing_day, day_choices=_day_choices(session_row))
+
+
+@bp.route("/<code>/day", methods=("POST",))
+def set_day(code):
+    """Fix107: the uploader's answer to "Which day is this sheet for?",
+    asked on the confirmation page only for photos whose day couldn't be
+    read. Accepted only for this class's photos that still need a day and
+    were submitted in the last few hours."""
+    session_row = _find_session(code)
+    if session_row is None:
+        flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
+        return redirect(url_for("attendance_return.lookup"))
+    valid_days = attendance_days.training_days_iso_for_session(session_row)
+    recent = db.query(
+        """SELECT id FROM attendance_returns WHERE session_id = ? AND declared_date IS NULL
+           AND created_at >= datetime('now', '-6 hours')""",
+        (session_row["id"],),
+    )
+    allowed = {row["id"] for row in _photos_needing_day(session_row, [r["id"] for r in recent])}
+    answered = []
+    for return_id in allowed:
+        day = request.form.get(f"day_{return_id}")
+        if day in valid_days:
+            # Names already read stay as read: only the day is re-decided
+            # (auto_mark re-resolves it). A failed read is retried below.
+            db.execute(
+                """UPDATE attendance_returns SET declared_date = ?, ai_action = NULL, ai_mismatch = 0,
+                       ai_mismatch_reason = NULL WHERE id = ?""",
+                (day, return_id),
+            )
+            answered.append(return_id)
+    if not answered:
+        flash("Choose the day for each photo.", "danger")
+        return _render_success(session_row, code, None,
+                               _photos_needing_day(session_row, list(allowed)))
+    ai_summary = None
+    try:
+        ai_match.analyze_unprocessed_returns(session_row["id"])
+        ai_summary = ai_match.auto_mark_attendance(session_row["id"])
+    except Exception:  # noqa: BLE001 - never block the uploader
+        current_app.logger.exception("AI auto-attendance failed for session %s", session_row["id"])
+    return _render_success(session_row, code, ai_summary,
+                           _photos_needing_day(session_row, list(allowed - set(answered))))

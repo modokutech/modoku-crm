@@ -28,24 +28,6 @@
           it automatically, so a blurry or dark photo may not work.
         </small>
       </div>
-      {% if day_choices %}
-      {# Fix106: one required question instead of an easy-to-miss tickbox, so
-         each day's sheet lands on the right day of a multi-day class. #}
-      <fieldset class="mb-3">
-        <legend class="form-label fs-6 mb-1">Which day's form are you uploading?</legend>
-        {% for iso, label in day_choices %}
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="declared_date" value="{{ iso }}" id="day{{ loop.index }}"
-                 {{ 'checked' if iso == preselect_day }} required>
-          <label class="form-check-label" for="day{{ loop.index }}">{{ label }}{% if iso == preselect_day %} <span class="badge bg-light text-dark border">Today</span>{% endif %}</label>
-        </div>
-        {% endfor %}
-        <div class="form-check">
-          <input class="form-check-input" type="radio" name="declared_date" value="all" id="dayAll" required>
-          <label class="form-check-label" for="dayAll">Several days at once</label>
-        </div>
-      </fieldset>
-      {% endif %}
       <div class="mb-3">
         <label class="form-label">Note <span class="text-muted small">(optional)</span></label>
         <input type="text" name="note" class="form-control" placeholder="Anything the office should know">

@@ -10,6 +10,29 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix107 — Return Attendance Form: ask which day only when the sheet's day can't be read
+
+**Date:** 2026-10-01
+
+- The upload page no longer asks which day up front (Fix106's question is removed). Photos are read
+  as soon as they're submitted, as before.
+- If a multi-day class's sheet comes back with no readable date or "(Day N)", or its read failed,
+  the confirmation page asks **"One more thing: we couldn't tell which day this sheet is for"** with
+  the class's days, one question per such photo. Answering marks attendance for that day straight
+  away; names already read aren't re-read (no extra AI call), a failed read is retried with the day.
+- Not asked when a day wouldn't help: a sheet that reads as another class, or dated outside the
+  class, still shows the "doesn't look right" note and goes to the office. Never asked for one-day
+  classes, or when AI matching isn't set up.
+- New public `attendance_return.set_day`: only accepts answers for this class's photos that still
+  need a day and were submitted in the last 6 hours. The office email says when the uploader was
+  asked. If they close the page without answering, staff still have Re-read with a day (Fix106).
+
+**Testing:** Flask test client with the Claude API faked: no question on upload; undated sheet asked,
+answered Day 2, marked with no extra AI call; dated sheet not asked; failed read asked and re-read on
+answer; wrong-class and out-of-range sheets not asked but warned; two undated photos each asked and
+resolved; answers for photos that don't need a day ignored; one-day class never asked. Phone-width
+screenshot checked.
+
 ## Fix106 — Attendance photos: reliable AI reading, clearer "which day" question
 
 **Date:** 2026-10-01
