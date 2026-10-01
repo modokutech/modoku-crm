@@ -98,8 +98,10 @@ EXTRACTION_PROMPT = (
     "This is a photo, or a scanned/compiled PDF, of a printed or handwritten HRDCorp training "
     "attendance sign-in sheet (form PSMB/SBL-KHAS/T3/01) — if it's a multi-page PDF, look across "
     "all its pages. Read: (1) the course title written next to \"Course Title\", (2) the date "
-    "written next to \"Dates of Training\", normalized to YYYY-MM-DD if you can confidently "
-    "determine it (use null if it's illegible, ambiguous, or not visible), and (3) for every "
+    "written next to \"Dates of Training\", normalized to YYYY-MM-DD (use null only if it's "
+    "illegible or not visible). Each sheet covers ONE training day, printed like \"6 Oct 2026 "
+    "(Day 1)\" - give that day's date; numeric dates are day-first (Malaysia), so 06/10/2026 is "
+    "2026-10-06. Also give (2b) the day number if \"(Day N)\" is shown (null if not), and (3) for every "
     "participant who has actually signed or initialed their row (skip blank rows, headers, and "
     "the trainer's own name if it's printed at the top): their full name; their IC/NRIC number "
     "exactly as written in that row's IC column, digits and dashes as shown (use null if that "
@@ -107,7 +109,7 @@ EXTRACTION_PROMPT = (
     "column is filled in for that row (\"Male\" or \"Female\" — use null if blank, illegible, or "
     "missing). Reply with ONLY a JSON object, nothing else, no markdown, no explanation. Example: "
     "{\"course_title\": \"Effective Leadership for New Managers\", \"training_date\": "
-    "\"2026-09-10\", \"rows\": [{\"name\": \"Ali bin Ahmad\", \"ic_no\": \"901231-14-5566\", "
+    "\"2026-09-10\", \"day_number\": 1, \"rows\": [{\"name\": \"Ali bin Ahmad\", \"ic_no\": \"901231-14-5566\", "
     "\"sex\": \"Male\"}, {\"name\": \"Siti Aminah\", \"ic_no\": null, \"sex\": \"Female\"}]}"
 )
 
@@ -143,7 +145,7 @@ def analyze_attendance_photo(image_path):
     the response isn't parseable — callers should treat that as "nothing
     to suggest", never as "no one attended" or "this is the wrong class".
     Never raises."""
-    empty = {"course_title": None, "training_date": None, "rows": []}
+    empty = {"course_title": None, "training_date": None, "day_number": None, "rows": [], "error": None}
     api_key = current_app.config.get("ANTHROPIC_API_KEY")
     if not api_key:
         return empty
@@ -159,7 +161,10 @@ def analyze_attendance_photo(image_path):
             },
             json={
                 "model": current_app.config.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
-                "max_tokens": 1024,
+                # Fix106: was 1024, which a full sheet (25 rows of name + IC
+                # + sex) could run past - the cut-off JSON then failed to
+                # parse and the whole read, date included, was lost.
+                "max_tokens": 4096,
                 "messages": [{
                     "role": "user",
                     "content": [
@@ -170,7 +175,11 @@ def analyze_attendance_photo(image_path):
             },
         )
         response.raise_for_status()
-        text = response.json()["content"][0]["text"].strip()
+        payload = response.json()
+        if payload.get("stop_reason") == "max_tokens":
+            current_app.logger.warning("AI attendance read cut off (max_tokens) for %s", image_path)
+            return {**empty, "error": "The AI's reply was cut off before it finished reading the sheet."}
+        text = payload["content"][0]["text"].strip()
         if text.startswith("```"):
             text = text.strip("`")
             if "\n" in text:
@@ -195,13 +204,19 @@ def analyze_attendance_photo(image_path):
         training_date = training_date.strip() if isinstance(training_date, str) else None
         if not training_date or not _ISO_DATE_RE.match(training_date):
             training_date = None
-        return {"course_title": course_title, "training_date": training_date, "rows": rows}
-    except Exception:  # noqa: BLE001 - a bad photo/response must never break the review page
+        day_number = parsed.get("day_number")
+        day_number = day_number if isinstance(day_number, int) and day_number > 0 else None
+        return {"course_title": course_title, "training_date": training_date, "day_number": day_number,
+                "rows": rows, "error": None}
+    except Exception as exc:  # noqa: BLE001 - a bad photo/response must never break the review page
         current_app.logger.exception("AI attendance-sheet analysis failed for %s", image_path)
+        # Fix106: reported, not swallowed as "read, nothing on it", so the
+        # photo stays retryable (see analyze_unprocessed_returns).
+        return {**empty, "error": f"The AI couldn't read this photo ({type(exc).__name__})."}
         return empty
 
 
-def resolve_return_date(session_row, detected_title, detected_date, declared_date=None):
+def resolve_return_date(session_row, detected_title, detected_date, declared_date=None, detected_day=None):
     """Cross-checks what the AI read off a returned photo's header against
     the class it was actually submitted against. Returns (resolved_date,
     mismatch_reason) — exactly one of the two is set. A non-None reason
@@ -222,6 +237,9 @@ def resolve_return_date(session_row, detected_title, detected_date, declared_dat
     valid_days = attendance_days.training_days_iso_for_session(session_row)
     if declared_date not in valid_days:
         declared_date = None
+    # Fix106: the printed "(Day N)" stands in for an unreadable date.
+    if not detected_date and detected_day and 1 <= detected_day <= len(valid_days) and len(valid_days) > 1:
+        detected_date = valid_days[detected_day - 1]
 
     if detected_title:
         score = difflib.SequenceMatcher(
@@ -411,14 +429,39 @@ def analyze_unprocessed_returns(session_id):
     for row in rows:
         path = os.path.join(upload_folder, "sessions", str(row["session_id"]), row["filename"])
         result = analyze_attendance_photo(path)
+        if result.get("error"):
+            # Fix106: left unread (ai_analyzed_at NULL) so Re-check retries it.
+            db.execute("UPDATE attendance_returns SET ai_error = ? WHERE id = ?", (result["error"], row["id"]))
+            continue
         db.execute(
             """UPDATE attendance_returns
-               SET ai_names_json = ?, ai_detected_title = ?, ai_detected_date = ?, ai_analyzed_at = datetime('now')
+               SET ai_names_json = ?, ai_detected_title = ?, ai_detected_date = ?, ai_detected_day = ?,
+                   ai_error = NULL, ai_analyzed_at = datetime('now')
                WHERE id = ?""",
-            (json.dumps(result["rows"]), result["course_title"], result["training_date"], row["id"]),
+            (json.dumps(result["rows"]), result["course_title"], result["training_date"],
+             result.get("day_number"), row["id"]),
         )
         analyzed += 1
     return analyzed
+
+
+def reset_return(return_id, declared_date=False):
+    """Fix106: forget everything read from one returned photo so the next
+    analyze_unprocessed_returns + auto_mark_attendance reads it afresh
+    (the AI Match page's "Re-read" button). declared_date, when given
+    (an ISO day, or None to clear it), replaces the day the photo was
+    submitted as being for; False leaves it as it was. Attendance already
+    marked from the photo stays marked."""
+    db.execute(
+        """UPDATE attendance_returns
+           SET ai_analyzed_at = NULL, ai_action = NULL, ai_mismatch = 0, ai_mismatch_reason = NULL,
+               ai_error = NULL, training_date = NULL, ai_names_json = NULL, ai_detected_title = NULL,
+               ai_detected_date = NULL, ai_detected_day = NULL
+           WHERE id = ?""",
+        (return_id,),
+    )
+    if declared_date is not False:
+        db.execute("UPDATE attendance_returns SET declared_date = ? WHERE id = ?", (declared_date, return_id))
 
 
 def get_review_data(session_id, threshold=MATCH_CONFIDENCE_THRESHOLD):
@@ -444,6 +487,7 @@ def get_review_data(session_id, threshold=MATCH_CONFIDENCE_THRESHOLD):
             "return_id": row["id"], "original_name": row["original_name"],
             "detected_title": row["ai_detected_title"], "detected_date": row["ai_detected_date"],
             "training_date": row["training_date"], "mismatch": bool(row["ai_mismatch"]),
+            "declared_date": row["declared_date"],
             "mismatch_reason": row["ai_mismatch_reason"], "names_read": len(rows_read),
             "suggestions": [],
         }
@@ -496,7 +540,8 @@ def auto_mark_attendance(session_id):
         total_read += len(rows_read)
 
         resolved_date, reason = resolve_return_date(session_row, row["ai_detected_title"], row["ai_detected_date"],
-                                                    declared_date=row["declared_date"])
+                                                    declared_date=row["declared_date"],
+                                                    detected_day=row["ai_detected_day"])
         if reason:
             db.execute(
                 "UPDATE attendance_returns SET ai_mismatch = 1, ai_mismatch_reason = ?, ai_action = 'mismatch' WHERE id = ?",

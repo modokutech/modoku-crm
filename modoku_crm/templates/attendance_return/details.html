@@ -22,36 +22,29 @@
       <div class="mb-3">
         <label class="form-label">Photo(s) of the signed attendance form</label>
         <input type="file" name="photos" class="form-control" accept="image/*,.pdf" multiple required>
-        <small class="text-muted d-block mt-1">For a multi-day training, snap one photo per day's signed sheet. You can select several at once. Max 4 MB per photo.</small>
+        <small class="text-muted d-block mt-1">One photo per page of the signed sheet. You can select several at once. Max 4 MB per photo.</small>
         <small class="text-warning-emphasis d-block mt-1">
           <i class="bi bi-camera me-1"></i>Please take a clear photo in good lighting. The system reads
           it automatically, so a blurry or dark photo may not work.
         </small>
       </div>
       {% if day_choices %}
-      {# Fix105: lets a per-day sheet land on the right day of a multi-day class. #}
-      <div class="mb-3">
+      {# Fix106: one required question instead of an easy-to-miss tickbox, so
+         each day's sheet lands on the right day of a multi-day class. #}
+      <fieldset class="mb-3">
+        <legend class="form-label fs-6 mb-1">Which day's form are you uploading?</legend>
+        {% for iso, label in day_choices %}
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="single_day" value="1" id="singleDay">
-          <label class="form-check-label" for="singleDay">Uploading the form for just one day? Tick here.</label>
+          <input class="form-check-input" type="radio" name="declared_date" value="{{ iso }}" id="day{{ loop.index }}"
+                 {{ 'checked' if iso == preselect_day }} required>
+          <label class="form-check-label" for="day{{ loop.index }}">{{ label }}{% if iso == preselect_day %} <span class="badge bg-light text-dark border">Today</span>{% endif %}</label>
         </div>
-        <div id="singleDayPick" class="mt-2" hidden>
-          <label class="form-label small mb-1" for="declaredDate">Which day is this form for?</label>
-          <select name="declared_date" id="declaredDate" class="form-select">
-            <option value="">Choose the day</option>
-            {% for iso, label in day_choices %}<option value="{{ iso }}">{{ label }}</option>{% endfor %}
-          </select>
-          <small class="text-muted d-block mt-1">Upload each day's form separately, choosing its day each time.</small>
+        {% endfor %}
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="declared_date" value="all" id="dayAll" required>
+          <label class="form-check-label" for="dayAll">Several days at once</label>
         </div>
-      </div>
-      <script>
-        (function () {
-          var box = document.getElementById('singleDay'), pick = document.getElementById('singleDayPick'),
-              sel = document.getElementById('declaredDate');
-          function sync() { pick.hidden = !box.checked; sel.required = box.checked; }
-          box.addEventListener('change', sync); sync();
-        })();
-      </script>
+      </fieldset>
       {% endif %}
       <div class="mb-3">
         <label class="form-label">Note <span class="text-muted small">(optional)</span></label>

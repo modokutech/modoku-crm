@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, send_from_directory, url_for
 
-from . import ai_match, attendance_days, db, uploadutil
+from . import ai_match, attendance_days, db, fmtdate, uploadutil
 from . import certificates as _certificates
 from .auth import login_required
 
@@ -573,10 +573,19 @@ def ai_match_review(session_id):
     )
     unanalyzed_count = sum(1 for r in returns if not r["ai_analyzed_at"])
     photos = ai_match.get_review_data(session_id) if returns else []
+    # Fix106: photos whose AI read failed (left unread, so retryable).
+    failed_reads = db.query(
+        """SELECT id, original_name, ai_error, declared_date FROM attendance_returns
+           WHERE session_id = ? AND ai_analyzed_at IS NULL AND ai_error IS NOT NULL ORDER BY created_at""",
+        (session_id,),
+    )
+    days = attendance_days.training_days_for_session(session_row)
+    day_choices = [(d.isoformat(), f"Day {i} · {fmtdate(d.isoformat())}") for i, d in enumerate(days, start=1)]
     return render_template(
         "t3/ai_match.html", s=session_row, returns=returns,
-        unanalyzed_count=unanalyzed_count, photos=photos,
-        multi_day=len(attendance_days.training_days_for_session(session_row)) > 1,
+        unanalyzed_count=unanalyzed_count, photos=photos, failed_reads=failed_reads,
+        day_choices=day_choices if len(days) > 1 else [],
+        multi_day=len(days) > 1,
         ai_configured=ai_match.is_configured(),
     )
 
@@ -601,6 +610,40 @@ def ai_match_run(session_id):
         flash(msg, "success")
     else:
         flash("Nothing new to analyze. Every submitted photo has already been read.", "info")
+    return redirect(url_for("t3.ai_match_review", session_id=session_id))
+
+
+@bp.route("/sessions/<int:session_id>/ai-match/<int:return_id>/reread", methods=("POST",))
+@login_required
+def ai_match_reread(session_id, return_id):
+    """Fix106: re-read one returned photo from scratch, optionally saying
+    which training day it's for ("This sheet is for: Day 2"), then run the
+    usual auto-mark. For a photo flagged because its day couldn't be told,
+    or whose read failed or found no names."""
+    session_row = _session_or_none(session_id)
+    row = db.query("SELECT id FROM attendance_returns WHERE id = ? AND session_id = ?",
+                   (return_id, session_id), one=True)
+    if session_row is None or row is None:
+        flash("Photo not found.", "danger")
+        return redirect(url_for("t3.ai_match_review", session_id=session_id))
+    if not ai_match.is_configured():
+        flash("AI attendance matching isn't set up yet.", "danger")
+        return redirect(url_for("t3.ai_match_review", session_id=session_id))
+    valid_days = attendance_days.training_days_iso_for_session(session_row)
+    day = request.form.get("declared_date", "keep")
+    if day == "keep":
+        ai_match.reset_return(return_id)
+    else:
+        ai_match.reset_return(return_id, declared_date=day if day in valid_days else None)
+    ai_match.analyze_unprocessed_returns(session_id)
+    summary = ai_match.auto_mark_attendance(session_id)
+    after = db.query("SELECT ai_error, ai_mismatch FROM attendance_returns WHERE id = ?", (return_id,), one=True)
+    if after["ai_error"]:
+        flash(f"Still couldn't read it: {after['ai_error']} Try again, or tick names by hand.", "danger")
+    elif after["ai_mismatch"]:
+        flash("Re-read, but it's still flagged. See the reason below.", "warning")
+    else:
+        flash(f"Re-read. Auto-marked {summary['marked']} attended.", "success")
     return redirect(url_for("t3.ai_match_review", session_id=session_id))
 
 

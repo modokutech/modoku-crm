@@ -1152,6 +1152,11 @@ _COLUMN_MIGRATIONS = [
     # a multi-day class's per-day sheets land on the right day even when the
     # AI can't read a date off the sheet. NULL = not stated.
     ("attendance_returns", "declared_date", "TEXT"),
+    # Fix106: why the last AI read of a returned photo failed (reply cut
+    # off, request error) - the photo then stays unread so it's retried -
+    # and the "(Day N)" printed on the sheet, used when its date can't be read.
+    ("attendance_returns", "ai_error", "TEXT"),
+    ("attendance_returns", "ai_detected_day", "INTEGER"),
 ]
 
 

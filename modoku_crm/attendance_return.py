@@ -35,13 +35,14 @@ back to it.
 """
 import os
 import uuid
+from datetime import datetime
 
 from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
 from . import ai_match, attendance_days, db, doc_sanity, image_compress, mailer, notifications, scan_enhance, uploadutil
-from . import fmtdate, fmtdaterange
+from . import APP_TZ, fmtdate, fmtdaterange
 from . import settings as settings_module
 
 bp = Blueprint("attendance_return", __name__, url_prefix="/attendance")
@@ -94,8 +95,13 @@ def details(code):
     if session_row is None:
         flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
         return redirect(url_for("attendance_return.lookup"))
+    day_choices = _day_choices(session_row)
+    # Fix106: during the training, today's day is pre-selected - the usual
+    # case is uploading the sheet the same day it was signed.
+    today = datetime.now(APP_TZ).date().isoformat()
     return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper(),
-                            day_choices=_day_choices(session_row))
+                            day_choices=day_choices,
+                            preselect_day=today if today in dict(day_choices) else None)
 
 
 @bp.route("/<code>/submit", methods=("POST",))
@@ -118,15 +124,19 @@ def submit(code):
         return redirect(url_for("attendance_return.details", code=code))
 
     note = request.form.get("note", "").strip() or None
-    # Fix105: "Uploading the form for just one day?" - every file in this
-    # submission is that day's sheet.
+    # Fix105/106: "Which day's form are you uploading?" (multi-day classes) -
+    # a day means every file here is that day's sheet; "all" means several
+    # days' sheets at once, each read for its own date.
     declared_date = None
     day_choices = dict(_day_choices(session_row))
-    if day_choices and request.form.get("single_day"):
-        declared_date = request.form.get("declared_date") or None
-        if declared_date not in day_choices:
-            flash("Choose which day this form is for.", "danger")
+    choice = request.form.get("declared_date")
+    if day_choices and request.form.get("single_day") is None and choice is None:
+        choice = "all"  # a form page loaded before this question existed
+    if day_choices and choice != "all":
+        if choice not in day_choices:
+            flash("Choose which day's form you're uploading.", "danger")
             return redirect(url_for("attendance_return.details", code=code))
+        declared_date = choice
     saved_count = 0
     sanity_warnings = []
     for file_storage in files:

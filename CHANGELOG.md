@@ -10,6 +10,37 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix106 — Attendance photos: reliable AI reading, clearer "which day" question
+
+**Date:** 2026-10-01
+
+Why a clearly dated Day 1 sheet could come back as "couldn't read which day":
+- The AI reply was capped at 1024 tokens. A full sheet (every row's name, IC and sex) can exceed it;
+  the cut-off JSON failed to parse and the whole read, date included, was discarded. Now 4096, and a
+  cut-off reply is detected (`stop_reason`) instead of silently parsed as empty.
+- A failed read was saved as "read, nothing found", so **Re-check Photos** never retried it. Now a
+  failed read (cut off, request error) is left unread with the reason in
+  `attendance_returns.ai_error`, and Re-check retries it.
+- The prompt now describes the per-day sheet ("6 Oct 2026 (Day 1)"), says numeric dates are day-first,
+  and also asks for the printed day number, stored as `ai_detected_day` and used when the date itself
+  can't be read (`resolve_return_date`). Both columns via `_COLUMN_MIGRATIONS`.
+
+UX:
+- Public Return Attendance Form: Fix105's opt-in tickbox is replaced by one required question for
+  multi-day classes, **"Which day's form are you uploading?"**: each day ("Day 2 · Thu, 1 Oct 2026")
+  plus **"Several days at once"**. During the training, today's day is pre-selected and tagged
+  **Today**. A page loaded before this change still submits (treated as several days).
+- AI Match Attendance page: a photo whose read failed, that's flagged, or that yielded no names now
+  has **"This sheet is for [day] → Re-read this photo"** (new `t3.ai_match_reread`). It re-reads
+  from scratch with the chosen day and runs the usual auto-mark. Use it on photos already stuck from
+  before this fix.
+
+**Testing:** Flask test client with the Claude API faked: question shown with today pre-selected; no
+answer refused, nothing saved; cut-off reply stays unread with its reason, review page offers Re-read;
+re-read of a sheet showing only "(Day 2)" lands on Day 2; failed request retried by Re-check;
+undated "several days" upload flagged, then resolved by staff picking Day 3; chosen day contradicted
+by the sheet's date is flagged; an old form page still submits. Phone-width screenshot checked.
+
 ## Fix105 — Return Attendance Form: say which day a one-day sheet is for
 
 **Date:** 2026-10-01

@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}AI Match Attendance · {{ s.course_title }}{% endblock %}
 {% block content %}
+{% macro reread_form(return_id, declared) %}
+  {# Fix106: re-read one photo, optionally saying which day it's for. #}
+  <form method="post" action="{{ url_for('t3.ai_match_reread', session_id=s.id, return_id=return_id) }}"
+        class="d-flex flex-wrap align-items-center gap-2 mt-2">
+    {{ csrf_field()|safe }}
+    {% if day_choices %}
+    <label class="small mb-0" for="day{{ return_id }}">This sheet is for</label>
+    <select name="declared_date" id="day{{ return_id }}" class="form-select form-select-sm w-auto">
+      <option value="">Read the day off the sheet</option>
+      {% for iso, label in day_choices %}<option value="{{ iso }}" {{ 'selected' if iso == declared }}>{{ label }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button class="btn btn-sm btn-outline-primary" type="submit"><i class="bi bi-arrow-repeat me-1"></i>Re-read this photo</button>
+  </form>
+{% endmacro %}
 <div class="page-header">
   <div>
     <h4 class="mb-0">AI Match Attendance</h4>
@@ -54,6 +69,14 @@
   </form>
 </div>
 
+{% for f in failed_reads %}
+<div class="card p-3 mb-3 border-danger">
+  <p class="small mb-1"><i class="bi bi-image me-1"></i><strong>{{ f.original_name or 'Photo' }}</strong></p>
+  <div class="alert alert-danger small mb-0"><i class="bi bi-x-octagon me-1"></i><strong>Couldn't read this photo.</strong> {{ f.ai_error }}</div>
+  {{ reread_form(f.id, f.declared_date) }}
+</div>
+{% endfor %}
+
 {% if photos %}
 {% for photo in photos %}
 <div class="card p-3 mb-3">
@@ -72,8 +95,9 @@
     {{ photo.mismatch_reason }}
     {% if photo.detected_title %}<br><span class="text-muted">Sheet reads: “{{ photo.detected_title }}”{% if photo.detected_date %}, {{ photo.detected_date }}{% endif %}</span>{% endif %}
     <br>Once you've confirmed it's the right sheet, cross-check and tick names by hand on the
-    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>.
+    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>, or pick its day and re-read it.
   </div>
+  {{ reread_form(photo.return_id, photo.declared_date) }}
   {% elif photo.suggestions %}
   {% set needs_attention = photo.suggestions|selectattr('already_attended', 'equalto', False)|list %}
   <form method="post" action="{{ url_for('t3.confirm_day_attendance') }}">
@@ -147,6 +171,7 @@
     image may be unclear or blank. Cross-check it yourself and tick names by hand on the
     <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>.
   </p>
+  {{ reread_form(photo.return_id, photo.declared_date) }}
   {% endif %}
 </div>
 {% endfor %}
