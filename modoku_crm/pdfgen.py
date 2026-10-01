@@ -265,7 +265,7 @@ def _build_html(po, items, grand_total):
             signature_uri = _user_signature_data_uri(po["authoriser_signature"], po["created_by"])
     signature_html = ""
     if authoriser_name:
-        sig_img = f"<img src='{signature_uri}' style='max-height:55px;display:block;margin-bottom:4px'>" if signature_uri else "<div style='height:55px'></div>"
+        sig_img = f"<img src='{signature_uri}' style='max-height:63px;display:block;margin-bottom:4px'>" if signature_uri else "<div style='height:63px'></div>"  # Fix108: +15% (was 55px)
         position_html = (
             f"<div style='font-size:11px;font-style:italic;color:#666'>{authoriser_position}</div>"
             if authoriser_position else ""
@@ -396,7 +396,7 @@ def _build_quotation_html(q, items, subtotal, title):
     signature_uri = ""
     if "created_by_signature" in q.keys() and q["created_by_signature"] and q["created_by"]:
         signature_uri = _user_signature_data_uri(q["created_by_signature"], q["created_by"])
-    sig_img = f"<img src='{signature_uri}' style='max-height:55px;display:block;margin-bottom:4px'>" if signature_uri else "<div style='height:55px'></div>"
+    sig_img = f"<img src='{signature_uri}' style='max-height:63px;display:block;margin-bottom:4px'>" if signature_uri else "<div style='height:63px'></div>"  # Fix108: +15% (was 55px)
     position_html = (
         f"<div style='font-size:11px;font-style:italic;color:#666'>{sales_position}</div>"
         if sales_position else ""

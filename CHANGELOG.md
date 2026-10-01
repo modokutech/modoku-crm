@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix108 — Signatures 15% larger on quotations and trainer POs
+
+**Date:** 2026-10-01
+
+- `pdfgen.py`: the authorising signature on the quotation PDF and the trainer PO PDF goes from 55px to
+  63px tall (the blank space left when there's no signature too).
+- `templates/quotations/view.html`, `templates/purchase_orders/view.html`: on-screen signature 60px
+  → 69px.
+- Not changed: invoices carry no signature ("computer generated, no signature is required"), and the
+  vendor PO has no signature block. The JD14 and e-certificate signatures have their own sizing.
+
+**Testing:** downloaded a signed quotation and PO PDF before/after: signature 11.18mm → 12.83mm tall
+(+15%), page counts unchanged; both view pages load with the new size.
+
 ## Fix107 — Return Attendance Form: ask which day only when the sheet's day can't be read
 
 **Date:** 2026-10-01
