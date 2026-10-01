@@ -162,6 +162,18 @@ def fmtaddress(street, city=None, postcode=None, state=None):
     return ", ".join(p for p in (street, locality, state) if p)
 
 
+def fullstop(text):
+    """Fix110: ends an address (or any line) with a full stop for display -
+    a trailing comma or space is dropped first, and text already ending in
+    . ! or ? is left alone, as is a blank or '-'."""
+    from markupsafe import Markup
+    is_markup = isinstance(text, Markup)  # inside {% filter %} it's already escaped
+    text = (text or "").strip().rstrip(",;").rstrip()
+    if text and text != "-" and text[-1] not in ".!?":
+        text += "."
+    return Markup(text) if is_markup else text
+
+
 def address_lines(address):
     """Fix103: splits a one-line address into (up to) three lines for the
     invoice's Billed To block - street / area / postcode + city (+ state),
@@ -225,6 +237,7 @@ def create_app(config_object="config.Config"):
     # piping one of them through it.
     app.jinja_env.globals["fmtaddress"] = fmtaddress
     app.jinja_env.globals["address_lines"] = address_lines
+    app.jinja_env.filters["fullstop"] = fullstop
 
     # Cache-busted static URLs. Browsers hold onto style.css indefinitely
     # otherwise (the <link> carries no version), so a deployed CSS change can

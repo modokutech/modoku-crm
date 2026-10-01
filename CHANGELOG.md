@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix110 — Client page: address ends with a full stop
+
+**Date:** 2026-10-01
+
+- `templates/companies/view.html`: the client's address (address, city, postcode, state) is shown
+  ending with a full stop, e.g. `..., Kuala Lumpur 59000, W.P. Kuala Lumpur.` Display only; the stored
+  address isn't changed. A client with no address still shows `-`.
+- New `fullstop` template filter (`modoku_crm/__init__.py`): drops a trailing comma, leaves text already
+  ending in . ! ? alone, and keeps HTML escaping intact (an `&` in an address isn't double-escaped).
+
+**Testing:** `fullstop` on seven inputs; client page (Flask test client) for a full address, an address
+with `&`, and a client with no address.
+
 ## Fix109 — Vendor PO: Authorised by signature block
 
 **Date:** 2026-10-01

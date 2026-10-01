@@ -25,7 +25,7 @@
         <tr><td class="text-muted">TIN</td><td>{{ company.tin or '-' }}</td></tr>
         <tr><td class="text-muted">Phone</td><td>{{ company.phone or '-' }}</td></tr>
         <tr><td class="text-muted">Email</td><td>{{ company.email or '-' }}</td></tr>
-        <tr><td class="text-muted">Address</td><td>{{ company.address or '-' }}{% if company.city %}, {{ company.city }}{% endif %}{% if company.postcode %} {{ company.postcode }}{% endif %}{% if company.state %}, {{ company.state }}{% endif %}</td></tr>
+        <tr><td class="text-muted">Address</td><td>{% if company.address or company.city or company.postcode or company.state %}{% filter fullstop %}{{ company.address or '' }}{% if company.city %}, {{ company.city }}{% endif %}{% if company.postcode %} {{ company.postcode }}{% endif %}{% if company.state %}, {{ company.state }}{% endif %}{% endfilter %}{% else %}-{% endif %}</td></tr>
       </table>
     </div>
     {% if company.notes %}
