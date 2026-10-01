@@ -1147,6 +1147,11 @@ _COLUMN_MIGRATIONS = [
     # Fix100: the class an invoice was started from (the form's "From Class"
     # picker), so its email can pre-fill the class's PIC. Not a hard link.
     ("invoices", "session_id", "INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL"),
+    # Fix105: the training day the uploader said a returned attendance photo
+    # is for ("Uploading the form for just one day?" on the public form), so
+    # a multi-day class's per-day sheets land on the right day even when the
+    # AI can't read a date off the sheet. NULL = not stated.
+    ("attendance_returns", "declared_date", "TEXT"),
 ]
 
 

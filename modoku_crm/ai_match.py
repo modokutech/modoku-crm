@@ -201,7 +201,7 @@ def analyze_attendance_photo(image_path):
         return empty
 
 
-def resolve_return_date(session_row, detected_title, detected_date):
+def resolve_return_date(session_row, detected_title, detected_date, declared_date=None):
     """Cross-checks what the AI read off a returned photo's header against
     the class it was actually submitted against. Returns (resolved_date,
     mismatch_reason) — exactly one of the two is set. A non-None reason
@@ -214,8 +214,14 @@ def resolve_return_date(session_row, detected_title, detected_date):
     blocked, which would make the feature worse than not having it). It
     only blocks when the AI *did* read something and that something
     doesn't check out — or, for a multi-day class, when it couldn't tell
-    which of the several valid days the sheet is for."""
+    which of the several valid days the sheet is for.
+
+    Fix105: declared_date is the day the uploader picked on the public form
+    for a one-day sheet. It settles which day an undated sheet is for; if
+    the date read off the sheet says otherwise, a human decides."""
     valid_days = attendance_days.training_days_iso_for_session(session_row)
+    if declared_date not in valid_days:
+        declared_date = None
 
     if detected_title:
         score = difflib.SequenceMatcher(
@@ -226,6 +232,14 @@ def resolve_return_date(session_row, detected_title, detected_date):
                 f"The photo looks like it's for “{detected_title}”, but this class is "
                 f"“{session_row['course_title']}”. Check it's the right sheet before it's counted."
             )
+
+    if declared_date:
+        if detected_date and detected_date != declared_date:
+            return None, (
+                f"The uploader said this sheet is for {fmtdate(declared_date)}, but the date on it reads "
+                f"{fmtdate(detected_date)}. Check which day it is before it's counted."
+            )
+        return declared_date, None
 
     if detected_date:
         if detected_date in valid_days:
@@ -481,7 +495,8 @@ def auto_mark_attendance(session_id):
         rows_read = _normalize_stored_rows(row["ai_names_json"])
         total_read += len(rows_read)
 
-        resolved_date, reason = resolve_return_date(session_row, row["ai_detected_title"], row["ai_detected_date"])
+        resolved_date, reason = resolve_return_date(session_row, row["ai_detected_title"], row["ai_detected_date"],
+                                                    declared_date=row["declared_date"])
         if reason:
             db.execute(
                 "UPDATE attendance_returns SET ai_mismatch = 1, ai_mismatch_reason = ?, ai_action = 'mismatch' WHERE id = ?",

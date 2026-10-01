@@ -40,8 +40,8 @@ from flask import (Blueprint, current_app, flash, redirect, render_template,
                     request, url_for)
 from werkzeug.utils import secure_filename
 
-from . import ai_match, db, doc_sanity, image_compress, mailer, notifications, scan_enhance, uploadutil
-from . import fmtdaterange
+from . import ai_match, attendance_days, db, doc_sanity, image_compress, mailer, notifications, scan_enhance, uploadutil
+from . import fmtdate, fmtdaterange
 from . import settings as settings_module
 
 bp = Blueprint("attendance_return", __name__, url_prefix="/attendance")
@@ -77,13 +77,25 @@ def lookup():
     return render_template("attendance_return/lookup.html")
 
 
+def _day_choices(session_row):
+    """Fix105: [(iso, "Day 2 · Tue, 7 Oct 2026"), ...] for a multi-day class
+    - the "Which day?" dropdown - or [] for a one-day class, which needs no
+    question."""
+    days = attendance_days.training_days_for_session(session_row)
+    if len(days) < 2:
+        return []
+    return [(d.isoformat(), f"Day {i} · {d.strftime('%a')}, {fmtdate(d.isoformat())}")
+            for i, d in enumerate(days, start=1)]
+
+
 @bp.route("/<code>")
 def details(code):
     session_row = _find_session(code)
     if session_row is None:
         flash("That code wasn't found, double check the code printed on the attendance form.", "danger")
         return redirect(url_for("attendance_return.lookup"))
-    return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper())
+    return render_template("attendance_return/details.html", s=session_row, code=code.strip().upper(),
+                            day_choices=_day_choices(session_row))
 
 
 @bp.route("/<code>/submit", methods=("POST",))
@@ -106,6 +118,15 @@ def submit(code):
         return redirect(url_for("attendance_return.details", code=code))
 
     note = request.form.get("note", "").strip() or None
+    # Fix105: "Uploading the form for just one day?" - every file in this
+    # submission is that day's sheet.
+    declared_date = None
+    day_choices = dict(_day_choices(session_row))
+    if day_choices and request.form.get("single_day"):
+        declared_date = request.form.get("declared_date") or None
+        if declared_date not in day_choices:
+            flash("Choose which day this form is for.", "danger")
+            return redirect(url_for("attendance_return.details", code=code))
     saved_count = 0
     sanity_warnings = []
     for file_storage in files:
@@ -138,9 +159,9 @@ def submit(code):
                 enhanced_filename = candidate_name
 
         db.execute(
-            "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note, enhanced_filename) "
-            "VALUES (?,?,?,?,?)",
-            (session_row["id"], stored_name, file_storage.filename, note, enhanced_filename),
+            "INSERT INTO attendance_returns (session_id, filename, original_name, submitted_by_note, enhanced_filename, "
+            "declared_date) VALUES (?,?,?,?,?,?)",
+            (session_row["id"], stored_name, file_storage.filename, note, enhanced_filename, declared_date),
         )
         saved_count += 1
         warning = doc_sanity.check_document(saved_path, "t3_attendance")
@@ -188,6 +209,7 @@ def submit(code):
             f"Class: {session_row['course_title']}\n"
             f"Date: {date_range}\n"
             f"Trainer: {session_row['trainer_name'] or '-'}\n"
+            + (f"Form for: {day_choices[declared_date]}\n" if declared_date else "")
             + (f"Note from trainer: {note}\n" if note else "") +
             ai_line +
             sanity_line +

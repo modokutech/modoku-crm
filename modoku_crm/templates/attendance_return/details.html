@@ -28,9 +28,34 @@
           it automatically, so a blurry or dark photo may not work.
         </small>
       </div>
+      {% if day_choices %}
+      {# Fix105: lets a per-day sheet land on the right day of a multi-day class. #}
+      <div class="mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="single_day" value="1" id="singleDay">
+          <label class="form-check-label" for="singleDay">Uploading the form for just one day? Tick here.</label>
+        </div>
+        <div id="singleDayPick" class="mt-2" hidden>
+          <label class="form-label small mb-1" for="declaredDate">Which day is this form for?</label>
+          <select name="declared_date" id="declaredDate" class="form-select">
+            <option value="">Choose the day</option>
+            {% for iso, label in day_choices %}<option value="{{ iso }}">{{ label }}</option>{% endfor %}
+          </select>
+          <small class="text-muted d-block mt-1">Upload each day's form separately, choosing its day each time.</small>
+        </div>
+      </div>
+      <script>
+        (function () {
+          var box = document.getElementById('singleDay'), pick = document.getElementById('singleDayPick'),
+              sel = document.getElementById('declaredDate');
+          function sync() { pick.hidden = !box.checked; sel.required = box.checked; }
+          box.addEventListener('change', sync); sync();
+        })();
+      </script>
+      {% endif %}
       <div class="mb-3">
         <label class="form-label">Note <span class="text-muted small">(optional)</span></label>
-        <input type="text" name="note" class="form-control" placeholder="e.g. Day 2 of 2">
+        <input type="text" name="note" class="form-control" placeholder="Anything the office should know">
       </div>
       <button type="submit" class="btn btn-success w-100"><i class="bi bi-upload me-1"></i>Submit</button>
       <a href="{{ url_for('attendance_return.lookup') }}" class="btn btn-outline-secondary w-100 mt-2">Wrong class? Enter a different code</a>

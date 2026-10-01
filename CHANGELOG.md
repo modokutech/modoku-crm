@@ -10,6 +10,29 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix105 — Return Attendance Form: say which day a one-day sheet is for
+
+**Date:** 2026-10-01
+
+- Public Return Attendance Form (`attendance_return.py`, `templates/attendance_return/details.html`):
+  for a multi-day class, a new tickbox **"Uploading the form for just one day? Tick here."** shows a
+  **"Which day is this form for?"** dropdown of the class's days ("Day 2 · Wed, 7 Oct 2026"). It's
+  required once ticked and checked against the class's dates server-side. One-day classes don't show it.
+- Stored per photo as `attendance_returns.declared_date` (added via `_COLUMN_MIGRATIONS`).
+- AI auto-attendance (`ai_match.resolve_return_date`): an undated sheet on a multi-day class used to
+  be flagged ("Couldn't read which day..."); with a day chosen it's now marked for that day. If the
+  date read off the sheet disagrees with the chosen day, the photo is flagged for a human instead of
+  guessing. Title check unchanged.
+- The office notification email has a "Form for: Day 2 · ..." line; the class page shows the chosen
+  day ("(as submitted)") until the photo is resolved. The Note placeholder no longer suggests typing
+  the day there.
+
+**Testing:** Flask test client: tickbox shown only for multi-day classes; ticked with no day, or a day
+outside the class, is refused and saves nothing; a chosen day is stored and in the email; unticked
+stores nothing; `resolve_return_date` for chosen-only, agreeing, disagreeing, none, and out-of-range
+days; auto-mark with the AI read stubbed lands an undated Day 2 sheet on Day 2. Phone-width screenshot
+checked.
+
 ## Fix104 — Invoice: HRDCorp preset address
 
 **Date:** 2026-09-28
