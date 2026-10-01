@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix111 — Quotation: client address ends with a full stop
+
+**Date:** 2026-10-01
+
+- Quotation page (`templates/quotations/view.html`) and quotation PDF (`pdfgen._build_quotation_html`):
+  the client address runs through the `fullstop` filter from Fix110, so it ends with a full stop,
+  whether it's the address typed on the quotation or the client's saved one. Display only.
+- Invoices already end the Billed To address with a full stop (Fix103).
+
+**Testing:** a quotation using the client's saved address and one with a typed address containing
+`&`: page and PDF (text extracted) both end with a full stop, `&` escaped once on the page.
+
 ## Fix110 — Client page: address ends with a full stop
 
 **Date:** 2026-10-01

@@ -352,13 +352,14 @@ def _build_quotation_html(q, items, subtotal, title):
     # address from their saved record — street, postcode + city, state — via
     # the same composer the on-screen quotation uses, so the PDF and the page
     # never disagree.
-    from . import fmtaddress
+    from . import fmtaddress, fullstop
     def _col(name):
         return q[name] if name in q.keys() else ""
-    address = q["address"] or fmtaddress(
+    # Fix111: ends with a full stop, like the client page (Fix110).
+    address = fullstop(q["address"] or fmtaddress(
         _col("client_company_address"), _col("client_company_city"),
         _col("client_company_postcode"), _col("client_company_state"),
-    ) or ""
+    ) or "")
     tel = q["tel"] or (q["client_company_phone"] if "client_company_phone" in q.keys() else "") or ""
 
     item_rows = "".join(
