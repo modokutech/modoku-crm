@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix115 — New Invoice: Grant ID pre-filled from the linked class
+
+**Date:** 2026-10-02
+
+- Choosing a class under **From Class** now also fills **Grant ID** with the class's HRDCorp Grant ID
+  (`course_sessions.hrdcorp_grant_id`), and leaves it blank when the class has none, clearing one left
+  from a previously chosen class. Choosing "Not linked to a class" leaves a typed Grant ID alone.
+- `invoices.py` selects the grant ID with the class list; `templates/invoices/form.html` carries it on
+  each class option and `fillFromClass()` sets the field.
+
+**Testing:** headless Chromium on the real form: class with a grant ID → filled; switching to a class
+without → blank; "Not linked" → typed value kept.
+
 ## Fix114 — Invoice: deduct an upfront payment already received
 
 **Date:** 2026-10-02

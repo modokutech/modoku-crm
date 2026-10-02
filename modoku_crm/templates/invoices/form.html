@@ -18,6 +18,7 @@
             data-venue="{{ s.venue or '' }}"
             data-date="{{ s.start_date or '' }}"
             data-date-end="{{ s.end_date or '' }}"
+            data-grant-id="{{ s.hrdcorp_grant_id or '' }}"
             data-price="{{ s.course_price }}">
             {{ s.course_title }} · {{ s.start_date|fmtdate }}{% if s.client_name %} ({{ s.client_name }}){% endif %}
           </option>
@@ -65,7 +66,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">Grant ID</label>
-        <input type="text" name="grant_id" class="form-control">
+        <input type="text" name="grant_id" id="grant_id" class="form-control">
       </div>
       <div class="col-md-6">
         <label class="form-label">Invoice date</label>
@@ -210,6 +211,8 @@ function fillFromClass() {
     document.getElementById('bill_to_name').value = opt.dataset.clientName;
   }
   document.getElementById('project_title').value = opt.dataset.courseTitle || '';
+  // Fix115: the class's HRDCorp Grant ID; blank when it has none.
+  document.getElementById('grant_id').value = opt.dataset.grantId || '';
 
   const firstRow = document.querySelector('#items-table tbody tr');
   firstRow.querySelector('input[name="item_description"]').value = opt.dataset.courseTitle || '';

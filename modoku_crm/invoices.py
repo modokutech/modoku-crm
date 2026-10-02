@@ -228,6 +228,7 @@ def new():
     # without affecting an invoice already created from it.
     classes_for_invoice = db.query(
         """SELECT cs.id, cs.start_date, cs.end_date, cs.venue, cs.client_company_id, cs.training_type,
+                  cs.hrdcorp_grant_id,
                   c.title AS course_title,
                   CASE WHEN cs.training_type = 'Public Training' THEN c.price_public ELSE c.price_inhouse END
                       AS course_price,
