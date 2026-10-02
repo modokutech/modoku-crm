@@ -592,6 +592,19 @@ def _build_invoice_html(invoice, items):
         f"<td style='border:none;text-align:right'>{invoice['sst_amount']:,.2f}</td></tr>"
     ) if invoice["sst_rate"] else ""
 
+    # Fix114: an upfront payment already received - the total before it, then
+    # the deduction in brackets; the bold line below becomes "Balance Due".
+    from . import upfront_label
+    upfront_rows = ""
+    if upfront_label(invoice):
+        gross = invoice["subtotal"] + invoice["sst_amount"]
+        upfront_rows = (
+            (f"<tr><td class='muted' style='border:none'>Total</td>"
+             f"<td style='border:none;text-align:right'>{gross:,.2f}</td></tr>" if invoice["sst_amount"] else "")
+            + f"<tr><td class='muted' style='border:none'>{upfront_label(invoice)}</td>"
+            f"<td style='border:none;text-align:right'>({invoice['upfront_amount']:,.2f})</td></tr>"
+        )
+
     notes_html = (
         f"<div style='margin-top:16px'><div style='font-size:11px;color:#666;text-transform:uppercase'>"
         f"Notes</div><p>{invoice['notes']}</p></div>"
@@ -686,7 +699,8 @@ def _build_invoice_html(invoice, items):
       <table>
         <tr><td class="muted" style="border:none">Sub-total</td><td style="border:none;text-align:right">{invoice['subtotal']:,.2f}</td></tr>
         {sst_row}
-        <tr style="font-weight:700" class="brand"><td style="border-top:1px solid #d8dce3">Total Due</td>
+        {upfront_rows}
+        <tr style="font-weight:700" class="brand"><td style="border-top:1px solid #d8dce3">{'Balance Due' if upfront_rows else 'Total Due'}</td>
           <td style="border-top:1px solid #d8dce3;text-align:right">{invoice['currency']} {invoice['total']:,.2f}</td></tr>
       </table>
     </td>

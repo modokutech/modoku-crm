@@ -1157,6 +1157,13 @@ _COLUMN_MIGRATIONS = [
     # and the "(Day N)" printed on the sheet, used when its date can't be read.
     ("attendance_returns", "ai_error", "TEXT"),
     ("attendance_returns", "ai_detected_day", "INTEGER"),
+    # Fix114: an upfront payment already received, deducted on this invoice.
+    # upfront_type 'percent' (upfront_value = the %) or 'fixed' (upfront_value
+    # = RM); upfront_amount = what was deducted. invoices.total is then the
+    # balance due; the pre-deduction total is subtotal + sst_amount.
+    ("invoices", "upfront_type", "TEXT"),
+    ("invoices", "upfront_value", "REAL"),
+    ("invoices", "upfront_amount", "REAL NOT NULL DEFAULT 0"),
 ]
 
 

@@ -135,6 +135,25 @@ def _invoice_pdf_filename(invoice, items):
     return "_".join(p for p in parts if p) + ".pdf"
 
 
+def _upfront_from_form(form, gross_total):
+    """Fix114: the "Less upfront payment" option on New Invoice. Returns
+    (upfront_type, upfront_value, upfront_amount, error). The deduction
+    comes off the total after SST, and has to leave something to pay."""
+    if not form.get("upfront_enabled"):
+        return None, None, 0.0, None
+    kind = form.get("upfront_type")
+    try:
+        value = parse_money(form.get("upfront_value"), default=None)
+    except ValueError:
+        value = None
+    if kind not in ("percent", "fixed") or value is None or value <= 0:
+        return None, None, 0.0, "Enter the upfront payment as a percentage or an amount above 0."
+    amount = round(gross_total * value / 100, 2) if kind == "percent" else round(value, 2)
+    if (kind == "percent" and value >= 100) or amount >= gross_total:
+        return None, None, 0.0, "The upfront payment has to be less than the invoice total."
+    return kind, value, amount, None
+
+
 def _default_invoice_email_subject(invoice):
     return f"Invoice {invoice['invoice_no']} from Modoku Tech Sdn Bhd"
 
@@ -221,6 +240,13 @@ def new():
     )
     preselect_session_id = request.args.get("session_id", type=int)
 
+    def _render_new_form():
+        return render_template("invoices/form.html", invoice=None, items=[], companies=companies,
+                                open_enrollments=open_enrollments, statuses=STATUSES,
+                                classes_for_invoice=classes_for_invoice, preselect_session_id=preselect_session_id,
+                                next_invoice_no=_next_invoice_no(consume=False),
+                                today=date.today().isoformat())
+
     if request.method == "POST":
         company_id = request.form.get("company_id") or None
         bill_to_name = request.form.get("bill_to_name", "").strip()
@@ -277,6 +303,12 @@ def new():
                 sst_amount = round(subtotal * sst_rate / 100, 2)
                 total = round(subtotal + sst_amount, 2)
 
+            upfront_type, upfront_value, upfront_amount, upfront_error = _upfront_from_form(request.form, total)
+            if upfront_error:
+                flash(upfront_error, "danger")
+                return _render_new_form()
+            total = round(total - upfront_amount, 2)  # Fix114: the balance due
+
             invoice_no = _next_invoice_no()
             invoice_date_value = request.form.get("invoice_date") or date.today().isoformat()
             # Due date is no longer a manual field — always 30 days after the
@@ -289,8 +321,8 @@ def new():
                 """INSERT INTO invoices (invoice_no, company_id, bill_to_name, bill_to_address,
                        project_title, employer, grant_id, sst_reg_no, buyer_tin, invoice_date, due_date,
                        currency, subtotal, sst_rate, sst_inclusive, sst_amount, total, status, notes, created_by,
-                       session_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       session_id, upfront_type, upfront_value, upfront_amount)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     invoice_no,
                     company_id,
@@ -313,6 +345,9 @@ def new():
                     request.form.get("notes") or None,
                     g.user["id"],
                     request.form.get("session_id", type=int),
+                    upfront_type,
+                    upfront_value,
+                    upfront_amount,
                 ),
             )
             for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end in items:
@@ -326,11 +361,7 @@ def new():
             flash("Invoice created.", "success")
             return redirect(url_for("invoices.view", invoice_id=invoice_id))
 
-    return render_template("invoices/form.html", invoice=None, items=[], companies=companies,
-                            open_enrollments=open_enrollments, statuses=STATUSES,
-                            classes_for_invoice=classes_for_invoice, preselect_session_id=preselect_session_id,
-                            next_invoice_no=_next_invoice_no(consume=False),
-                            today=date.today().isoformat())
+    return _render_new_form()
 
 
 @bp.route("/<int:invoice_id>")

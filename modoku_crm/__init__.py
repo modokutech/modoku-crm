@@ -170,6 +170,18 @@ def parse_money(value, default=0.0):
     return float(text) if text else default
 
 
+def upfront_label(invoice):
+    """Fix114: the invoice's deduction line - "Less: 30% Upfront Payment",
+    or "Less: Upfront Payment" for a fixed amount - or "" when there's no
+    upfront deduction (including rows from before the columns existed)."""
+    keys = invoice.keys()
+    if "upfront_amount" not in keys or not invoice["upfront_amount"]:
+        return ""
+    if invoice["upfront_type"] == "percent" and invoice["upfront_value"]:
+        return f"Less: {invoice['upfront_value']:g}% Upfront Payment"
+    return "Less: Upfront Payment"
+
+
 def fullstop(text):
     """Fix110: ends an address (or any line) with a full stop for display -
     a trailing comma or space is dropped first, and text already ending in
@@ -246,6 +258,7 @@ def create_app(config_object="config.Config"):
     app.jinja_env.globals["fmtaddress"] = fmtaddress
     app.jinja_env.globals["address_lines"] = address_lines
     app.jinja_env.filters["fullstop"] = fullstop
+    app.jinja_env.globals["upfront_label"] = upfront_label
 
     # Cache-busted static URLs. Browsers hold onto style.css indefinitely
     # otherwise (the <link> carries no version), so a deployed CSS change can

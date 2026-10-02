@@ -147,6 +147,31 @@
           <div><span class="text-muted small d-block">Sub-total</span><span id="preview_subtotal" class="fw-semibold">RM 0.00</span></div>
           <div><span class="text-muted small d-block">SST</span><span id="preview_sst" class="fw-semibold">RM 0.00</span></div>
           <div><span class="text-muted small d-block">Total</span><span id="preview_total" class="fw-bold">RM 0.00</span></div>
+          <div class="upfront-preview" hidden><span class="text-muted small d-block" id="preview_upfront_label">Less: Upfront Payment</span><span id="preview_upfront" class="fw-semibold">(RM 0.00)</span></div>
+          <div class="upfront-preview" hidden><span class="text-muted small d-block">Balance Due</span><span id="preview_balance" class="fw-bold">RM 0.00</span></div>
+        </div>
+      </div>
+      {# Fix114: an upfront payment already received, deducted from the total (after SST). #}
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="upfront_enabled" value="1" id="upfront_enabled">
+          <label class="form-check-label" for="upfront_enabled">Deduct an upfront payment already received</label>
+        </div>
+        <div id="upfront_fields" class="d-flex flex-wrap align-items-center gap-3 mt-2" hidden>
+          <div class="form-check form-check-inline me-0">
+            <input class="form-check-input" type="radio" name="upfront_type" value="percent" id="upfront_percent" checked>
+            <label class="form-check-label" for="upfront_percent">Percentage</label>
+          </div>
+          <div class="form-check form-check-inline me-0">
+            <input class="form-check-input" type="radio" name="upfront_type" value="fixed" id="upfront_fixed">
+            <label class="form-check-label" for="upfront_fixed">Fixed amount</label>
+          </div>
+          <div class="input-group" style="max-width:220px">
+            <span class="input-group-text" id="upfront_prefix" hidden>RM</span>
+            <input type="text" inputmode="decimal" name="upfront_value" id="upfront_value" data-money class="form-control" placeholder="e.g. 30">
+            <span class="input-group-text" id="upfront_suffix">%</span>
+          </div>
+          <small class="text-muted w-100">Taken off the total after SST. The invoice then asks for the balance.</small>
         </div>
       </div>
       <div class="col-12">
@@ -266,7 +291,35 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
     previewSubtotal.textContent = fmt(subtotal);
     previewSst.textContent = fmt(sstAmount);
     previewTotal.textContent = fmt(grandTotal);
+
+    // Fix114: upfront payment, taken off the total after SST.
+    const upfrontOn = upfrontCheck.checked;
+    document.querySelectorAll('.upfront-preview').forEach(el => el.hidden = !upfrontOn);
+    if (upfrontOn) {
+      const isPercent = upfrontPercent.checked;
+      const value = moneyValue(upfrontValue);
+      const amount = Math.round((isPercent ? grandTotal * value / 100 : value) * 100) / 100;
+      document.getElementById('preview_upfront_label').textContent =
+        isPercent && value ? 'Less: ' + value + '% Upfront Payment' : 'Less: Upfront Payment';
+      document.getElementById('preview_upfront').textContent = '(' + fmt(amount) + ')';
+      document.getElementById('preview_balance').textContent = fmt(Math.round((grandTotal - amount) * 100) / 100);
+    }
   }
+
+  const upfrontCheck = document.getElementById('upfront_enabled');
+  const upfrontPercent = document.getElementById('upfront_percent');
+  const upfrontValue = document.getElementById('upfront_value');
+  function syncUpfront() {
+    document.getElementById('upfront_fields').hidden = !upfrontCheck.checked;
+    upfrontValue.required = upfrontCheck.checked;
+    document.getElementById('upfront_suffix').hidden = !upfrontPercent.checked;
+    document.getElementById('upfront_prefix').hidden = upfrontPercent.checked;
+    upfrontValue.placeholder = upfrontPercent.checked ? 'e.g. 30' : 'e.g. 6,300';
+    recalc();
+  }
+  upfrontCheck.addEventListener('change', syncUpfront);
+  document.querySelectorAll('input[name="upfront_type"]').forEach(r => r.addEventListener('change', syncUpfront));
+  upfrontValue.addEventListener('input', recalc);
 
   document.querySelector('#items-table').addEventListener('input', function (e) {
     if (e.target.name === 'item_unit_price' || e.target.name === 'item_duration') recalc();

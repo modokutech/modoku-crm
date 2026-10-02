@@ -10,6 +10,26 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix114 — Invoice: deduct an upfront payment already received
+
+**Date:** 2026-10-02
+
+- New Invoice: tick **Deduct an upfront payment already received**, choose **Percentage** or **Fixed
+  amount**, and enter it. It's taken off the total after SST; the totals preview shows the deduction and
+  the **Balance Due** live.
+- PDF and invoice page: Sub-total, SST, Total (only when there's SST), **Less: 30% Upfront Payment
+  (6,300.00)** (or "Less: Upfront Payment" for a fixed amount), then **Balance Due**. Without an upfront
+  deduction nothing changes ("Total Due").
+- The invoice's amount (list, overdue reminders, Paid status, reports, email "Amount due") is the balance
+  due. New columns via `_COLUMN_MIGRATIONS`: `upfront_type`, `upfront_value`, `upfront_amount`.
+- Refused, with nothing saved: 0 or blank, 100% or more, or an amount at or above the total.
+- Shared `upfront_label()` (`modoku_crm/__init__.py`) gives the PDF and page the same wording.
+
+**Testing:** Flask test client: 30% on RM 21,000 → 6,300 off, balance 14,700 (the reference invoice);
+30% after 8% SST → 22,680, 6,804 off, 15,876; fixed "6,300" → 14,700; five invalid entries refused,
+nothing saved. PDF checked as an image; live preview in headless Chromium matches the saved figures;
+existing invoice tests pass.
+
 ## Fix113 — AI attendance matching: no name match against a different IC; no dead button
 
 **Date:** 2026-10-02
