@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix117 — Invoice page: real SemiBold instead of Bold
+
+**Date:** 2026-10-02
+
+- `static/css/style.css`: adds Poppins SemiBold (600, the existing `static/fonts/Poppins-SemiBold.ttf`).
+  The invoice page's `fw-semibold` text (invoice number, Billed To name, project title, date, line-item
+  title, footer "modoku.tech") had no 600 face, so browsers fell back to Bold (700) and it looked too
+  heavy at screen size. It now renders as true SemiBold. Bold labels (Billed To / Project / Date,
+  INVOICE, table headers, Total Due) are unchanged.
+- PDF unchanged (it uses its own embedded fonts). Poppins is only used by the invoice document, so no
+  other page changes.
+
+**Testing:** SemiBold covers every character in the Regular subset; invoice page rendered in headless
+Chromium before/after: the semibold items are visibly lighter, Bold labels unchanged.
+
 ## Fix116 — Quotation: Valid Until defaults to 30 days
 
 **Date:** 2026-10-02

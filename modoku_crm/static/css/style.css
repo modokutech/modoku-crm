@@ -445,6 +445,16 @@ body {
   font-style: normal;
   font-display: swap;
 }
+/* Fix117: SemiBold, so the invoice's fw-semibold text (invoice no., Billed To
+   name, project, date, item title) is a real 600 instead of falling back to
+   Bold. Same Latin coverage as the other faces. */
+@font-face {
+  font-family: "Poppins";
+  src: url("../fonts/Poppins-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
 @font-face {
   font-family: "Poppins";
   src: url("../fonts/Poppins-Bold.subset.ttf") format("truetype");
