@@ -102,7 +102,7 @@
       <div class="col-md-4">
         <label class="form-label">Valid Until</label>
         <input type="date" name="valid_until" id="valid_until_field" class="form-control" value="{{ default_valid_until }}">
-        <small class="text-muted">Defaults to 7 days from the quotation date.</small>
+        <small class="text-muted">Defaults to 30 days from the quotation date.</small>
       </div>
       <div class="col-md-4">
         <label class="form-label">Status</label>
@@ -501,7 +501,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     const venue = venueField.value.trim() || '<venue>';
     const validUntil = validUntilField.value
       ? fmtDdMYyyy(validUntilField.value)
-      : '<7 days from the quotation date>';
+      : '<30 days from the quotation date>';
     return (
       `The training will be conducted ${mode} at ${venue} as agreed between both parties.\n` +
       `This course is HRDC SBL-Khas Claimable.\n` +

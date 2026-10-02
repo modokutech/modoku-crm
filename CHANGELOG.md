@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix116 — Quotation: Valid Until defaults to 30 days
+
+**Date:** 2026-10-02
+
+- A new quotation's **Valid Until** now defaults to 30 days after the quotation date (was 7), including
+  when it's saved with the field left blank, and the default terms line ("This above-mentioned quotation
+  is valid until ...") follows it. One constant, `quotations.VALID_FOR_DAYS`.
+- Existing quotations keep the date they were saved with; the field can still be changed per quotation.
+
+**Testing:** New Quotation page defaults to today + 30 with the matching terms line; a quotation dated
+1 Oct 2026 saved with Valid Until blank gets 31 Oct 2026 and "valid until 31 October 2026" in its terms.
+
 ## Fix115 — New Invoice: Grant ID pre-filled from the linked class
 
 **Date:** 2026-10-02

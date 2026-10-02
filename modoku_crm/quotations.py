@@ -20,10 +20,12 @@ bp = Blueprint("quotations", __name__, url_prefix="/quotations")
 
 # Fix100: Rejected = the client said no. Cancelled = it was agreed, then called
 # off (keeps the win on record). Expired = the validity date passed with no
-# answer. Expired is set by hand: valid_until defaults to 7 days, so expiring
-# automatically would pre-empt the 14-day Follow-up nudge.
+# answer. Expired is set by hand (Fix100), never automatically.
 STATUSES = ["Draft", "Sent", "Follow-up", "Accepted", "Rejected", "Cancelled", "Expired"]
 FOLLOW_UP_AFTER_DAYS = 14
+# Fix116: a new quotation's "Valid Until" defaults to this many days after
+# its quotation date (was 7).
+VALID_FOR_DAYS = 30
 TRAINING_TYPES = ["In-house Training", "Public Training", "Workshop", "Conference"]
 TRAINING_MODES = ["Physical", "Virtual", "Hybrid"]
 
@@ -63,7 +65,7 @@ def _default_terms(training_mode, venue, valid_until):
     return DEFAULT_TERMS_TEMPLATE.format(
         mode=(training_mode or "<training mode>").lower(),
         venue=venue or "<venue>",
-        valid_until=_fmt_full_date(valid_until) if valid_until else "<7 days from the quotation date>",
+        valid_until=_fmt_full_date(valid_until) if valid_until else f"<{VALID_FOR_DAYS} days from the quotation date>",
     )
 
 
@@ -428,7 +430,7 @@ def _form_common(request_form):
     client_company_id = request_form.get("client_company_id") or None
     quote_date = request_form.get("quote_date") or date.today().isoformat()
     valid_until = request_form.get("valid_until") or (
-        (datetime.strptime(quote_date, "%Y-%m-%d") + timedelta(days=7)).date().isoformat()
+        (datetime.strptime(quote_date, "%Y-%m-%d") + timedelta(days=VALID_FOR_DAYS)).date().isoformat()
     )
     training_mode = request_form.get("training_mode") or "Physical"
     venue = _clean(request_form.get("venue"))
@@ -751,7 +753,7 @@ def new():
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
     today = date.today().isoformat()
-    valid_until = (date.today() + timedelta(days=7)).isoformat()
+    valid_until = (date.today() + timedelta(days=VALID_FOR_DAYS)).isoformat()
     return render_template(
         "quotations/form.html", quotation=None, is_edit=False, companies=companies, courses=courses,
         statuses=STATUSES, training_types=TRAINING_TYPES, training_modes=TRAINING_MODES,
