@@ -162,6 +162,14 @@ def fmtaddress(street, city=None, postcode=None, state=None):
     return ", ".join(p for p in (street, locality, state) if p)
 
 
+def parse_money(value, default=0.0):
+    """Fix112: an amount typed with thousands separators ("17,000.50") as a
+    float. Blank -> default; raises ValueError on anything else
+    non-numeric, like float() itself."""
+    text = str(value if value is not None else "").replace(",", "").strip()
+    return float(text) if text else default
+
+
 def fullstop(text):
     """Fix110: ends an address (or any line) with a full stop for display -
     a trailing comma or space is dropped first, and text already ending in

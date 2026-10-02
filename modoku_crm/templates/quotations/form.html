@@ -150,7 +150,7 @@
               <input type="time" name="item_time_start" class="form-control form-control-sm" value="{{ item_time_start }}">
               <input type="time" name="item_time_end" class="form-control form-control-sm" value="{{ item_time_end }}">
             </td>
-            <td><input type="number" step="0.01" min="0" name="item_fee" class="form-control form-control-sm" value="{{ item.investment_fee }}"></td>
+            <td><input type="number" step="0.01" min="0" name="item_fee" data-money class="form-control form-control-sm" value="{{ item.investment_fee }}"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
           </tr>
           {% endfor %}
@@ -172,7 +172,7 @@
               <input type="time" name="item_time_start" class="form-control form-control-sm">
               <input type="time" name="item_time_end" class="form-control form-control-sm">
             </td>
-            <td><input type="number" step="0.01" min="0" name="item_fee" class="form-control form-control-sm" value="0"></td>
+            <td><input type="number" step="0.01" min="0" name="item_fee" data-money class="form-control form-control-sm" value="0"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
           </tr>
           {% endif %}
@@ -221,6 +221,7 @@
   </form>
 </div>
 
+<script src="{{ url_for('static', filename='js/money-input.js') }}"></script>
 <script>
 function renumberRows() {
   document.querySelectorAll('#items-table tbody tr').forEach((row, idx) => {
@@ -268,7 +269,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   function recalc() {
     let enteredTotal = 0;
     document.querySelectorAll('#items-table tbody input[name="item_fee"]').forEach(function (input) {
-      enteredTotal += parseFloat(input.value) || 0;
+      enteredTotal += moneyValue(input);
     });
     const rate = parseFloat(sstRateField.value) || 0;
     let subtotal, sstAmount, grandTotal;

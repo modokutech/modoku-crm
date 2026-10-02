@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
-from . import activity, db, fmtdate, mailer, notifications
+from . import activity, db, fmtdate, mailer, notifications, parse_money
 from . import settings as settings_module
 from .auth import admin_required, login_required
 from .csvutil import csv_response
@@ -246,7 +246,7 @@ def new():
                 if not desc.strip():
                     continue
                 qty_f = float(qty or 1)
-                price_f = float(price or 0)
+                price_f = parse_money(price)
                 # Duration is now a number of days, not a free-text field —
                 # Amount is Unit Price x Duration only (No. of Pax is a
                 # headcount for the record, not part of the money math).

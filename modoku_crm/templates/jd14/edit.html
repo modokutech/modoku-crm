@@ -105,11 +105,11 @@
           </div>
           <div class="col-4">
             <label class="form-label small mb-1">Fee Approved (RM)</label>
-            <input type="text" id="total_fee_approved" name="total_fee_approved" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_approved or '' }}">
+            <input type="text" id="total_fee_approved" name="total_fee_approved" data-money="keep" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_approved or '' }}">
           </div>
           <div class="col-4">
             <label class="form-label small mb-1">Fee Claimed (RM)</label>
-            <input type="text" id="total_fee_claimed" name="total_fee_claimed" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_claimed or '' }}">
+            <input type="text" id="total_fee_claimed" name="total_fee_claimed" data-money="keep" class="form-control form-control-sm jd14-input" value="{{ f.total_fee_claimed or '' }}">
           </div>
         </div>
 
@@ -239,6 +239,7 @@
   .jd14-live-status { position: absolute; top: 6px; right: 10px; background: rgba(255,255,255,.9); padding: 0 6px; }
 </style>
 
+<script src="{{ url_for('static', filename='js/money-input.js') }}"></script>
 <script>
 (function () {
   var wrap = document.getElementById('jd14LiveWrap');

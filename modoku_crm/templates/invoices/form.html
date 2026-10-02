@@ -118,7 +118,7 @@
                 <span class="input-group-text">day(s)</span>
               </div>
             </td>
-            <td><input type="number" step="0.01" min="0" name="item_unit_price" class="form-control form-control-sm" value="0"></td>
+            <td><input type="number" step="0.01" min="0" name="item_unit_price" data-money class="form-control form-control-sm" value="0"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
           </tr>
         </tbody>
@@ -162,6 +162,7 @@
   </form>
 </div>
 
+<script src="{{ url_for('static', filename='js/money-input.js') }}"></script>
 <script>
 document.getElementById('company_id').addEventListener('change', function () {
   const opt = this.options[this.selectedIndex];
@@ -190,7 +191,10 @@ function fillFromClass() {
   firstRow.querySelector('input[name="item_venue"]').value = opt.dataset.venue || '';
   firstRow.querySelector('input[name="item_date"]').value = opt.dataset.date || '';
   firstRow.querySelector('input[name="item_date_end"]').value = opt.dataset.dateEnd || '';
-  firstRow.querySelector('input[name="item_unit_price"]').value = opt.dataset.price || 0;
+  const firstPrice = firstRow.querySelector('input[name="item_unit_price"]');
+  firstPrice.value = opt.dataset.price || 0;
+  moneyFormat(firstPrice);
+  firstPrice.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
   firstRow.querySelector('input[name="item_quantity"]').value = 1;
   firstRow.querySelector('input[name="item_duration"]').value = 1;
 }
@@ -218,7 +222,10 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
     const opt = e.target.options[e.target.selectedIndex];
     const row = e.target.closest('tr');
     row.querySelector('input[name="item_description"]').value = opt.dataset.desc || '';
-    row.querySelector('input[name="item_unit_price"]').value = opt.dataset.price || 0;
+    const price = row.querySelector('input[name="item_unit_price"]');
+    price.value = opt.dataset.price || 0;
+    moneyFormat(price);
+    price.dispatchEvent(new Event('input', { bubbles: true }));
   }
 });
 
@@ -241,7 +248,7 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
   function recalc() {
     let enteredTotal = 0;
     document.querySelectorAll('#items-table tbody tr').forEach(function (row) {
-      const price = parseFloat(row.querySelector('input[name="item_unit_price"]').value) || 0;
+      const price = moneyValue(row.querySelector('input[name="item_unit_price"]'));
       const duration = parseFloat(row.querySelector('input[name="item_duration"]').value) || 0;
       enteredTotal += price * duration;
     });

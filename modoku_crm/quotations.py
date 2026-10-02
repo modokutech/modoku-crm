@@ -9,7 +9,7 @@ from flask import (Blueprint, Response, current_app, flash, g, jsonify, redirect
 from werkzeug.utils import secure_filename
 
 from . import activity, db, doc_sanity, mailer, notifications, uploadutil
-from . import fmtdaterange
+from . import fmtdaterange, parse_money
 from . import sessions as _sessions
 from . import settings as settings_module
 from .csvutil import csv_response
@@ -339,7 +339,7 @@ def _has_valid_item(form):
     fees = form.getlist("item_fee")
     for programme, fee in zip(programmes, fees):
         try:
-            fee_val = float(fee or 0)
+            fee_val = parse_money(fee)
         except ValueError:
             fee_val = 0
         if programme.strip() and fee_val > 0:
@@ -406,7 +406,7 @@ def _save_items(quotation_id, form):
             """INSERT INTO quotation_items (quotation_id, programme, no_of_pax, training_type,
                    duration, item_date, item_date_end, item_time, investment_fee) VALUES (?,?,?,?,?,?,?,?,?)""",
             (quotation_id, programme.strip(), int(pax or 1), ttype or None, duration or None,
-             item_date or None, date_end, item_time, float(fee or 0)),
+             item_date or None, date_end, item_time, parse_money(fee)),
         )
 
 

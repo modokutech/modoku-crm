@@ -10,6 +10,28 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix112 — Amount fields show thousands separators as you type
+
+**Date:** 2026-10-02
+
+- New `static/js/money-input.js`: any `<input data-money>` formats as you type (1700 → 1,700,
+  170000 → 170,000, up to two decimals), keeping the cursor in place; leaving the field tidies it
+  (10500.5 → 10,500.50). Phones get the number keypad (`inputmode="decimal"`).
+- Applied to the quotation **Investment Fee**, the invoice **Unit Price**, and JD14 **Total Fee
+  Approved / Claimed**. Existing values show formatted when a form is opened.
+- Quotation and invoice amounts are numbers, so the commas are stripped on submit; the live
+  Sub-total / SST / Total previews read the amounts through `moneyValue()`. JD14's fees are text
+  printed on the form, so they keep their commas (`data-money="keep"`), matching the prefilled
+  "10,500.00".
+- Server side, `parse_money()` (`modoku_crm/__init__.py`) ignores commas when quotations and invoices
+  read an amount, so "17,000" can never be saved as 17.
+
+**Testing:** the script in headless Chromium: typing 1700/17000/170000/1700000, decimals, leading
+zeros, letters, inserting mid-number (cursor kept), tidy on leave, strip vs keep on submit; the real
+invoice and quotation forms: typing updates the field and the live total, an existing quotation opens
+formatted. Flask test client: all three pages carry the script; quotation "17,000" saved as 17000,
+invoice "1,700" as 1700, JD14 "17,000.00" kept as text.
+
 ## Fix111 — Quotation: client address ends with a full stop
 
 **Date:** 2026-10-01
