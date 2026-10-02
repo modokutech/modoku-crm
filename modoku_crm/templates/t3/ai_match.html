@@ -99,7 +99,9 @@
   </div>
   {{ reread_form(photo.return_id, photo.declared_date) }}
   {% elif photo.suggestions %}
-  {% set needs_attention = photo.suggestions|selectattr('already_attended', 'equalto', False)|list %}
+  {# Fix113: only rows with a match to confirm get a tickbox, so only they count. #}
+  {% set needs_attention = photo.suggestions|selectattr('participant_id')|selectattr('already_attended', 'equalto', False)|list %}
+  {% set unmatched = photo.suggestions|rejectattr('participant_id')|list %}
   <form method="post" action="{{ url_for('t3.confirm_day_attendance') }}">
     {{ csrf_field()|safe }}
     <input type="hidden" name="session_id" value="{{ s.id }}">
@@ -158,11 +160,20 @@
       </tbody>
     </table>
     {% if needs_attention %}
+    <p class="small text-muted mb-1">Ticked rows are matches below the auto-mark bar. Untick any that are wrong, then:</p>
     <button class="btn btn-success btn-sm" type="submit">
       <i class="bi bi-check2-circle me-1"></i>Mark Checked as Attended{{ ' for ' ~ photo.training_date|fmtdate if multi_day }}
     </button>
-    {% else %}
+    {% elif not unmatched %}
     <p class="small text-muted mb-0"><i class="bi bi-check2-all text-success me-1"></i>Everything readable from this photo was already auto-marked. Nothing left to confirm.</p>
+    {% endif %}
+    {% if unmatched %}
+    <p class="small text-warning-emphasis mb-0 mt-1"><i class="bi bi-exclamation-triangle me-1"></i>
+      {{ unmatched|length }} name{{ 's' if unmatched|length != 1 }} on the sheet
+      ({{ unmatched|map(attribute='extracted')|join(', ') }}) didn't match anyone on this class's list. If they attended, add or
+      tick them on the
+      <a href="{{ url_for('t3.manage', session_id=s.id) }}">Attendance List</a>.
+    </p>
     {% endif %}
   </form>
   {% else %}

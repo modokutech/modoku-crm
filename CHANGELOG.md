@@ -10,6 +10,26 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix113 — AI attendance matching: no name match against a different IC; no dead button
+
+**Date:** 2026-10-02
+
+- `ai_match.match_rows_to_participants`: when the sheet's IC is legible but matches nobody, the
+  fallback name match now skips any participant whose own IC is on file and differs, since that's a
+  different person however alike the names. Before, "Muhammad Danish Bin Haslizam" (IC 011014-09-0187)
+  was suggested as "Muhammad Syazwan Bin Che Zali" at 70%, and a closer pair such as "Muhammad
+  Danial Bin Haslizan" (89%) would have cleared the 75% auto-mark bar and marked the wrong person.
+  Participants with no IC on file can still be matched by name.
+- `templates/t3/ai_match.html`: **Mark Checked as Attended** only shows when a row actually has a
+  tickbox (a match below the auto-mark bar). Names that matched nobody no longer count, so the button
+  can't be pressed with nothing to tick ("Select at least one participant first"). Instead they're
+  listed: "N names on the sheet (...) didn't match anyone on this class's list. If they attended, add
+  or tick them on the Attendance List."
+
+**Testing:** matching on five rows: IC match, IC conflict with a near-identical name (now unmatched),
+no IC on file (name match kept), below-bar name match, unknown name; review page shows the button with
+tickboxes only when there's something to tick, and lists unmatched names.
+
 ## Fix112 — Amount fields show thousands separators as you type
 
 **Date:** 2026-10-02

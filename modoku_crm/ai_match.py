@@ -319,7 +319,8 @@ def match_rows_to_participants(rows, session_id, threshold=MATCH_CONFIDENCE_THRE
     specific person far more reliably than a name that handwriting or OCR
     can blur into a similar-looking one. Falls back to the existing fuzzy
     name match (matched_by="name") when no usable IC was read, or it
-    didn't match anyone on this class's list.
+    didn't match anyone on this class's list - but never to a participant
+    whose own IC is on file and differs from the one read (Fix113).
 
     already_attended reflects whether the matched participant is already
     marked attended for `training_date` specifically (per-day, via
@@ -360,6 +361,12 @@ def match_rows_to_participants(rows, session_id, threshold=MATCH_CONFIDENCE_THRE
         if best is None:
             for p in participants:
                 if p["id"] in used_ids:
+                    continue
+                # Fix113: a legible IC on the sheet that differs from the IC
+                # on file means a different person, however alike the names
+                # ("Muhammad Danish ..." vs "Muhammad Danial ..." scores 0.89).
+                p_ic = _normalize_ic(p["ic_no"])
+                if extracted_ic_norm and p_ic and p_ic != extracted_ic_norm:
                     continue
                 score = difflib.SequenceMatcher(None, name.lower(), p["name"].lower()).ratio()
                 if score > best_score:
