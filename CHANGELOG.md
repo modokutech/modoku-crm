@@ -10,6 +10,23 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix121 — nginx config: redirect the bare IP to hub.modoku.tech
+
+**Date:** 2026-10-03
+
+- New `deploy/nginx/hub-ip-redirect.conf`: default-server blocks on 80 and 443 that send any request
+  not for hub.modoku.tech (the VPS IP, stray hostnames) to `https://hub.modoku.tech$request_uri`, so old
+  IP links (e.g. emailed before Fix118) land on the right page. Uses hub.modoku.tech's certificate for
+  the 443 block.
+- `deploy/nginx/README.md`: step-by-step install, checks, and undo, plus a check that gunicorn isn't
+  listening on 0.0.0.0:8000 (reachable around nginx).
+- Server config only; the app itself is unchanged.
+
+**Testing:** ran the config in a sandbox nginx (stub certificate, stand-in hub.modoku.tech site):
+`nginx -t` passes; the IP over http and https returns 301 to https://hub.modoku.tech with path and query
+kept; hub.modoku.tech still serves the app. The README notes removing the `[::]` lines if the server
+has IPv6 off. To be confirmed on the VPS with the README's curl checks.
+
 ## Fix120 — Kuala Lumpur time everywhere
 
 **Date:** 2026-10-03
