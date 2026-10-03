@@ -475,7 +475,13 @@
         <h6 class="mb-0">Enrolled Participants</h6>
         <div class="d-flex gap-2">
           {% if g.user.role == 'admin' and enrollments %}
-          <a href="{{ url_for('sessions.export_participants', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Export CSV</a>
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-download me-1"></i>Export</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{{ url_for('sessions.export_participants', session_id=s.id) }}"><i class="bi bi-filetype-csv me-2"></i>CSV</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('sessions.export_participants', session_id=s.id, format='xlsx') }}"><i class="bi bi-file-earmark-excel me-2"></i>Excel (.xlsx)</a></li>
+            </ul>
+          </div>
           {% endif %}
           <a href="{{ url_for('enrollments.bulk_add', session_id=s.id) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-people me-1"></i>Bulk Add</a>
         </div>

@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix123 — Participant exports: choose CSV or Excel (.xlsx)
+
+**Date:** 2026-10-04
+
+- The two Fix122 Export buttons (class page Enrolled Participants, T3 Attendance List) are now an
+  **Export** dropdown with **CSV** and **Excel (.xlsx)**. Same columns and file name in both.
+- The Excel file has a bold frozen header row and sized columns. Text stays text, so IC numbers keep
+  their leading zeros, and Amount is a real number formatted `#,##0.00`.
+- New helper `table_response(name, header, rows, fmt)` in `csvutil.py` (`?format=xlsx` picks Excel).
+  Routes moved to `/sessions/<id>/participants/export` and `/t3/sessions/<id>/export`.
+- **requirements.txt:** adds `openpyxl>=3.1`. Run `pip install -r requirements.txt` before restarting.
+
 ## Fix122 — Export a class's participants to CSV
 
 **Date:** 2026-10-04
