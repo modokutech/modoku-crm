@@ -10,6 +10,25 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix118 — Email links always use https://hub.modoku.tech (never the VPS IP)
+
+**Date:** 2026-10-03
+
+- Every full link the app builds (`url_for(..., _external=True)`, 32 places across 12 files plus
+  templates: trainer/vendor/PO/quotation/JD14/grant emails, public form links, calendar invites,
+  OAuth redirect addresses) used the host of whatever request triggered it. Automated emails are sent
+  from inside requests, so any request arriving on the bare IP (an old link, a bot) put
+  https://152.42.226.86/... into emails, e.g. "Trainer invoice documents submitted".
+- Now `create_app()` uses a Flask subclass whose `url_for` builds external links from
+  `PUBLIC_BASE_URL` (config.py, default `https://hub.modoku.tech`, env-overridable; set it empty to fall
+  back to the request host for local dev). In-app relative links are unchanged.
+- Checked for other link sources: no hard-coded or browser-built app addresses; in-app notifications
+  store relative links.
+
+**Testing:** a trainer invoice upload arriving on https://152.42.226.86 now emails
+https://hub.modoku.tech/...; external, anchored and template links built on the IP host use
+hub.modoku.tech; relative links unchanged; `PUBLIC_BASE_URL=""` falls back to the request host.
+
 ## Fix117 — Invoice page: real SemiBold instead of Bold
 
 **Date:** 2026-10-02

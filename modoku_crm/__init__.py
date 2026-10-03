@@ -232,8 +232,22 @@ def fmtdays(value):
     return f"{text} {label}"
 
 
+class _ModokuFlask(Flask):
+    """Fix118: external URLs always use PUBLIC_BASE_URL (config.py), never the
+    host the current request happened to arrive on. Covers every
+    url_for(..., _external=True), in Python and in templates."""
+
+    def url_for(self, endpoint, *, _anchor=None, _method=None, _scheme=None, _external=None, **values):
+        base = self.config.get("PUBLIC_BASE_URL")
+        if not _external or not base:
+            return super().url_for(endpoint, _anchor=_anchor, _method=_method, _scheme=_scheme,
+                                   _external=_external, **values)
+        path = super().url_for(endpoint, _anchor=_anchor, _method=_method, _external=False, **values)
+        return base + path
+
+
 def create_app(config_object="config.Config"):
-    app = Flask(__name__, instance_relative_config=True)
+    app = _ModokuFlask(__name__, instance_relative_config=True)
     app.config.from_object(config_object)
     app.permanent_session_lifetime = timedelta(hours=24)
 

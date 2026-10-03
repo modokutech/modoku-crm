@@ -15,6 +15,13 @@ class Config:
     # off by default so local http://localhost testing still works.
     SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
 
+    # Fix118: the address every link in an email/PDF/calendar invite points to
+    # (anything built with url_for(..., _external=True)), whatever address the
+    # request that triggered it came in on - e.g. someone opening the app via
+    # the VPS's bare IP no longer leaks that IP into emails. Set
+    # PUBLIC_BASE_URL="" to fall back to the request's own host (local dev).
+    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://hub.modoku.tech").rstrip("/")
+
     # Where uploaded files (trainer documents, etc.) are stored on disk.
     UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", str(BASE_DIR / "instance" / "uploads"))
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload size
