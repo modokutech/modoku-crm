@@ -21,7 +21,8 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 
 from . import ai_match, attendance_days, db, fmtdate, uploadutil
 from . import certificates as _certificates
-from .auth import login_required
+from .auth import admin_required, login_required
+from .csvutil import class_csv_filename, csv_response
 
 bp = Blueprint("t3", __name__, url_prefix="/t3")
 
@@ -329,6 +330,41 @@ def manage(session_id):
                             total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
                             remaining=t3_remaining_capacity(session_row),
                             training_days=training_days, signatures_by_participant=signatures_by_participant)
+
+
+@bp.route("/sessions/<int:session_id>/export.csv")
+@admin_required
+def export(session_id):
+    """Fix122: the T3 Attendance List as a CSV - one column per training
+    day ("Signed" for an e-signature, "Yes" for any other mark), plus the
+    days-attended total."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    participants = db.query(
+        "SELECT * FROM t3_participants WHERE session_id = ? ORDER BY id", (session_id,)
+    )
+    training_days = attendance_days.training_days_iso_for_session(session_row)
+    marked = {}
+    for r in db.query(
+        """SELECT tda.participant_id, tda.training_date, tda.signature_file FROM t3_day_attendance tda
+           JOIN t3_participants p ON p.id = tda.participant_id WHERE p.session_id = ?""",
+        (session_id,),
+    ):
+        marked.setdefault(r["participant_id"], {})[r["training_date"]] = "Signed" if r["signature_file"] else "Yes"
+    header = ["No", "Name", "IC No", "Employer", "Gender", "Citizenship"]
+    header += [f"Day {i} ({fmtdate(d)})" for i, d in enumerate(training_days, start=1)]
+    header.append("Days Attended")
+
+    def _rows():
+        for i, p in enumerate(participants, start=1):
+            days = marked.get(p["id"], {})
+            cells = [days.get(d, "") for d in training_days]
+            yield ([i, p["name"], p["ic_no"] or "", p["employer_name"] or "", p["gender"] or "",
+                    p["citizenship"] or ""] + cells + [f"{sum(1 for c in cells if c)}/{len(training_days)}"])
+
+    return csv_response(class_csv_filename(session_row, "t3_attendance"), header, _rows())
 
 
 @bp.route("/sessions/<int:session_id>/add", methods=("POST",))

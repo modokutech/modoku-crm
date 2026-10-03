@@ -15,7 +15,7 @@ from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evalu
 # module (split_training_time), so a top-level import here would be circular.
 from . import APP_TZ, fmtdaterange
 from .auth import admin_required, login_required
-from .csvutil import csv_response
+from .csvutil import class_csv_filename, csv_response
 from .docutil import content_disposition
 
 bp = Blueprint("sessions", __name__, url_prefix="/sessions")
@@ -936,6 +936,37 @@ def new():
                             room_setup_options=ROOM_SETUP_OPTIONS,
                             preselect_course=preselect_course,
                             selected_trainer_ids=[], training_time_start="", training_time_end="")
+
+
+@bp.route("/<int:session_id>/participants.csv")
+@admin_required
+def export_participants(session_id):
+    """Fix122: the class page's Enrolled Participants list as a CSV."""
+    session_row = db.query(
+        """SELECT cs.*, c.title AS course_title FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
+        (session_id,), one=True,
+    )
+    if session_row is None:
+        flash("Class not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    enrollments = db.query(
+        """SELECT e.*, co.name AS company_name FROM enrollments e
+           LEFT JOIN companies co ON co.id = e.company_id
+           WHERE e.session_id = ? ORDER BY e.created_at""",
+        (session_id,),
+    )
+    rows = (
+        (i, e["participant_name"], e["company_name"] or "", e["participant_email"] or "",
+         e["participant_phone"] or "", e["status"], e["hrdf_claim_status"], e["hrdf_claim_no"] or "",
+         f"{e['amount'] or 0:.2f}")
+        for i, e in enumerate(enrollments, start=1)
+    )
+    return csv_response(
+        class_csv_filename(session_row, "participants"),
+        ["No", "Participant", "Company", "Email", "Phone", "Status", "HRDF Claim Status", "HRDF Claim No", "Amount"],
+        rows,
+    )
 
 
 @bp.route("/<int:session_id>")

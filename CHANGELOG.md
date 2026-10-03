@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix122 — Export a class's participants to CSV
+
+**Date:** 2026-10-04
+
+- Class page, Enrolled Participants: new **Export CSV** button (`/sessions/<id>/participants.csv`) with
+  No, Participant, Company, Email, Phone, Status, HRDF Claim Status, HRDF Claim No, Amount.
+- T3 Attendance List: new **Export CSV** button (`/t3/sessions/<id>/export.csv`) with No, Name, IC No,
+  Employer, Gender, Citizenship, one column per training day ("Yes", or "Signed" for an e-signature)
+  and Days Attended (e.g. 2/2).
+- Files are named after the course's first three words and the class date, e.g.
+  `Effective_Leadership_for_2026-10-05_t3_attendance.csv` (helper `class_csv_filename` in `csvutil.py`).
+- Admin only, same as the other CSV exports; the buttons are hidden for staff and on empty lists.
+
 ## Fix121 — nginx config: redirect the bare IP to hub.modoku.tech
 
 **Date:** 2026-10-03
