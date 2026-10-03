@@ -10,6 +10,26 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix120 — Kuala Lumpur time everywhere
+
+**Date:** 2026-10-03
+
+- Stored timestamps are UTC (SQLite `datetime('now')`) and most pages convert them with `fmtdatetime`,
+  but the trainer and vendor PO "Invoice Submitted" lists printed the raw value (14:45:29 for an upload
+  at 10:45 PM KL). Both now use `fmtdatetime`; no other template prints a raw timestamp.
+- The app process now runs on Asia/Kuala_Lumpur (`modoku_crm/__init__.py`), so the 48 places using
+  `date.today()` / `datetime.now()` (default dates, overdue and status checks, nudges) use KL's date
+  even if the VPS clock is UTC, where "today" was still yesterday before 8am KL. Code comparing against
+  stored timestamps already uses `datetime.utcnow()` explicitly, so it's unaffected.
+- Dashboard: three "upcoming class" queries used SQLite's UTC `date('now')`; they now use KL's date.
+- CSV exports: new `kl_timestamp()` gives KL `YYYY-MM-DD HH:MM` for the leads export's Created column
+  and the audit export's claim Paid date.
+- Stored data is unchanged (still UTC), so existing records need no migration.
+
+**Testing:** started with `TZ=UTC`: `date.today()`/`datetime.now()` match KL; PO page shows the stored
+14:45:29 UTC upload as "3 Oct 2026, 10:45 PM"; `kl_timestamp` on timestamp/date/blank; dashboard and
+leads export load; invoice, upfront, trainer-file and base-URL test suites still pass.
+
 ## Fix119 — Trainers can remove a file they uploaded by mistake
 
 **Date:** 2026-10-03

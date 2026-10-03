@@ -145,7 +145,7 @@
         <li class="mb-1">
           <i class="bi bi-file-earmark-check text-success me-1"></i>
           <a href="{{ url_for('vendor_purchase_orders.download_invoice_document', po_id=po.id, doc_id=doc.id) }}" target="_blank">{{ doc.original_name }}</a>
-          <span class="text-muted">· {{ doc.uploaded_at }}</span>
+          <span class="text-muted">· {{ doc.uploaded_at|fmtdatetime }}</span>
         </li>
         {% endfor %}
       </ul>

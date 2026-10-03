@@ -28,7 +28,7 @@ from datetime import date
 from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from . import activity, db
+from . import activity, db, kl_timestamp
 from .auth import admin_required, login_required
 from .claims import _receipt_dir as _claim_receipt_dir
 from .claims import _upload_dir as _claim_upload_dir
@@ -298,7 +298,7 @@ def _build_summary_csv(data):
         writer.writerow(["Invoice", i["invoice_no"], i["invoice_date"], i["company_name"] or i["bill_to_name"],
                           f"{i['total']:.2f}", i["status"], ""])
     for c in data["claims"]:
-        writer.writerow(["Claim", f"#{c['id']}", c["paid_at"], c["claimant_name"],
+        writer.writerow(["Claim", f"#{c['id']}", kl_timestamp(c["paid_at"]), c["claimant_name"],
                           f"{_claim_amount(c):.2f}", c["status"], c["course_title"]])
     for v in data["vouchers"]:
         writer.writerow(["Petty Cash Voucher", v["voucher_no"], v["voucher_date"], v["payee_name"],

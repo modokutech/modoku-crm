@@ -18,6 +18,16 @@ from . import db as db_module
 # what timezone the VPS itself happens to be set to.
 APP_TZ = ZoneInfo("Asia/Kuala_Lumpur")
 
+# Fix120: the whole app runs on Kuala Lumpur time, whatever the VPS clock is
+# set to - date.today() / datetime.now() (today's date for defaults, overdue
+# and status checks, "today" on the dashboard) are KL, not UTC (which is
+# still yesterday before 8am KL). Stored timestamps stay UTC
+# (SQLite datetime('now')) and are shown in KL by fmtdatetime/kl_timestamp;
+# code comparing against them already uses datetime.utcnow() explicitly.
+os.environ["TZ"] = "Asia/Kuala_Lumpur"
+if hasattr(__import__("time"), "tzset"):
+    __import__("time").tzset()
+
 
 def linelist(text, ordered=False):
     """Renders free text as a proper <ul>/<ol> list — one <li> per line.
@@ -180,6 +190,25 @@ def upfront_label(invoice):
     if invoice["upfront_type"] == "percent" and invoice["upfront_value"]:
         return f"Less: {invoice['upfront_value']:g}% Upfront Payment"
     return "Less: Upfront Payment"
+
+
+def kl_timestamp(value):
+    """Fix120: a stored UTC timestamp ('YYYY-MM-DD HH:MM:SS', from SQLite's
+    datetime('now')) as Kuala Lumpur time, 'YYYY-MM-DD HH:MM' - for CSV
+    exports, where a sortable form beats fmtdatetime's '3 Oct 2026, 10:45 PM'.
+    Blank stays blank; anything unparseable is returned as-is."""
+    if not value:
+        return ""
+    text = str(value).strip()
+    try:
+        dt = datetime.fromisoformat(text.replace(" ", "T", 1) if "T" not in text else text)
+    except ValueError:
+        return text
+    if len(text) <= 10:
+        return text  # a plain date: no time of day to convert
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+    return dt.astimezone(APP_TZ).strftime("%Y-%m-%d %H:%M")
 
 
 def fullstop(text):

@@ -74,8 +74,9 @@ def _attention_items():
             """SELECT cs.id, c.title AS course_title, cs.venue, cs.start_date
                FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
                WHERE cs.status != 'Cancelled' AND cs.start_date IS NOT NULL AND cs.start_date != ''
-                 AND date(cs.start_date) >= date('now')
-               ORDER BY cs.start_date ASC"""
+                 AND date(cs.start_date) >= date(?)
+               ORDER BY cs.start_date ASC""",
+            (today_iso,),
         )
         if _days_between(today_iso, row["start_date"]) == 1
     ][:5]
@@ -118,8 +119,9 @@ def _attention_items():
                       (SELECT COUNT(*) FROM t3_participants tp WHERE tp.session_id = cs.id) AS t3_count
                FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
                WHERE cs.status != 'Cancelled' AND cs.start_date IS NOT NULL AND cs.start_date != ''
-                 AND date(cs.start_date) >= date('now')
-               ORDER BY cs.start_date ASC"""
+                 AND date(cs.start_date) >= date(?)
+               ORDER BY cs.start_date ASC""",
+            (today_iso,),
         )
         if row["t3_count"] == 0 and date.fromisoformat(row["start_date"][:10]).toordinal() <= t3_form_cutoff
     ][:5]
@@ -175,8 +177,9 @@ def index():
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN trainers t ON t.id = cs.trainer_id
-           WHERE date(cs.start_date) >= date('now') AND cs.status != 'Cancelled'
-           ORDER BY cs.start_date ASC LIMIT 6"""
+           WHERE date(cs.start_date) >= date(?) AND cs.status != 'Cancelled'
+           ORDER BY cs.start_date ASC LIMIT 6""",
+        (today_iso,),
     )
     # "Enrolled" duplicated the Enrolled Participants count shown on the
     # class page itself and wasn't the first thing worth knowing about an

@@ -6,7 +6,7 @@ from flask import (Blueprint, current_app, flash, g, jsonify, redirect, render_t
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, image_compress, namecard_ai, uploadutil
+from . import activity, db, image_compress, kl_timestamp, namecard_ai, uploadutil
 from .auth import admin_required, login_required
 from .csvutil import csv_response
 
@@ -93,7 +93,7 @@ def export():
     rows = (
         (l["name"], l["role"] or "", l["company_name"] or "", l["email"] or "", l["phone"] or "",
          l["status"], l["source"] or "", l["assigned_name"] or "", l["next_follow_up"] or "",
-         l["created_at"])
+         kl_timestamp(l["created_at"]))
         for l in leads
     )
     return csv_response(
