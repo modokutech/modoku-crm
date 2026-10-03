@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix119 — Trainers can remove a file they uploaded by mistake
+
+**Date:** 2026-10-03
+
+- Public "Submit Your Invoice" page (`trainer_invoice.py`, `templates/trainer_invoice/form.html`): each
+  file under "Already submitted" has a **Remove** button (with a "Remove <file>?" confirmation) and shows
+  when it was uploaded. Removing deletes the record and the file on disk, logs it, and sends the office
+  an in-app notification linking to the PO.
+- Only that class's files can be removed through its link, and only until a PO for the class is marked
+  **Paid**; after that the buttons are hidden and the page says to contact the office (staff can still
+  manage files from Modoku Hub).
+
+**Testing:** Flask test client: three uploads, the duplicate removed (record + disk), office notified
+with a PO link; another class's link can't remove it; after Paid, no buttons and removal refused.
+
 ## Fix118 — Email links always use https://hub.modoku.tech (never the VPS IP)
 
 **Date:** 2026-10-03

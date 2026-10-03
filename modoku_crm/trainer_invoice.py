@@ -20,7 +20,7 @@ import uuid
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
-from . import db, doc_sanity, mailer, notifications, uploadutil
+from . import activity, db, doc_sanity, mailer, notifications, uploadutil
 from . import settings as settings_module
 
 bp = Blueprint("trainer_invoice", __name__, url_prefix="/trainer-invoice")
@@ -54,6 +54,16 @@ def _find_session(token):
     )
 
 
+def _payment_made(session_id):
+    """Fix119: once a PO for this class is marked Paid, the submitted files
+    are the record of what was paid, so the trainer can no longer remove
+    them (staff still can)."""
+    return db.query(
+        "SELECT 1 FROM purchase_orders WHERE session_id = ? AND payment_status = 'Paid' LIMIT 1",
+        (session_id,), one=True,
+    ) is not None
+
+
 @bp.route("/<token>")
 def form(token):
     session_row = _find_session(token)
@@ -63,7 +73,44 @@ def form(token):
         "SELECT * FROM trainer_invoice_documents WHERE session_id = ? ORDER BY id",
         (session_row["id"],),
     )
-    return render_template("trainer_invoice/form.html", s=session_row, documents=documents, token=token)
+    return render_template("trainer_invoice/form.html", s=session_row, documents=documents, token=token,
+                            can_remove=not _payment_made(session_row["id"]))
+
+
+@bp.route("/<token>/documents/<int:doc_id>/remove", methods=("POST",))
+def remove_document(token, doc_id):
+    """Fix119: the trainer removes a file they uploaded by mistake (wrong
+    file, or the same one twice). Only this class's files, only before
+    payment; the office gets an in-app notification."""
+    session_row = _find_session(token)
+    if session_row is None:
+        return render_template("trainer_invoice/not_found.html")
+    doc = db.query("SELECT * FROM trainer_invoice_documents WHERE id = ? AND session_id = ?",
+                   (doc_id, session_row["id"]), one=True)
+    if doc is None:
+        flash("That file was already removed.", "info")
+        return redirect(url_for("trainer_invoice.form", token=token))
+    if _payment_made(session_row["id"]):
+        flash("Payment has already been made, so files can't be removed here. Please contact us.", "danger")
+        return redirect(url_for("trainer_invoice.form", token=token))
+    db.execute("DELETE FROM trainer_invoice_documents WHERE id = ?", (doc_id,))
+    try:
+        os.remove(os.path.join(_upload_dir(session_row["id"]), doc["filename"]))
+    except OSError:
+        pass  # already gone from disk; the record is what matters
+    activity.log("delete", "trainer_invoice_document", doc_id,
+                 f"Trainer removed {doc['original_name']} ({session_row['course_title']})")
+    po_row = db.query("SELECT id FROM purchase_orders WHERE session_id = ? ORDER BY id LIMIT 1",
+                      (session_row["id"],), one=True)
+    notifications.notify_admins(
+        "trainer_invoice_removed",
+        f"Trainer removed an invoice file - {session_row['course_title']}",
+        body=f"{doc['original_name']} was removed by the trainer.",
+        link=url_for("purchase_orders.view", po_id=po_row["id"]) if po_row
+        else url_for("sessions.view", session_id=session_row["id"]),
+    )
+    flash(f"Removed {doc['original_name']}.", "success")
+    return redirect(url_for("trainer_invoice.form", token=token))
 
 
 @bp.route("/<token>/submit", methods=("POST",))

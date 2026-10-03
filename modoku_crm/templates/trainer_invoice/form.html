@@ -24,9 +24,25 @@
       <p class="small fw-semibold mb-1">Already submitted</p>
       <ul class="list-unstyled small mb-0">
         {% for doc in documents %}
-        <li class="mb-1"><i class="bi bi-file-earmark-check text-success me-1"></i>{{ doc.original_name }}</li>
+        <li class="mb-1 d-flex align-items-center gap-2">
+          <span><i class="bi bi-file-earmark-check text-success me-1"></i>{{ doc.original_name }}
+            <span class="text-muted">· {{ doc.uploaded_at|fmtdatetime }}</span></span>
+          {% if can_remove %}
+          {# Fix119: remove a wrongly uploaded or duplicate file. #}
+          <form method="post" action="{{ url_for('trainer_invoice.remove_document', token=token, doc_id=doc.id) }}"
+                class="ms-auto" onsubmit="return confirm('Remove {{ doc.original_name|e }}?');">
+            {{ csrf_field()|safe }}
+            <button class="btn btn-sm btn-outline-danger py-0" type="submit"><i class="bi bi-x-lg me-1"></i>Remove</button>
+          </form>
+          {% endif %}
+        </li>
         {% endfor %}
       </ul>
+      {% if can_remove %}
+      <small class="text-muted d-block mt-1">Uploaded the wrong file, or the same one twice? Remove it, then upload the right one below.</small>
+      {% else %}
+      <small class="text-muted d-block mt-1">Payment has been made for this class, so these files can no longer be removed here. Contact us if something needs changing.</small>
+      {% endif %}
     </div>
     {% endif %}
 
