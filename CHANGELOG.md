@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix128 — Quotation form: SST tick box after the SST rate, Duration pre-filled from the Class
+
+**Date:** 2026-10-04
+
+- "This amount is SST included" now sits right after the SST Rate field (rate first, then the tick box),
+  with the Totals preview underneath.
+- Linking a Class pre-fills the item's Duration, e.g. "2 days": the Course's duration, or the Class's
+  date span when that's longer (a course left at 1 day but scheduled over 2). A half-day course reads
+  "0.5 day". Same rule as Fix125: only into an empty field, a typed duration is kept.
+- The pre-filled Investment Fee now shows 2 decimals (21,000.00, not 21,000.0).
+
 ## Fix127 — Quotation kept-fields note: "Course Fee" for the Investment Fee
 
 **Date:** 2026-10-04

@@ -509,10 +509,10 @@ def _linkable_sessions(include_id=None):
     that point. include_id keeps an already-linked class in the dropdown
     even if it has since moved past Proposed/Scheduled, so editing a
     quotation never silently drops its existing link."""
-    return db.query(
+    rows = db.query(
         """SELECT cs.id, cs.start_date, cs.end_date, cs.status, c.title AS course_title,
                   cs.client_company_id, cs.venue, pic.id AS pic_lead_id, pic.name AS pic_name,
-                  cs.capacity, cs.training_type, cs.training_time, c.price_inhouse
+                  cs.capacity, cs.training_type, cs.training_time, c.price_inhouse, c.duration_days
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
@@ -520,6 +520,27 @@ def _linkable_sessions(include_id=None):
            ORDER BY cs.start_date""",
         (include_id,),
     )
+    return [{**dict(r), "duration": _duration_label(r)} for r in rows]
+
+
+def _duration_label(session_row):
+    """Fix128: the item Duration a linked Class pre-fills, e.g. "2 days".
+    The Course's duration, unless the Class's own dates span more days
+    (a course left at the default 1 day but scheduled over 2), so a
+    half-day course still reads "0.5 day" rather than a whole day."""
+    course_days = session_row["duration_days"] or 0
+    class_days = 0
+    try:
+        start = datetime.strptime(session_row["start_date"], "%Y-%m-%d").date()
+        end = datetime.strptime(session_row["end_date"], "%Y-%m-%d").date() if session_row["end_date"] else start
+        class_days = max((end - start).days + 1, 1)
+    except (TypeError, ValueError):
+        pass
+    days = class_days if class_days > 1 and class_days > course_days else course_days
+    if not days:
+        return ""
+    days = int(days) if float(days).is_integer() else days
+    return f"{days} day" if days <= 1 else f"{days} days"
 
 
 def _leads_for_dropdown():
