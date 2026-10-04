@@ -113,7 +113,7 @@
   <div class="d-flex justify-content-end">
     <table class="table table-sm w-auto invoice-doc-totals">
       <tr><td class="text-muted">Sub-total</td><td class="text-end">{{ invoice.subtotal|fmtmoney }}</td></tr>
-      {% if invoice.sst_rate %}<tr><td class="text-muted">SST ({{ invoice.sst_rate }}%){% if invoice.sst_inclusive %} <span class="small">, amount inclusive</span>{% endif %}</td><td class="text-end">{{ invoice.sst_amount|fmtmoney }}</td></tr>{% endif %}
+      {% if invoice.sst_rate %}<tr><td class="text-muted">SST ({{ invoice.sst_rate|fmtrate }}%){% if invoice.sst_inclusive %}<span class="small">, amount inclusive</span>{% endif %}</td><td class="text-end">{{ invoice.sst_amount|fmtmoney }}</td></tr>{% endif %}
       {% set upfront = upfront_label(invoice) %}
       {% if upfront %}
       {% if invoice.sst_amount %}<tr><td class="text-muted">Total</td><td class="text-end">{{ (invoice.subtotal + invoice.sst_amount)|fmtmoney }}</td></tr>{% endif %}

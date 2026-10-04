@@ -115,7 +115,7 @@
           </tr>
           {% if q.sst_rate %}
           <tr>
-            <td colspan="7" class="text-end text-muted">SST ({{ q.sst_rate }}%){% if q.sst_inclusive %} <span class="small">, amount inclusive</span>{% endif %}</td>
+            <td colspan="7" class="text-end text-muted">SST ({{ q.sst_rate|fmtrate }}%){% if q.sst_inclusive %}<span class="small">, amount inclusive</span>{% endif %}</td>
             <td class="text-end">RM {{ sst_amount|fmtmoney }}</td>
           </tr>
           {% endif %}

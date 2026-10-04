@@ -248,6 +248,15 @@ def address_lines(address):
     return [line + "," for line in lines] + [tail if tail.endswith(".") else tail + "."]
 
 
+def fmtrate(value):
+    """Fix130: a percentage rate without a pointless trailing .0 - 8.0 -> '8',
+    6.5 -> '6.5' - for "SST (8%)" on invoices and quotations."""
+    try:
+        return f"{float(value):g}"
+    except (TypeError, ValueError):
+        return value or ""
+
+
 def fmtdays(value):
     """Renders a course duration as '1 day' / '2.5 days' — singular only
     for exactly 1, trailing '.0' dropped ('1.0' -> '1', '2.0' -> '2 days'),
@@ -295,6 +304,7 @@ def create_app(config_object="config.Config"):
     app.jinja_env.filters["linelist"] = linelist
     app.jinja_env.filters["fmtmoney"] = fmtmoney
     app.jinja_env.filters["fmtdays"] = fmtdays
+    app.jinja_env.filters["fmtrate"] = fmtrate
     # A global rather than a filter — it takes four separate columns, so
     # `fmtaddress(c.address, c.city, c.postcode, c.state)` reads better than
     # piping one of them through it.

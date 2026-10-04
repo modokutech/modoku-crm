@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix130 — SST label: no stray space before ", amount inclusive", no ".0" on the rate
+
+**Date:** 2026-10-04
+
+- Invoice and quotation pages showed "SST (8.0%) , amount inclusive". Now "SST (8%), amount inclusive".
+- New `fmtrate` helper/filter drops a trailing ".0" (8.0 -> 8, 6.5 stays 6.5); also used in the invoice
+  and quotation PDFs, which now read "SST (8%)".
+
 ## Fix129 — Quotation form: SST help text in a light grey box
 
 **Date:** 2026-10-04

@@ -15,6 +15,8 @@ from flask import current_app
 from markupsafe import escape
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from . import fmtrate
+
 
 # The certificate's signee — a fixed company signatory (not the logged-in
 # staff member who marked attendance), matching the reference design.
@@ -379,7 +381,7 @@ def _build_quotation_html(q, items, subtotal, title):
         sst_row = ""
         if sst_rate:
             sst_row = (
-                f"<tr><td colspan='7' style='text-align:right;border:none' class='muted'>SST ({sst_rate}%)</td>"
+                f"<tr><td colspan='7' style='text-align:right;border:none' class='muted'>SST ({fmtrate(sst_rate)}%)</td>"
                 f"<td style='text-align:right;border:none'>RM {sst_amount:,.2f}</td></tr>"
             )
         total_row = (
@@ -588,7 +590,7 @@ def _build_invoice_html(invoice, items):
         meta_middle += f"<div><strong>Employer</strong> &nbsp;{invoice['employer']}</div>"
 
     sst_row = (
-        f"<tr><td class='muted' style='border:none'>SST ({invoice['sst_rate']}%)</td>"
+        f"<tr><td class='muted' style='border:none'>SST ({fmtrate(invoice['sst_rate'])}%)</td>"
         f"<td style='border:none;text-align:right'>{invoice['sst_amount']:,.2f}</td></tr>"
     ) if invoice["sst_rate"] else ""
 
