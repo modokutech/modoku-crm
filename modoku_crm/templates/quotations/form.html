@@ -448,11 +448,18 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     }
     const note = document.getElementById('class_fill_note');
     if (note) {
+      // Programme and Investment Fee come from the Course (title, in-house
+      // price); everything else from the Class itself.
       const unique = kept.filter((v, i) => kept.indexOf(v) === i);
-      note.textContent = unique.length
-        ? 'Kept your existing ' + unique.join(', ') + ' (different from the Class). Change them by hand if needed.'
+      const fromCourse = unique.filter(v => v === 'Programme' || v === 'Investment Fee');
+      const fromClass = unique.filter(v => fromCourse.indexOf(v) === -1);
+      const parts = [];
+      if (fromClass.length) parts.push(fromClass.join(', ') + ' (different from the Class)');
+      if (fromCourse.length) parts.push(fromCourse.join(', ') + ' (different from the Course)');
+      note.textContent = parts.length
+        ? 'Kept your existing ' + parts.join(' and ') + '. Change ' + (unique.length === 1 ? 'it' : 'them') + ' by hand if needed.'
         : '';
-      note.style.display = unique.length ? '' : 'none';
+      note.style.display = parts.length ? '' : 'none';
     }
     // Venue comes from the linked Class too, same rule: only into an empty
     // (or still class-filled) field. fillIfFree fires 'input' so the Terms &

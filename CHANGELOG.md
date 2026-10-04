@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix126 — Quotation "Kept your existing…" note names the Course for the price
+
+**Date:** 2026-10-04
+
+- The Fix125 note under the Class dropdown said every kept field was "different from the Class", but
+  the Investment Fee (and Programme) come from the Course. It now splits them, e.g. "Kept your existing
+  Date, End Date (different from the Class) and Investment Fee (different from the Course)."
+- "Change it by hand" when only one field was kept, "them" otherwise.
+
 ## Fix125 — Quotation Edit no longer overwrites a quoted price with the course price
 
 **Date:** 2026-10-04
