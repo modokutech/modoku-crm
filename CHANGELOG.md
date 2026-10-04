@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix127 — Quotation kept-fields note: "Course Fee" for the Investment Fee
+
+**Date:** 2026-10-04
+
+- The note under the Class dropdown now names each source exactly: Investment Fee "(different from the
+  Course Fee)", Programme "(different from the Course)", dates/pax/time "(different from the Class)".
+
 ## Fix126 — Quotation "Kept your existing…" note names the Course for the price
 
 **Date:** 2026-10-04

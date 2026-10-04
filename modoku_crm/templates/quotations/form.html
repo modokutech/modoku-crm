@@ -448,16 +448,16 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     }
     const note = document.getElementById('class_fill_note');
     if (note) {
-      // Programme and Investment Fee come from the Course (title, in-house
-      // price); everything else from the Class itself.
+      // Investment Fee comes from the Course's in-house price, Programme
+      // from the Course title, everything else from the Class itself.
       const unique = kept.filter((v, i) => kept.indexOf(v) === i);
-      const fromCourse = unique.filter(v => v === 'Programme' || v === 'Investment Fee');
-      const fromClass = unique.filter(v => fromCourse.indexOf(v) === -1);
+      const fromClass = unique.filter(v => v !== 'Programme' && v !== 'Investment Fee');
       const parts = [];
       if (fromClass.length) parts.push(fromClass.join(', ') + ' (different from the Class)');
-      if (fromCourse.length) parts.push(fromCourse.join(', ') + ' (different from the Course)');
+      if (unique.indexOf('Programme') !== -1) parts.push('Programme (different from the Course)');
+      if (unique.indexOf('Investment Fee') !== -1) parts.push('Investment Fee (different from the Course Fee)');
       note.textContent = parts.length
-        ? 'Kept your existing ' + parts.join(' and ') + '. Change ' + (unique.length === 1 ? 'it' : 'them') + ' by hand if needed.'
+        ? 'Kept your existing ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]) + '. Change ' + (unique.length === 1 ? 'it' : 'them') + ' by hand if needed.'
         : '';
       note.style.display = parts.length ? '' : 'none';
     }
