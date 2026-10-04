@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix129 — Quotation form: SST help text in a light grey box
+
+**Date:** 2026-10-04
+
+- The "Tick this if the Investment Fees above are all-in prices…" help under "This amount is SST
+  included" now sits in a very light grey box with an info icon, so it reads as a note.
+
 ## Fix128 — Quotation form: SST tick box after the SST rate, Duration pre-filled from the Class
 
 **Date:** 2026-10-04

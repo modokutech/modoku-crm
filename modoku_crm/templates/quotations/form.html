@@ -200,9 +200,12 @@
           <input type="checkbox" class="form-check-input" id="sst_inclusive_check" name="sst_inclusive" value="1" {{ 'checked' if quotation and quotation.sst_inclusive }}>
           <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
         </div>
-        <small class="text-muted d-block">Tick this if the Investment Fees above are all-in prices (SST already
-          included). The sub-total and SST will be worked backwards from them so the total stays the same as what
-          you typed. Leave unticked to add SST on top instead.</small>
+        <div class="d-flex gap-2 mt-2 px-3 py-2 rounded small text-muted" style="background:#f8f9fb;border:1px solid #eef1f5;">
+          <i class="bi bi-info-circle mt-1"></i>
+          <span>Tick this if the Investment Fees above are all-in prices (SST already included). The sub-total
+            and SST will be worked backwards from them so the total stays the same as what you typed. Leave
+            unticked to add SST on top instead.</span>
+        </div>
       </div>
       <div class="col-12">
         <label class="form-label">Totals preview</label>
