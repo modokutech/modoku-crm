@@ -351,10 +351,9 @@ def _default_t3_form_email_body(session_row):
         return_url = url_for("attendance_return.lookup", _external=True)
     return (
         f"Hi {greeting_name or 'there'},\n\n"
-        "Attached is the printable T3 Attendance Form for this training, in case the client "
-        "isn't able to fill in the online version, please print this out, get it signed by "
-        "participants on the day, and send the signed copy back to us. You can upload via "
-        f"this link, no need to email it separately:\n{return_url}\n\n"
+        "Attached is the printable T3 Attendance Form for this training. Please print it out, "
+        "get it signed by participants on the day, and send the signed copy back to us. You can "
+        f"upload it via this link, no need to email it separately:\n{return_url}\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
         f"Time: {session_row['training_time'] or 'To be confirmed'}\n"

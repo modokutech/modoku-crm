@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix124 — T3 Attendance email to trainer: simpler wording
+
+**Date:** 2026-10-04
+
+- Dropped "in case the client isn't able to fill in the online version" from the default email body
+  and split the run-on sentence. It now reads: "Attached is the printable T3 Attendance Form for this
+  training. Please print it out, get it signed by participants on the day, and send the signed copy
+  back to us. You can upload it via this link, no need to email it separately:"
+
 ## Fix123 — Participant exports: choose CSV or Excel (.xlsx)
 
 **Date:** 2026-10-04
