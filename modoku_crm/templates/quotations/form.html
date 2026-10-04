@@ -21,6 +21,14 @@
   .pricing-suggestion-row:hover { background: #f0f7ff; }
 </style>
 
+{% if is_edit and signed_total is not none %}
+<div class="alert alert-warning" style="max-width:1140px;">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  <strong>The client has already accepted this quotation at RM {{ signed_total|fmtmoney }}.</strong>
+  Changing amounts here won't change what they signed. Fix typos only. For a different price, use
+  <strong>Revise</strong> to issue a new version.
+</div>
+{% endif %}
 <div class="card p-4" style="max-width:1140px;">
   <form method="post">
     {{ csrf_field()|safe }}
@@ -43,6 +51,7 @@
           </option>
           {% endfor %}
         </select>
+        <div id="class_fill_note" class="form-text text-warning-emphasis" style="display:none;"></div>
         <small class="text-muted" id="session_help">No suitable Class yet? <a href="{{ url_for('sessions.new') }}" target="_blank">Create one with status "Proposed"</a> first.</small>
       </div>
       <div class="col-md-6">
@@ -155,7 +164,7 @@
           </tr>
           {% endfor %}
           {% else %}
-          <tr>
+          <tr data-blank-row>
             <td class="row-no">1</td>
             <td><input type="text" name="item_programme" class="form-control form-control-sm" placeholder="Programme name"></td>
             <td><input type="number" min="1" name="item_pax" class="form-control form-control-sm" value="1"></td>
@@ -382,50 +391,74 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     }
   }
 
+  // Fix125: a value picked up from a Class only goes into a field that's
+  // empty or still holds what an earlier Class pick put there. Anything
+  // typed or saved by hand (above all a negotiated Investment Fee) is never
+  // overwritten - picking a Class on Edit used to silently replace the
+  // quoted fee with the course's list price.
+  function sameValue(a, b) {
+    const x = String(a == null ? '' : a).replace(/,/g, '').trim();
+    const y = String(b == null ? '' : b).replace(/,/g, '').trim();
+    if (x !== '' && y !== '' && !isNaN(Number(x)) && !isNaN(Number(y))) return Number(x) === Number(y);
+    return x === y;
+  }
+  function fillIfFree(el, value, kept, label) {
+    if (!el || value === undefined || value === null || value === '') return;
+    const cur = el.value;
+    const free = String(cur).trim() === '' || (el.dataset.autofill !== undefined && sameValue(cur, el.dataset.autofill));
+    if (free) {
+      el.value = value;
+      el.dataset.autofill = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (!sameValue(cur, value) && kept) {
+      kept.push(label);
+    }
+  }
+
+  // A fresh blank row's starting values (pax 1, fee 0, default training
+  // type) are placeholders, not something anyone typed, so a Class may fill them.
+  if (firstItemRow && firstItemRow.hasAttribute('data-blank-row')) {
+    firstItemRow.querySelectorAll('input, select').forEach(function (el) { el.dataset.autofill = el.value; });
+  }
+
   function applyClass(opt) {
+    const kept = [];
     if (opt && opt.dataset.courseTitle) {
-      courseTitleField.value = opt.dataset.courseTitle;
-      if (firstItemProgramme) firstItemProgramme.value = opt.dataset.courseTitle;
+      fillIfFree(courseTitleField, opt.dataset.courseTitle, null);
+      fillIfFree(firstItemProgramme, opt.dataset.courseTitle, kept, 'Programme');
     }
     // No. of Pax, Training Type, Date/End Date, Time, and Investment Fee
-    // are all pulled straight from the linked Class onto the first item
-    // row, pax from the class's capacity, training type as set on the
-    // class, date/time as scheduled, and the fee from the course's
-    // in-house rate (this is only ever an in-house/on-site engagement, so
-    // the in-house rate (not the public rate) is the right default).
-    // Still fully editable afterwards, same as Venue above.
+    // come from the linked Class onto the first item row: pax from the
+    // class's capacity, training type as set on the class, date/time as
+    // scheduled, and the fee from the course's in-house rate. Only into
+    // empty fields (see fillIfFree), and still editable afterwards.
     if (opt && firstItemRow) {
-      const pax = firstItemRow.querySelector('input[name="item_pax"]');
+      fillIfFree(firstItemRow.querySelector('input[name="item_pax"]'), opt.dataset.capacity, kept, 'No. of Pax');
       const trainingType = firstItemRow.querySelector('select[name="item_training_type"]');
-      const itemDate = firstItemRow.querySelector('input[name="item_date"]');
-      const itemDateEnd = firstItemRow.querySelector('input[name="item_date_end"]');
-      const timeStart = firstItemRow.querySelector('input[name="item_time_start"]');
-      const timeEnd = firstItemRow.querySelector('input[name="item_time_end"]');
-      const fee = firstItemRow.querySelector('input[name="item_fee"]');
-      if (pax && opt.dataset.capacity) pax.value = opt.dataset.capacity;
-      if (trainingType && opt.dataset.trainingType) {
-        const match = Array.from(trainingType.options).find(o => o.value === opt.dataset.trainingType);
-        if (match) trainingType.value = opt.dataset.trainingType;
+      if (trainingType && Array.from(trainingType.options).some(o => o.value === opt.dataset.trainingType)) {
+        fillIfFree(trainingType, opt.dataset.trainingType, kept, 'Training Type');
       }
-      if (itemDate) itemDate.value = opt.dataset.startDate || '';
-      if (itemDateEnd) itemDateEnd.value = opt.dataset.endDate || '';
-      if (timeStart) timeStart.value = opt.dataset.timeStart || '';
-      if (timeEnd) timeEnd.value = opt.dataset.timeEnd || '';
-      if (fee && opt.dataset.priceInhouse) {
-        fee.value = opt.dataset.priceInhouse;
-        fee.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
+      fillIfFree(firstItemRow.querySelector('input[name="item_date"]'), opt.dataset.startDate, kept, 'Date');
+      fillIfFree(firstItemRow.querySelector('input[name="item_date_end"]'), opt.dataset.endDate, kept, 'End Date');
+      fillIfFree(firstItemRow.querySelector('input[name="item_time_start"]'), opt.dataset.timeStart, kept, 'Time');
+      fillIfFree(firstItemRow.querySelector('input[name="item_time_end"]'), opt.dataset.timeEnd, kept, 'Time');
+      if (Number(opt.dataset.priceInhouse) > 0) {
+        fillIfFree(firstItemRow.querySelector('input[name="item_fee"]'), opt.dataset.priceInhouse, kept, 'Investment Fee');
       }
     }
-    // Venue is obtained from the linked Class (prefilled, still editable
-    // afterwards). When nothing is linked, it's simply left as whatever
-    // the user typed manually. Setting .value in JS doesn't fire an
-    // 'input' event on its own, so without the dispatch below the Terms &
-    // Conditions text (which listens for that event to swap in the real
-    // venue) would keep showing the literal "<venue>" placeholder until
-    // the user manually clicked into/edited the Venue field themselves.
+    const note = document.getElementById('class_fill_note');
+    if (note) {
+      const unique = kept.filter((v, i) => kept.indexOf(v) === i);
+      note.textContent = unique.length
+        ? 'Kept your existing ' + unique.join(', ') + ' (different from the Class). Change them by hand if needed.'
+        : '';
+      note.style.display = unique.length ? '' : 'none';
+    }
+    // Venue comes from the linked Class too, same rule: only into an empty
+    // (or still class-filled) field. fillIfFree fires 'input' so the Terms &
+    // Conditions text swaps the "<venue>" placeholder for the real venue.
     if (opt) {
-      venueField.value = opt.dataset.venue || '';
-      venueField.dispatchEvent(new Event('input', { bubbles: true }));
+      fillIfFree(venueField, opt.dataset.venue, null);
     }
     const companyId = opt ? opt.dataset.clientCompanyId : '';
     if (companyId) {

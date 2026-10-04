@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix125 — Quotation Edit no longer overwrites a quoted price with the course price
+
+**Date:** 2026-10-04
+
+- Bug: on a quotation's Edit page, picking a Class in the "Class" dropdown replaced the first item's
+  Investment Fee with the course's in-house price (plus pax, dates, time, programme, venue), with no
+  warning. Linking a signed RM 22,500 quotation to its class after the fact saved it as RM 21,000.
+- Picking a Class now only fills fields that are empty (or still hold what an earlier Class pick put
+  there). Anything typed or saved stays, and a note under the dropdown says what was kept. A new
+  quotation's blank row still fills from the Class as before.
+- Edit page of an Accepted/signed quotation shows a warning with the total the client accepted.
+- Saving a signed quotation with a different total flashes a warning, and every quotation save that
+  changes the total is logged in the Activity Log as "total changed from RM X to RM Y".
+
 ## Fix124 — T3 Attendance email to trainer: simpler wording
 
 **Date:** 2026-10-04

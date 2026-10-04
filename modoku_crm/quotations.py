@@ -9,7 +9,7 @@ from flask import (Blueprint, Response, current_app, flash, g, jsonify, redirect
 from werkzeug.utils import secure_filename
 
 from . import activity, db, doc_sanity, mailer, notifications, uploadutil
-from . import fmtdaterange, parse_money
+from . import fmtdaterange, fmtmoney, parse_money
 from . import sessions as _sessions
 from . import settings as settings_module
 from .csvutil import csv_response
@@ -843,6 +843,16 @@ def download(quotation_id):
     )
 
 
+def _signed_total(q):
+    """Fix125: the grand total currently on a quotation the client has
+    already accepted/signed (None otherwise) - shown as a warning on the
+    Edit page, since changing amounts there doesn't change what they signed."""
+    if not (q["status"] == "Accepted" or q["signed_file"]):
+        return None
+    items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (q["id"],))
+    return _totals(items, q["sst_rate"], q["sst_inclusive"])[2]
+
+
 @bp.route("/<int:quotation_id>/edit", methods=("GET", "POST"))
 @login_required
 def edit(quotation_id):
@@ -864,7 +874,7 @@ def edit(quotation_id):
                 today=fields["quote_date"], default_valid_until=fields["valid_until"], preselect_company=None,
                 default_terms=fields["terms"], items=_items_from_form(request.form),
                 linkable_sessions=_linkable_sessions(q["session_id"]), leads=_leads_for_dropdown(),
-                preselect_session=None,
+                preselect_session=None, signed_total=_signed_total(q),
             )
         db.execute(
             """UPDATE quotations SET client_company_id=?, session_id=?, attention_to=?, company_name_override=?,
@@ -880,10 +890,23 @@ def edit(quotation_id):
                 fields["sst_rate"], fields["sst_inclusive"], fields["status"], fields["notes"], quotation_id,
             ),
         )
+        old_items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
+        old_total = _totals(old_items, q["sst_rate"], q["sst_inclusive"])[2]
         db.execute("DELETE FROM quotation_items WHERE quotation_id = ?", (quotation_id,))
         _save_items(quotation_id, request.form)
-        activity.log("update", "quotation", quotation_id, f"Updated quotation {q['quote_no']}")
+        new_items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
+        new_total = _totals(new_items, fields["sst_rate"], fields["sst_inclusive"])[2]
+        # Fix125: every amount change is in the Activity Log with old -> new,
+        # so a price that moves is always traceable to who changed it and when.
+        detail = ""
+        if round(old_total, 2) != round(new_total, 2):
+            detail = f" - total changed from RM {fmtmoney(old_total)} to RM {fmtmoney(new_total)}"
+        activity.log("update", "quotation", quotation_id, f"Updated quotation {q['quote_no']}{detail}")
         flash("Quotation updated.", "success")
+        if detail and (q["status"] == "Accepted" or q["signed_file"]):
+            flash(f"Heads up: the client signed this quotation at RM {fmtmoney(old_total)}. The total is now "
+                  f"RM {fmtmoney(new_total)}, which isn't what they signed. Use Revise if this is a new offer.",
+                  "warning")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
     items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
@@ -893,7 +916,7 @@ def edit(quotation_id):
         today=q["quote_date"], default_valid_until=q["valid_until"], preselect_company=None,
         default_terms=q["terms"], items=items, linkable_sessions=_linkable_sessions(q["session_id"]),
         leads=_leads_for_dropdown(),
-        preselect_session=None,
+        preselect_session=None, signed_total=_signed_total(q),
     )
 
 
