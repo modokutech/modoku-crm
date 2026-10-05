@@ -219,13 +219,15 @@ def index():
     if direction not in ("asc", "desc"):
         direction = "desc"
 
+    # Fix132: a class that isn't HRDCorp claimable has no JD14 to do, so it's
+    # left off this list unless it already has JD14 paperwork.
     sql = """SELECT cs.id, cs.start_date, cs.end_date, cs.status, cs.jd14_file, c.title AS course_title,
                     co.name AS client_name, jf.signed_at, jf.sent_at, jf.id AS jd14_forms_id
              FROM course_sessions cs
              JOIN courses c ON c.id = cs.course_id
              LEFT JOIN companies co ON co.id = cs.client_company_id
              LEFT JOIN jd14_forms jf ON jf.session_id = cs.id
-             WHERE 1=1"""
+             WHERE (COALESCE(cs.hrdcorp_claimable, 1) = 1 OR cs.jd14_file IS NOT NULL OR jf.id IS NOT NULL)"""
     args = []
     if q:
         sql += " AND (c.title LIKE ? OR co.name LIKE ? OR cs.venue LIKE ?)"

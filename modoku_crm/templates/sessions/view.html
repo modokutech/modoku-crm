@@ -107,8 +107,8 @@
       {% if s.notes %}<hr><p class="small mb-0">{{ s.notes }}</p>{% endif %}
     </div>
 
-{# Fix131: only an HRDCorp-claimable class needs the grant documents pack. #}
-{% if s.hrdcorp_claimable %}
+{# Fix131: only an HRDCorp-claimable class needs the grant documents pack (kept visible if any was already sent/uploaded). #}
+{% if s.hrdcorp_claimable or s.grant_docs_sent_at or s.grant_quotation_file %}
 <div class="card p-3 mt-3">
       <h6>HRDCorp Grant Documents</h6>
       <p class="small text-muted mb-2">The 4 documents a client needs for their HRDCorp grant application. Three are pulled automatically from the Course and Trainer modules; the Quotation is uploaded here.</p>
@@ -326,6 +326,8 @@
       </a>
       {% endif %}
     </div>
+    {# Fix132: JD14 is the HRDCorp SBL-Khas claim form, so only for a claimable class (or one that already has JD14 paperwork). #}
+    {% if s.hrdcorp_claimable or s.jd14_file or s.jd14_sent_at %}
         <div class="card p-3 mt-3">
         <h6>Prepare JD14 Form</h6>
         <p class="small text-muted mb-2">Fill in our part of the HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14), get it signed and stamped, and send it to the client to countersign.</p>
@@ -411,6 +413,7 @@
         </form>
         {% endif %}
     </div>
+    {% endif %}
     <div class="card p-3 mt-3">
         <h6>Training Report</h6>
         {% if full_report %}

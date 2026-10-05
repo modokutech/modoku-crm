@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix132 — JD14 hidden for non-HRDCorp classes; Edit Class now saves the exam fields
+
+**Date:** 2026-10-05
+
+- A class with HRDCorp claimable switched off no longer shows the Prepare JD14 / Signed JD14 sections
+  on its page, and is left off the JD14 Forms list.
+- Both the JD14 and HRDCorp Grant Documents sections stay visible if the class already has paperwork
+  on file (a JD14 sent/uploaded, grant documents sent or the grant quotation uploaded), so switching
+  the flag off never hides something already done.
+- Bug: Edit Class ignored "This training has an exam" and the exam participant count (only New Class
+  saved them). Edit now saves both, and unticking clears the count.
+
 ## Fix131 — HRDCorp claimable per class; "(Public Training)" on Enrolled Participants
 
 **Date:** 2026-10-05

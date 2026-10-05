@@ -1292,11 +1292,17 @@ def edit(session_id):
             laptop_rental_qty = request.form.get("laptop_rental_qty") or None
             if not requires_laptop_rental:
                 laptop_rental_qty = None
+            # Fix132: Edit used to ignore the exam fields (only New Class saved them).
+            has_exam = 1 if request.form.get("has_exam") else 0
+            exam_participants = request.form.get("exam_participants") or None
+            if not has_exam:
+                exam_participants = None
             db.execute(
                 """UPDATE course_sessions SET course_id=?, trainer_id=?, client_company_id=?, pic_lead_id=?,
                        venue=?, start_date=?, end_date=?, training_time=?, training_type=?,
                        training_mode=?, meeting_link=?, capacity=?, status=?, notes=?, evaluation_form_link=?,
-                       requires_laptop_rental=?, laptop_rental_qty=?, room_setup=?, hrdcorp_claimable=?
+                       requires_laptop_rental=?, laptop_rental_qty=?, has_exam=?, exam_participants=?,
+                       room_setup=?, hrdcorp_claimable=?
                    WHERE id=?""",
                 (
                     course_id,
@@ -1321,6 +1327,8 @@ def edit(session_id):
                     session_row["evaluation_form_link"],
                     requires_laptop_rental,
                     laptop_rental_qty,
+                    has_exam,
+                    exam_participants,
                     request.form.get("room_setup") or None,
                     1 if request.form.get("hrdcorp_claimable") else 0,
                     session_id,
