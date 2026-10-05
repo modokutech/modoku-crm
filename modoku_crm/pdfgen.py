@@ -555,7 +555,8 @@ def _build_invoice_html(invoice, items):
             # values line up, and a long venue wraps under its own value
             # rather than back under the label. Fix100: weight 500, one
             # lighter than the 600 description above.
-            details = [("Programme", item["description"])]
+            # Fix135: no Programme line, it only repeated the description.
+            details = []
             if item["item_date"]:
                 details.append(("Date", _fmtdaterange(item["item_date"], item["item_date_end"])))
             details.append(("Pax", f"{_fmt_qty(item['quantity'])} pax"))

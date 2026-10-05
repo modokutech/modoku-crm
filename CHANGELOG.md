@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix135 — Invoice: drop the repeated "Programme:" line under each item
+
+**Date:** 2026-10-05
+
+- The detail block under a training line item no longer starts with "Programme: <description>", which
+  only repeated the bold description right above it. Date, Pax and Venue stay. Invoice page and PDF.
+
 ## Fix134 — Edit invoices; Attention To (PIC) on invoices
 
 **Date:** 2026-10-05
