@@ -168,7 +168,8 @@ def _default_invoice_email_body(invoice, pic=None):
         f"{project_line}"
         f"Amount due: {invoice['currency']} {invoice['total']:,.2f}\n"
         f"Due date: {fmtdate(invoice['due_date'])}\n\n"
-        "Kindly arrange payment by the due date above. Do let us know if you have any questions.\n\n"
+        "We would appreciate payment by the due date. If you have any questions, please feel free to "
+        "contact us at hello@modoku.tech.\n\n"
         "Thank you."
     )
 

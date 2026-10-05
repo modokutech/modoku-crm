@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix137 — Invoice email: friendlier closing, points to hello@modoku.tech
+
+**Date:** 2026-10-05
+
+- Default invoice email closing was "Kindly arrange payment by the due date above. Do let us know if
+  you have any questions." (which clashed with the footer's "Please do not reply"). Now: "We would
+  appreciate payment by the due date. If you have any questions, please feel free to contact us at
+  hello@modoku.tech."
+
 ## Fix136 — Invoice: Date/Pax/Venue lines in Regular (400) instead of Medium (500)
 
 **Date:** 2026-10-05
