@@ -1514,6 +1514,11 @@ def send_grant_documents_email(session_id):
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
+    # Fix133: this email asks the client for their HRDCorp Grant ID, so it
+    # never goes out for a class that isn't HRDCorp claimable.
+    if not session_row["hrdcorp_claimable"]:
+        flash("This class isn't HRDCorp claimable, so the Grant Documents email wasn't sent.", "warning")
+        return redirect(url_for("sessions.view", session_id=session_id))
 
     to_email = (request.form.get("to_email") or session_row["pic_email"] or session_row["client_email"] or "").strip()
     if not to_email:

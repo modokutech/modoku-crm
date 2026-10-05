@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix133 — No Grant ID request for non-HRDCorp classes
+
+**Date:** 2026-10-05
+
+- The HRDCorp Grant Documents email (the one with the link asking the client for their Grant ID) can't
+  be sent for a class with HRDCorp claimable switched off. Where the section still shows because
+  paperwork is on file, the Send/Resend form is replaced by a short note, and the send route refuses
+  it server-side too.
+
 ## Fix132 — JD14 hidden for non-HRDCorp classes; Edit Class now saves the exam fields
 
 **Date:** 2026-10-05

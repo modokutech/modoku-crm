@@ -169,6 +169,10 @@
       {% if s.grant_docs_sent_at %}
       <p class="small text-success mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.grant_docs_sent_to }} on {{ s.grant_docs_sent_at|fmtdatetime }}.</p>
       {% endif %}
+      {% if not s.hrdcorp_claimable %}
+      {# Fix133: no Grant ID request for a class that isn't HRDCorp claimable. #}
+      <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>This class isn't HRDCorp claimable, so the Grant Documents email (which asks the client for their Grant ID) can't be sent. Switch HRDCorp claimable back on in Edit Class if that's wrong.</p>
+      {% else %}
       <p class="small text-muted mb-2">Sending is always manual. This never fires on its own.</p>
       {% if s.grant_docs_sent_at %}
       <button class="btn btn-sm btn-outline-secondary w-100 mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#grantDocsEmailForm">
@@ -201,6 +205,7 @@
           <button class="btn btn-sm btn-outline-success w-100" type="submit" {{ 'disabled' if not all_grant_docs_present }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.grant_docs_sent_at else 'Send' }} Grant Documents to Client</button>
         </form>
       </div>
+      {% endif %}
     </div>
 {% endif %}
 
