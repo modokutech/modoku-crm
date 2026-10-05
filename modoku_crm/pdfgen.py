@@ -564,7 +564,7 @@ def _build_invoice_html(invoice, items):
                 details.append(("Venue", item["venue"]))
             cell = "border:none;padding:2px 0;vertical-align:top;font-size:12px"
             sub_detail = (
-                "<table style='width:100%;margin:6px 0 0;border:none;color:#444;font-weight:500'>"
+                "<table style='width:100%;margin:6px 0 0;border:none;color:#444;font-weight:400'>"
                 + "".join(
                     f"<tr style='border:none'><td style='{cell};width:96px;white-space:nowrap'>{label}:</td>"
                     f"<td style='{cell}'>{value}</td></tr>"

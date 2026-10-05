@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix136 — Invoice: Date/Pax/Venue lines in Regular (400) instead of Medium (500)
+
+**Date:** 2026-10-05
+
+- The detail lines under each invoice item are one weight lighter, Poppins Regular 400 (was Medium
+  500 since Fix100), on both the invoice page and the PDF.
+
 ## Fix135 — Invoice: drop the repeated "Programme:" line under each item
 
 **Date:** 2026-10-05

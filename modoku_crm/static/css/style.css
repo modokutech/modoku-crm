@@ -498,7 +498,7 @@ body {
 .invoice-doc-subrow td {
   padding-top: 0;
   padding-bottom: 0.75rem;
-  font-weight: 500;  /* Fix100: Medium, matching the PDF */
+  font-weight: 400;  /* Fix136: Regular (was Medium 500), matching the PDF */
 }
 /* Scoped under the subrow so the subrow cell's own padding-bottom (above)
    doesn't also land on every details row. */
