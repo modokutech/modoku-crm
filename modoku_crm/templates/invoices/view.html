@@ -14,6 +14,7 @@
       </select>
       <button class="btn btn-sm btn-outline-secondary">Update</button>
     </form>
+    <a href="{{ url_for('invoices.edit', invoice_id=invoice.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit</a>
     <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">Print / PDF</button>
     <a href="{{ url_for('invoices.download', invoice_id=invoice.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download me-1"></i>Download</a>
     <form method="post" action="{{ url_for('invoices.delete', invoice_id=invoice.id) }}" onsubmit="return confirm('Delete this invoice?');">
@@ -56,6 +57,7 @@
     <div class="col-md-4 pe-md-4">
       <div class="small fw-bold" style="color:var(--brand)">Billed To</div>
       <div class="fw-semibold">{{ invoice.bill_to_name }}</div>
+      {% if invoice.attention_to %}<div class="small">Attn: {{ invoice.attention_to }}</div>{% endif %}
       <div class="small">{% for line in address_lines(invoice.bill_to_address or fmtaddress(invoice.company_address,
               invoice.company_city, invoice.company_postcode, invoice.company_state)) %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
       {% if invoice.sst_reg_no %}<div class="small">SST Reg. No: {{ invoice.sst_reg_no }}</div>{% endif %}

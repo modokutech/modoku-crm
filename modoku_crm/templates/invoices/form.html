@@ -1,7 +1,14 @@
 {% extends "base.html" %}
-{% block title %}New Invoice{% endblock %}
+{% block title %}{{ 'Edit' if invoice else 'New' }} Invoice{% endblock %}
 {% block content %}
-<div class="page-header"><h4 class="mb-0">New Invoice <span class="text-muted small">({{ next_invoice_no }})</span></h4></div>
+{% set inv = invoice or {} %}
+<div class="page-header"><h4 class="mb-0">{{ 'Edit Invoice' if invoice else 'New Invoice' }} <span class="text-muted small">({{ next_invoice_no }})</span></h4></div>
+{% if invoice and invoice.sent_at %}
+<div class="alert alert-warning">
+  <i class="bi bi-exclamation-triangle me-1"></i>This invoice was emailed to {{ invoice.sent_to_email }} on
+  {{ invoice.sent_at|fmtdatetime }}. After saving, resend it so the client has the updated copy.
+</div>
+{% endif %}
 <div class="card p-4">
   <form method="post" id="invoice-form">
     {{ csrf_field()|safe }}
@@ -19,6 +26,7 @@
             data-date="{{ s.start_date or '' }}"
             data-date-end="{{ s.end_date or '' }}"
             data-grant-id="{{ s.hrdcorp_grant_id or '' }}"
+            data-pic-name="{{ s.pic_name or '' }}"
             data-price="{{ s.course_price }}">
             {{ s.course_title }} · {{ s.start_date|fmtdate }}{% if s.client_name %} ({{ s.client_name }}){% endif %}
           </option>
@@ -31,10 +39,11 @@
           <option value="">Walk-in / individual</option>
           <option value="" data-name="Pembangunan Sumber Manusia Berhad"
                   data-address="Wisma HRD Corp, Jalan Beringin, Damansara Heights, 50490 Kuala Lumpur"
-                  data-sst="" data-tin="">HRDCorp</option>
+                  data-sst="" data-tin=""
+                  {{ 'selected' if invoice and not inv.company_id and inv.bill_to_name == 'Pembangunan Sumber Manusia Berhad' }}>HRDCorp</option>
           <option disabled>──────────</option>
           {% for c in companies %}
-          <option value="{{ c.id }}"
+          <option value="{{ c.id }}" {{ 'selected' if invoice and inv.company_id == c.id }}
             data-address="{{ fmtaddress(c.address, c.city, c.postcode, c.state) }}"
             data-sst="{{ c.sst_reg_no or '' }}" data-tin="{{ c.tin or '' }}" data-name="{{ c.name }}">
             {{ c.name }}
@@ -45,45 +54,52 @@
       <div class="col-md-6">
         <label class="form-label">Status</label>
         <select name="status" class="form-select">
-          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s=='Draft' }}>{{ s }}</option>{% endfor %}
+          {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == (inv.status or 'Draft') }}>{{ s }}</option>{% endfor %}
         </select>
       </div>
       <div class="col-md-6">
         <label class="form-label">Bill to name *</label>
-        <input type="text" id="bill_to_name" name="bill_to_name" class="form-control" required>
+        <input type="text" id="bill_to_name" name="bill_to_name" class="form-control" required value="{{ inv.bill_to_name or '' }}">
       </div>
       <div class="col-md-6">
+        <label class="form-label">Attention To (PIC)</label>
+        <input type="text" id="attention_to" name="attention_to" class="form-control" list="pic_suggestions"
+               value="{{ inv.attention_to or '' }}" placeholder="e.g. Nurfaten Umyra Binti Jamdan">
+        <datalist id="pic_suggestions"></datalist>
+        <small class="text-muted">Shown as "Attn:" under the Billed To name. Filled from the class's PIC.</small>
+      </div>
+      <div class="col-12">
         <label class="form-label">Bill to address</label>
-        <input type="text" id="bill_to_address" name="bill_to_address" class="form-control">
+        <input type="text" id="bill_to_address" name="bill_to_address" class="form-control" value="{{ inv.bill_to_address or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Project / Programme Title <span class="text-muted small fw-normal">(optional)</span></label>
-        <input type="text" id="project_title" name="project_title" class="form-control" placeholder="e.g. Making an Effective PowerPoint Presentation">
+        <input type="text" id="project_title" name="project_title" class="form-control" placeholder="e.g. Making an Effective PowerPoint Presentation" value="{{ inv.project_title or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Employer</label>
-        <input type="text" name="employer" class="form-control">
+        <input type="text" name="employer" class="form-control" value="{{ inv.employer or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Grant ID</label>
-        <input type="text" name="grant_id" id="grant_id" class="form-control">
+        <input type="text" name="grant_id" id="grant_id" class="form-control" value="{{ inv.grant_id or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Invoice date</label>
-        <input type="date" name="invoice_date" class="form-control" value="{{ today }}">
+        <input type="date" name="invoice_date" class="form-control" value="{{ inv.invoice_date or today }}">
         <small class="text-muted">Due date is set automatically to 30 days after this date.</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Currency</label>
-        <input type="text" name="currency" class="form-control" value="RM">
+        <input type="text" name="currency" class="form-control" value="{{ inv.currency or 'RM' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">SST Registration No. (buyer)</label>
-        <input type="text" id="sst_reg_no" name="sst_reg_no" class="form-control">
+        <input type="text" id="sst_reg_no" name="sst_reg_no" class="form-control" value="{{ inv.sst_reg_no or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Buyer TIN (LHDN e-Invoice)</label>
-        <input type="text" id="buyer_tin" name="buyer_tin" class="form-control">
+        <input type="text" id="buyer_tin" name="buyer_tin" class="form-control" value="{{ inv.buyer_tin or '' }}">
       </div>
     </div>
 
@@ -99,29 +115,31 @@
           <th>No. of Pax</th><th style="width:11%">Duration</th><th>Unit price (RM)</th><th></th>
         </tr></thead>
         <tbody>
+          {% for it in (items or [{}]) %}
           <tr>
-            <td><input type="text" name="item_description" class="form-control form-control-sm" placeholder="e.g. Training"></td>
+            <td><input type="text" name="item_description" class="form-control form-control-sm" placeholder="e.g. Training" value="{{ it.description or '' }}"></td>
             <td>
               <select name="item_enrollment_id" class="form-select form-select-sm">
                 <option value="">—</option>
                 {% for e in open_enrollments %}
-                <option value="{{ e.id }}" data-desc="{{ e.course_title }} · {{ e.participant_name }}" data-price="{{ e.amount }}">{{ e.course_title }} · {{ e.participant_name }}</option>
+                <option value="{{ e.id }}" data-desc="{{ e.course_title }} · {{ e.participant_name }}" data-price="{{ e.amount }}" {{ 'selected' if it.enrollment_id == e.id }}>{{ e.course_title }} · {{ e.participant_name }}</option>
                 {% endfor %}
               </select>
             </td>
-            <td><input type="text" name="item_venue" class="form-control form-control-sm"></td>
-            <td><input type="date" name="item_date" class="form-control form-control-sm"></td>
-            <td><input type="date" name="item_date_end" class="form-control form-control-sm"></td>
-            <td><input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm" value="1"></td>
+            <td><input type="text" name="item_venue" class="form-control form-control-sm" value="{{ it.venue or '' }}"></td>
+            <td><input type="date" name="item_date" class="form-control form-control-sm" value="{{ it.item_date or '' }}"></td>
+            <td><input type="date" name="item_date_end" class="form-control form-control-sm" value="{{ it.item_date_end or '' }}"></td>
+            <td><input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm" value="{{ (it.quantity|fmtrate) if it.quantity is defined and it.quantity is not none else 1 }}"></td>
             <td>
               <div class="input-group input-group-sm">
-                <input type="number" step="1" min="0" name="item_duration" class="form-control" value="1">
+                <input type="number" step="any" min="0" name="item_duration" class="form-control" value="{{ (it.duration_days|fmtrate) if it.duration_days is defined and it.duration_days is not none else 1 }}">
                 <span class="input-group-text">day(s)</span>
               </div>
             </td>
-            <td><input type="number" step="0.01" min="0" name="item_unit_price" data-money class="form-control form-control-sm" value="0"></td>
+            <td><input type="number" step="0.01" min="0" name="item_unit_price" data-money class="form-control form-control-sm" value="{{ '%.2f'|format(it.unit_price) if it.unit_price is defined and it.unit_price is not none else 0 }}"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
           </tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>
@@ -131,7 +149,7 @@
     <div class="row g-3">
       <div class="col-12">
         <div class="form-check">
-          <input type="checkbox" class="form-check-input" id="sst_inclusive_check" name="sst_inclusive" value="1">
+          <input type="checkbox" class="form-check-input" id="sst_inclusive_check" name="sst_inclusive" value="1" {{ 'checked' if inv.sst_inclusive }}>
           <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
         </div>
         <small class="text-muted d-block mb-2">Tick this if the unit prices below are all-in prices (SST already
@@ -140,7 +158,7 @@
       </div>
       <div class="col-md-3">
         <label class="form-label">SST Rate (%)</label>
-        <input type="number" step="0.01" min="0" name="sst_rate" id="sst_rate_field" class="form-control" value="0">
+        <input type="number" step="0.01" min="0" name="sst_rate" id="sst_rate_field" class="form-control" value="{{ (inv.sst_rate|fmtrate) if inv.sst_rate else 0 }}">
       </div>
       <div class="col-md-9">
         <label class="form-label">Totals preview</label>
@@ -155,21 +173,21 @@
       {# Fix114: an upfront payment already received, deducted from the total (after SST). #}
       <div class="col-12">
         <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="upfront_enabled" value="1" id="upfront_enabled">
+          <input class="form-check-input" type="checkbox" name="upfront_enabled" value="1" id="upfront_enabled" {{ 'checked' if inv.upfront_type }}>
           <label class="form-check-label" for="upfront_enabled">Deduct an upfront payment already received</label>
         </div>
         <div id="upfront_fields" class="d-flex flex-wrap align-items-center gap-3 mt-2" hidden>
           <div class="form-check form-check-inline me-0">
-            <input class="form-check-input" type="radio" name="upfront_type" value="percent" id="upfront_percent" checked>
+            <input class="form-check-input" type="radio" name="upfront_type" value="percent" id="upfront_percent" {{ 'checked' if inv.upfront_type != 'fixed' }}>
             <label class="form-check-label" for="upfront_percent">Percentage</label>
           </div>
           <div class="form-check form-check-inline me-0">
-            <input class="form-check-input" type="radio" name="upfront_type" value="fixed" id="upfront_fixed">
+            <input class="form-check-input" type="radio" name="upfront_type" value="fixed" id="upfront_fixed" {{ 'checked' if inv.upfront_type == 'fixed' }}>
             <label class="form-check-label" for="upfront_fixed">Fixed amount</label>
           </div>
           <div class="input-group" style="max-width:220px">
             <span class="input-group-text" id="upfront_prefix" hidden>RM</span>
-            <input type="text" inputmode="decimal" name="upfront_value" id="upfront_value" data-money class="form-control" placeholder="e.g. 30">
+            <input type="text" inputmode="decimal" name="upfront_value" id="upfront_value" data-money class="form-control" placeholder="e.g. 30" value="{{ (inv.upfront_value|fmtrate) if inv.upfront_value else '' }}">
             <span class="input-group-text" id="upfront_suffix">%</span>
           </div>
           <small class="text-muted w-100">Taken off the total after SST. The invoice then asks for the balance.</small>
@@ -177,57 +195,91 @@
       </div>
       <div class="col-12">
         <label class="form-label">Notes</label>
-        <textarea name="notes" class="form-control" rows="1"></textarea>
+        <textarea name="notes" class="form-control" rows="1">{{ inv.notes or '' }}</textarea>
       </div>
     </div>
 
     <div class="mt-4 d-flex gap-2">
       <button class="btn btn-success" type="submit">Save Invoice</button>
-      <a href="{{ url_for('invoices.index') }}" class="btn btn-outline-secondary">Cancel</a>
+      <a href="{{ url_for('invoices.view', invoice_id=invoice.id) if invoice else url_for('invoices.index') }}" class="btn btn-outline-secondary">Cancel</a>
     </div>
   </form>
 </div>
 
 <script src="{{ url_for('static', filename='js/money-input.js') }}"></script>
 <script>
+// Fix134: on Edit, nothing already saved is overwritten by picking a class
+// (same rule as quotations, Fix125): a class only fills fields that are
+// empty, or still at a blank row's 0/1 starting value.
+const IS_EDIT = {{ 'true' if invoice else 'false' }};
+function setField(el, value, blankValues) {
+  if (!el) return false;
+  const cur = String(el.value || '').replace(/,/g, '').trim();
+  const isBlank = cur === '' || (blankValues || []).indexOf(cur) !== -1 || Number(cur) === 0 && (blankValues || []).indexOf('0') !== -1;
+  if (IS_EDIT && !isBlank) return false;
+  el.value = value;
+  return true;
+}
+
+// Fix134: Attention To suggestions are the selected client's PICs.
+const LEADS = {{ leads|tojson }};
+function refreshPicSuggestions() {
+  const companyId = document.getElementById('company_id').value;
+  const list = document.getElementById('pic_suggestions');
+  list.innerHTML = '';
+  LEADS.filter(l => companyId && String(l.company_id) === companyId).forEach(function (l) {
+    const o = document.createElement('option');
+    o.value = l.name;
+    list.appendChild(o);
+  });
+}
+
 document.getElementById('company_id').addEventListener('change', function () {
   const opt = this.options[this.selectedIndex];
   document.getElementById('bill_to_name').value = opt.dataset.name || '';
   document.getElementById('bill_to_address').value = opt.dataset.address || '';
   document.getElementById('sst_reg_no').value = opt.dataset.sst || '';
   document.getElementById('buyer_tin').value = opt.dataset.tin || '';
+  refreshPicSuggestions();
 });
+refreshPicSuggestions();
 
 function fillFromClass() {
   const sel = document.getElementById('session_id');
   const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) { return; }
 
-  if (opt.dataset.companyId) {
-    const companySelect = document.getElementById('company_id');
-    companySelect.value = opt.dataset.companyId;
-    companySelect.dispatchEvent(new Event('change'));
-  } else if (opt.dataset.clientName) {
-    document.getElementById('bill_to_name').value = opt.dataset.clientName;
+  if (!IS_EDIT) {
+    if (opt.dataset.companyId) {
+      const companySelect = document.getElementById('company_id');
+      companySelect.value = opt.dataset.companyId;
+      companySelect.dispatchEvent(new Event('change'));
+    } else if (opt.dataset.clientName) {
+      document.getElementById('bill_to_name').value = opt.dataset.clientName;
+    }
   }
-  document.getElementById('project_title').value = opt.dataset.courseTitle || '';
+  setField(document.getElementById('attention_to'), opt.dataset.picName || '');
+  setField(document.getElementById('project_title'), opt.dataset.courseTitle || '');
   // Fix115: the class's HRDCorp Grant ID; blank when it has none.
-  document.getElementById('grant_id').value = opt.dataset.grantId || '';
+  setField(document.getElementById('grant_id'), opt.dataset.grantId || '');
 
   const firstRow = document.querySelector('#items-table tbody tr');
-  firstRow.querySelector('input[name="item_description"]').value = opt.dataset.courseTitle || '';
-  firstRow.querySelector('input[name="item_venue"]').value = opt.dataset.venue || '';
-  firstRow.querySelector('input[name="item_date"]').value = opt.dataset.date || '';
-  firstRow.querySelector('input[name="item_date_end"]').value = opt.dataset.dateEnd || '';
+  setField(firstRow.querySelector('input[name="item_description"]'), opt.dataset.courseTitle || '');
+  setField(firstRow.querySelector('input[name="item_venue"]'), opt.dataset.venue || '');
+  setField(firstRow.querySelector('input[name="item_date"]'), opt.dataset.date || '');
+  setField(firstRow.querySelector('input[name="item_date_end"]'), opt.dataset.dateEnd || '');
   const firstPrice = firstRow.querySelector('input[name="item_unit_price"]');
-  firstPrice.value = opt.dataset.price || 0;
-  moneyFormat(firstPrice);
-  firstPrice.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
-  firstRow.querySelector('input[name="item_quantity"]').value = 1;
-  firstRow.querySelector('input[name="item_duration"]').value = 1;
+  if (setField(firstPrice, opt.dataset.price || 0, ['0'])) {
+    moneyFormat(firstPrice);
+    firstPrice.dispatchEvent(new Event('input', { bubbles: true })); // updates the totals preview
+  }
+  setField(firstRow.querySelector('input[name="item_quantity"]'), 1, ['1']);
+  setField(firstRow.querySelector('input[name="item_duration"]'), 1, ['1']);
 }
 document.getElementById('session_id').addEventListener('change', fillFromClass);
-if (document.getElementById('session_id').value) { fillFromClass(); }
+// Arriving from a class page on New Invoice: fill from it straight away.
+// Never on Edit, where the saved values are already in the form.
+if (!IS_EDIT && document.getElementById('session_id').value) { fillFromClass(); }
 
 function rowTemplate() {
   const tbody = document.querySelector('#items-table tbody');

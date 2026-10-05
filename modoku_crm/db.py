@@ -1170,6 +1170,9 @@ _COLUMN_MIGRATIONS = [
     # On by default, so every existing class keeps showing its HRDCorp
     # Grant Documents exactly as before.
     ("course_sessions", "hrdcorp_claimable", "INTEGER NOT NULL DEFAULT 1"),
+    # Fix134: the client's PIC an invoice is addressed to ("Attn:" under
+    # Billed To). Older invoices fall back to their class's PIC.
+    ("invoices", "attention_to", "TEXT"),
 ]
 
 

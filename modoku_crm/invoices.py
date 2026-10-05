@@ -159,7 +159,8 @@ def _default_invoice_email_subject(invoice):
 
 
 def _default_invoice_email_body(invoice, pic=None):
-    greeting_name = (pic["name"] if pic else None) or invoice["bill_to_name"] or "there"
+    attention = invoice["attention_to"] if "attention_to" in invoice.keys() else None
+    greeting_name = attention or (pic["name"] if pic else None) or invoice["bill_to_name"] or "there"
     project_line = f"Project: {invoice['project_title']}\n" if invoice["project_title"] else ""
     return (
         f"Hi {greeting_name},\n\n"
@@ -209,9 +210,8 @@ def export():
     )
 
 
-@bp.route("/new", methods=("GET", "POST"))
-@login_required
-def new():
+def _form_choices():
+    """What the New/Edit Invoice form's dropdowns need."""
     companies = db.query("SELECT * FROM companies ORDER BY name")
     open_enrollments = db.query(
         """SELECT e.id, e.participant_name, e.amount, e.company_id, c.title AS course_title
@@ -221,148 +221,224 @@ def new():
            WHERE e.status != 'Cancelled'
            ORDER BY e.created_at DESC"""
     )
-    # Optional "from a Class" prefill — lets an invoice be started straight
+    # Optional "from a Class" prefill - lets an invoice be started straight
     # from a class's own page (Description/Date/Venue/Client auto-pulled)
-    # instead of always typed in manually. Purely a convenience: nothing
-    # here is a hard link, so a class can still be deleted/changed later
-    # without affecting an invoice already created from it.
+    # instead of always typed in manually.
     classes_for_invoice = db.query(
         """SELECT cs.id, cs.start_date, cs.end_date, cs.venue, cs.client_company_id, cs.training_type,
                   cs.hrdcorp_grant_id,
                   c.title AS course_title,
                   CASE WHEN cs.training_type = 'Public Training' THEN c.price_public ELSE c.price_inhouse END
                       AS course_price,
-                  cl.name AS client_name
+                  cl.name AS client_name, pic.name AS pic_name
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN companies cl ON cl.id = cs.client_company_id
+           LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
            WHERE cs.status != 'Cancelled'
            ORDER BY cs.start_date DESC LIMIT 200"""
     )
+    # Fix134: each client's PICs, offered as suggestions in Attention To.
+    leads = db.query("SELECT name, company_id FROM leads WHERE name IS NOT NULL AND name != '' ORDER BY name")
+    return dict(companies=companies, open_enrollments=open_enrollments,
+                classes_for_invoice=classes_for_invoice,
+                leads=[{"name": l["name"], "company_id": l["company_id"]} for l in leads])
+
+
+def _invoice_from_form(form):
+    """Fix134: reads the New/Edit Invoice form. Returns (fields, items, error):
+    fields is the invoices-table values, items the line items as tuples for
+    invoice_items. Totals are always worked out here, never trusted from
+    the browser."""
+    bill_to_name = form.get("bill_to_name", "").strip()
+    descriptions = form.getlist("item_description")
+    if not bill_to_name:
+        return None, None, "Bill-to name is required."
+    if not any(d.strip() for d in descriptions):
+        return None, None, "Add at least one invoice line item."
+    subtotal = 0.0
+    items = []
+    for desc, qty, price, eid, duration, venue, item_date, item_date_end in zip(
+        descriptions, form.getlist("item_quantity"), form.getlist("item_unit_price"),
+        form.getlist("item_enrollment_id"), form.getlist("item_duration"), form.getlist("item_venue"),
+        form.getlist("item_date"), form.getlist("item_date_end"),
+    ):
+        if not desc.strip():
+            continue
+        qty_f = float(qty or 1)
+        price_f = parse_money(price)
+        # Duration is a number of days - Amount is Unit Price x Duration only
+        # (No. of Pax is a headcount for the record, not part of the money math).
+        duration_f = float(duration or 1) or 1
+        amount = round(duration_f * price_f, 2)
+        subtotal += amount
+        # An end date only makes sense if it's a distinct, later day than
+        # the start date - same-day/blank end dates are ignored.
+        date_end = item_date_end or None
+        if not item_date or not date_end or date_end <= item_date:
+            date_end = None
+        items.append((desc.strip(), qty_f, price_f, amount, eid or None,
+                      f"{duration_f:g} day(s)", venue.strip() or None, item_date or None, date_end))
+
+    sst_rate = float(form.get("sst_rate") or 0)
+    sst_inclusive = 1 if form.get("sst_inclusive") else 0
+    if sst_inclusive and sst_rate:
+        # The typed prices already include SST - the total stays exactly
+        # what was entered, and subtotal/SST are backed out of it.
+        total = round(subtotal, 2)
+        subtotal = round(total / (1 + sst_rate / 100), 2)
+        sst_amount = round(total - subtotal, 2)
+    else:
+        sst_amount = round(subtotal * sst_rate / 100, 2)
+        total = round(subtotal + sst_amount, 2)
+
+    upfront_type, upfront_value, upfront_amount, upfront_error = _upfront_from_form(form, total)
+    if upfront_error:
+        return None, None, upfront_error
+    total = round(total - upfront_amount, 2)  # Fix114: the balance due
+
+    invoice_date_value = form.get("invoice_date") or date.today().isoformat()
+    # Due date is always 30 days after the invoice date.
+    try:
+        due_date_value = (date.fromisoformat(invoice_date_value) + timedelta(days=30)).isoformat()
+    except ValueError:
+        due_date_value = (date.today() + timedelta(days=30)).isoformat()
+    fields = {
+        "company_id": form.get("company_id") or None,
+        "bill_to_name": bill_to_name,
+        "attention_to": (form.get("attention_to") or "").strip() or None,
+        "bill_to_address": form.get("bill_to_address") or None,
+        "project_title": form.get("project_title") or None,
+        "employer": form.get("employer") or None,
+        "grant_id": form.get("grant_id") or None,
+        "sst_reg_no": form.get("sst_reg_no") or None,
+        "buyer_tin": form.get("buyer_tin") or None,
+        "invoice_date": invoice_date_value,
+        "due_date": due_date_value,
+        "currency": form.get("currency") or "RM",
+        "subtotal": subtotal,
+        "sst_rate": sst_rate,
+        "sst_inclusive": sst_inclusive,
+        "sst_amount": sst_amount,
+        "total": total,
+        "status": form.get("status") or "Draft",
+        "notes": form.get("notes") or None,
+        "session_id": form.get("session_id", type=int),
+        "upfront_type": upfront_type,
+        "upfront_value": upfront_value,
+        "upfront_amount": upfront_amount,
+    }
+    return fields, items, None
+
+
+def _save_items(invoice_id, items):
+    for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end in items:
+        db.execute(
+            """INSERT INTO invoice_items (invoice_id, enrollment_id, description, quantity,
+                   unit_price, amount, duration, venue, item_date, item_date_end)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (invoice_id, eid, desc, qty_f, price_f, amount, duration, venue, item_date, date_end),
+        )
+
+
+def _class_pic_name(invoice):
+    """Fix134: the PIC name an invoice is addressed to - what was typed in
+    Attention To, else (older invoices) the linked class's PIC."""
+    if "attention_to" in invoice.keys() and invoice["attention_to"]:
+        return invoice["attention_to"]
+    session_id = invoice["session_id"] if "session_id" in invoice.keys() else None
+    if not session_id and invoice["grant_id"]:
+        matches = db.query("SELECT id FROM course_sessions WHERE hrdcorp_grant_id = ?", (invoice["grant_id"],))
+        if len(matches) == 1:
+            session_id = matches[0]["id"]
+    if not session_id:
+        return None
+    row = db.query("""SELECT l.name FROM course_sessions cs JOIN leads l ON l.id = cs.pic_lead_id
+                      WHERE cs.id = ?""", (session_id,), one=True)
+    return row["name"] if row and row["name"] else None
+
+
+def _with_attention(invoice):
+    """The invoice row as a dict with attention_to filled in (see
+    _class_pic_name), for the page and the PDF."""
+    d = dict(invoice)
+    d["attention_to"] = _class_pic_name(invoice)
+    return d
+
+
+@bp.route("/new", methods=("GET", "POST"))
+@login_required
+def new():
     preselect_session_id = request.args.get("session_id", type=int)
 
     def _render_new_form():
-        return render_template("invoices/form.html", invoice=None, items=[], companies=companies,
-                                open_enrollments=open_enrollments, statuses=STATUSES,
-                                classes_for_invoice=classes_for_invoice, preselect_session_id=preselect_session_id,
+        return render_template("invoices/form.html", invoice=None, items=[], statuses=STATUSES,
+                                preselect_session_id=preselect_session_id,
                                 next_invoice_no=_next_invoice_no(consume=False),
-                                today=date.today().isoformat())
+                                today=date.today().isoformat(), **_form_choices())
 
     if request.method == "POST":
-        company_id = request.form.get("company_id") or None
-        bill_to_name = request.form.get("bill_to_name", "").strip()
-        descriptions = request.form.getlist("item_description")
-        quantities = request.form.getlist("item_quantity")
-        prices = request.form.getlist("item_unit_price")
-        enrollment_ids = request.form.getlist("item_enrollment_id")
-        durations = request.form.getlist("item_duration")
-        venues = request.form.getlist("item_venue")
-        dates_ = request.form.getlist("item_date")
-        dates_end = request.form.getlist("item_date_end")
-
-        if not bill_to_name:
-            flash("Bill-to name is required.", "danger")
-        elif not any(d.strip() for d in descriptions):
-            flash("Add at least one invoice line item.", "danger")
-        else:
-            subtotal = 0.0
-            items = []
-            for desc, qty, price, eid, duration, venue, item_date, item_date_end in zip(
-                descriptions, quantities, prices, enrollment_ids, durations, venues, dates_, dates_end
-            ):
-                if not desc.strip():
-                    continue
-                qty_f = float(qty or 1)
-                price_f = parse_money(price)
-                # Duration is now a number of days, not a free-text field —
-                # Amount is Unit Price x Duration only (No. of Pax is a
-                # headcount for the record, not part of the money math).
-                duration_f = float(duration or 1) or 1
-                amount = round(duration_f * price_f, 2)
-                subtotal += amount
-                # An end date only makes sense if it's a distinct, later day
-                # than the start date — same-day/blank end dates are ignored.
-                date_end = item_date_end or None
-                if not item_date or not date_end or date_end <= item_date:
-                    date_end = None
-                duration_display = f"{duration_f:g} day(s)"
-                items.append((desc.strip(), qty_f, price_f, amount, eid or None,
-                              duration_display, venue.strip() or None,
-                              item_date or None, date_end))
-
-            sst_rate = float(request.form.get("sst_rate") or 0)
-            sst_inclusive = 1 if request.form.get("sst_inclusive") else 0
-            if sst_inclusive and sst_rate:
-                # The typed unit prices/amounts already include SST (e.g. a
-                # client-quoted "RM21,000 all-in" price) — the total stays
-                # exactly what was entered, and subtotal/SST are backed out
-                # of it instead of SST being added on top.
-                total = round(subtotal, 2)
-                subtotal = round(total / (1 + sst_rate / 100), 2)
-                sst_amount = round(total - subtotal, 2)
-            else:
-                sst_amount = round(subtotal * sst_rate / 100, 2)
-                total = round(subtotal + sst_amount, 2)
-
-            upfront_type, upfront_value, upfront_amount, upfront_error = _upfront_from_form(request.form, total)
-            if upfront_error:
-                flash(upfront_error, "danger")
-                return _render_new_form()
-            total = round(total - upfront_amount, 2)  # Fix114: the balance due
-
-            invoice_no = _next_invoice_no()
-            invoice_date_value = request.form.get("invoice_date") or date.today().isoformat()
-            # Due date is no longer a manual field — always 30 days after the
-            # invoice date, computed here rather than left for staff to set.
-            try:
-                due_date_value = (date.fromisoformat(invoice_date_value) + timedelta(days=30)).isoformat()
-            except ValueError:
-                due_date_value = (date.today() + timedelta(days=30)).isoformat()
-            invoice_id = db.execute(
-                """INSERT INTO invoices (invoice_no, company_id, bill_to_name, bill_to_address,
-                       project_title, employer, grant_id, sst_reg_no, buyer_tin, invoice_date, due_date,
-                       currency, subtotal, sst_rate, sst_inclusive, sst_amount, total, status, notes, created_by,
-                       session_id, upfront_type, upfront_value, upfront_amount)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (
-                    invoice_no,
-                    company_id,
-                    bill_to_name,
-                    request.form.get("bill_to_address") or None,
-                    request.form.get("project_title") or None,
-                    request.form.get("employer") or None,
-                    request.form.get("grant_id") or None,
-                    request.form.get("sst_reg_no") or None,
-                    request.form.get("buyer_tin") or None,
-                    invoice_date_value,
-                    due_date_value,
-                    request.form.get("currency") or "RM",
-                    subtotal,
-                    sst_rate,
-                    sst_inclusive,
-                    sst_amount,
-                    total,
-                    request.form.get("status") or "Draft",
-                    request.form.get("notes") or None,
-                    g.user["id"],
-                    request.form.get("session_id", type=int),
-                    upfront_type,
-                    upfront_value,
-                    upfront_amount,
-                ),
-            )
-            for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end in items:
-                db.execute(
-                    """INSERT INTO invoice_items (invoice_id, enrollment_id, description, quantity,
-                           unit_price, amount, duration, venue, item_date, item_date_end)
-                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                    (invoice_id, eid, desc, qty_f, price_f, amount, duration, venue, item_date, date_end),
-                )
-            activity.log("create", "invoice", invoice_id, f"Created invoice {invoice_no}")
-            flash("Invoice created.", "success")
-            return redirect(url_for("invoices.view", invoice_id=invoice_id))
+        fields, items, error = _invoice_from_form(request.form)
+        if error:
+            flash(error, "danger")
+            return _render_new_form()
+        invoice_no = _next_invoice_no()
+        cols = ["invoice_no", *fields.keys(), "created_by"]
+        invoice_id = db.execute(
+            f"INSERT INTO invoices ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+            (invoice_no, *fields.values(), g.user["id"]),
+        )
+        _save_items(invoice_id, items)
+        activity.log("create", "invoice", invoice_id, f"Created invoice {invoice_no}")
+        flash("Invoice created.", "success")
+        return redirect(url_for("invoices.view", invoice_id=invoice_id))
 
     return _render_new_form()
+
+
+@bp.route("/<int:invoice_id>/edit", methods=("GET", "POST"))
+@login_required
+def edit(invoice_id):
+    """Fix134: edit an existing invoice. Same form and maths as New; the
+    invoice number, who created it and its email history stay as they are."""
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    if invoice is None:
+        flash("Invoice not found.", "danger")
+        return redirect(url_for("invoices.index"))
+    items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY id", (invoice_id,))
+
+    if request.method == "POST":
+        fields, new_items, error = _invoice_from_form(request.form)
+        if not error:
+            old_gross = round((invoice["subtotal"] or 0) + (invoice["sst_amount"] or 0), 2)
+            db.execute(
+                f"UPDATE invoices SET {', '.join(k + '=?' for k in fields)} WHERE id = ?",
+                (*fields.values(), invoice_id),
+            )
+            db.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
+            _save_items(invoice_id, new_items)
+            new_gross = round(fields["subtotal"] + fields["sst_amount"], 2)
+            detail = ""
+            if old_gross != new_gross:
+                detail = f" - total changed from RM {old_gross:,.2f} to RM {new_gross:,.2f}"
+            activity.log("update", "invoice", invoice_id, f"Updated invoice {invoice['invoice_no']}{detail}")
+            flash("Invoice updated.", "success")
+            if invoice["sent_at"]:
+                flash(f"This invoice was already emailed to {invoice['sent_to_email']}. Resend it so the client "
+                      "has the updated copy.", "warning")
+            return redirect(url_for("invoices.view", invoice_id=invoice_id))
+        flash(error, "danger")
+
+    form_invoice = _with_attention(invoice)
+    form_items = []
+    for it in items:
+        d = dict(it)
+        m = re.match(r"\s*([\d.]+)", it["duration"] or "")
+        d["duration_days"] = float(m.group(1)) if m else 1
+        form_items.append(d)
+    return render_template("invoices/form.html", invoice=form_invoice, items=form_items, statuses=STATUSES,
+                            preselect_session_id=invoice["session_id"], next_invoice_no=invoice["invoice_no"],
+                            today=invoice["invoice_date"], **_form_choices())
 
 
 @bp.route("/<int:invoice_id>")
@@ -383,6 +459,7 @@ def view(invoice_id):
         return redirect(url_for("invoices.index"))
     items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
     pic = _invoice_pic(invoice)
+    invoice = _with_attention(invoice)
     return render_template("invoices/view.html", invoice=invoice, items=items, statuses=STATUSES,
                             mail_configured=mailer.is_configured(), pic=pic,
                             default_to_email=(pic["email"] if pic else None) or invoice["company_email"] or "",
@@ -417,7 +494,7 @@ def send_email(invoice_id):
     items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
     try:
         from . import pdfgen
-        pdf_bytes = pdfgen.generate_invoice_pdf(invoice, items)
+        pdf_bytes = pdfgen.generate_invoice_pdf(_with_attention(invoice), items)
         attachments = [(_invoice_pdf_filename(invoice, items), pdf_bytes, "application/pdf")]
         mailer.send_email(to_email, subject, body, attachments=attachments,
                            related_type="invoice", related_id=invoice_id, cc_email=cc_email)
@@ -460,7 +537,7 @@ def download(invoice_id):
     items = db.query("SELECT * FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
     try:
         from . import pdfgen
-        pdf_bytes = pdfgen.generate_invoice_pdf(invoice, items)
+        pdf_bytes = pdfgen.generate_invoice_pdf(_with_attention(invoice), items)
     except Exception:  # noqa: BLE001 - surface a clean message rather than a 500
         current_app.logger.exception("Failed to generate invoice PDF for %s", invoice["invoice_no"])
         flash("Couldn't generate the PDF. Is wkhtmltopdf installed on the server?", "danger")

@@ -533,6 +533,9 @@ def _build_invoice_html(invoice, items):
         _icol("company_address"), _icol("company_city"),
         _icol("company_postcode"), _icol("company_state"),
     ) or ""
+    # Fix134: the client's PIC, "Attn: <name>" under the Billed To name.
+    attention_line = (f"<span>Attn: {escape(_icol('attention_to'))}</span><br>"
+                      if _icol("attention_to") else "")
 
     font_faces = poppins_font_face_css()
     logo_uri = _logo_data_uri()
@@ -671,6 +674,7 @@ def _build_invoice_html(invoice, items):
       <td style="border:none;width:36%;vertical-align:top;padding-right:26px">
         <div class="brand" style="font-size:11px;font-weight:700;text-transform:uppercase">Billed To</div>
         <strong>{invoice['bill_to_name']}</strong><br>
+        {attention_line}
         {'<br>'.join(address_lines(bill_to_address))}
         {'<br>SST Reg. No: ' + invoice['sst_reg_no'] if invoice['sst_reg_no'] else ''}
         {'<br>TIN: ' + invoice['buyer_tin'] if invoice['buyer_tin'] else ''}

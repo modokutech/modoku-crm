@@ -10,6 +10,22 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix134 — Edit invoices; Attention To (PIC) on invoices
+
+**Date:** 2026-10-05
+
+- New **Edit** button on the invoice page (`/invoices/<id>/edit`). Same form and maths as New Invoice,
+  filled with the saved values (line items, SST, upfront payment, notes). The invoice number, creator
+  and email history stay as they are; totals are recalculated. If it was already emailed, the page and
+  a flash after saving say to resend it. Any change to the total is logged in the Activity Log.
+- On Edit, picking a class only fills empty fields, never the saved price/pax/etc. (same rule as
+  quotations, Fix125).
+- New **Attention To (PIC)** field (`invoices.attention_to`), filled from the class's PIC, with the
+  selected client's PICs as suggestions. Shown as "Attn: <name>" under the Billed To name on the
+  invoice page and PDF, and used for the "Hi <name>" greeting in the invoice email. Older invoices
+  without it show their class's PIC.
+- New Invoice and Edit share one form parser (`_invoice_from_form`).
+
 ## Fix133 — No Grant ID request for non-HRDCorp classes
 
 **Date:** 2026-10-05
