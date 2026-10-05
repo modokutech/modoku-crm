@@ -18,6 +18,7 @@ Notes for anyone (or any Claude session) working on this repo:
   you have any questions." (which clashed with the footer's "Please do not reply"). Now: "We would
   appreciate payment by the due date. If you have any questions, please feel free to contact us at
   hello@modoku.tech."
+- Greeting is "Dear <name>," instead of "Hi <name>," ("Dear Sir/Madam," if no name at all).
 
 ## Fix136 — Invoice: Date/Pax/Venue lines in Regular (400) instead of Medium (500)
 

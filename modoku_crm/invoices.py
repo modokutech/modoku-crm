@@ -160,10 +160,10 @@ def _default_invoice_email_subject(invoice):
 
 def _default_invoice_email_body(invoice, pic=None):
     attention = invoice["attention_to"] if "attention_to" in invoice.keys() else None
-    greeting_name = attention or (pic["name"] if pic else None) or invoice["bill_to_name"] or "there"
+    greeting_name = attention or (pic["name"] if pic else None) or invoice["bill_to_name"] or "Sir/Madam"
     project_line = f"Project: {invoice['project_title']}\n" if invoice["project_title"] else ""
     return (
-        f"Hi {greeting_name},\n\n"
+        f"Dear {greeting_name},\n\n"
         f"Please find attached invoice {invoice['invoice_no']} for your reference.\n\n"
         f"{project_line}"
         f"Amount due: {invoice['currency']} {invoice['total']:,.2f}\n"
