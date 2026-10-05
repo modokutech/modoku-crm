@@ -137,6 +137,16 @@
         <input type="number" min="1" name="capacity" class="form-control" value="{{ session.capacity if session else 20 }}">
       </div>
       <div class="col-md-6">
+        <label class="form-label d-block">HRDCorp</label>
+        <div class="form-check form-switch mt-1">
+          <input type="checkbox" class="form-check-input" role="switch" id="hrdcorp_claimable" name="hrdcorp_claimable" value="1"
+            {{ 'checked' if not session or session.hrdcorp_claimable }}>
+          <label class="form-check-label" for="hrdcorp_claimable">HRDCorp claimable</label>
+        </div>
+        <small class="text-muted">Turn off for a class the client won't claim through HRDCorp. The HRDCorp Grant
+          Documents section and its reminders are then hidden for this class.</small>
+      </div>
+      <div class="col-md-6">
         <label class="form-label d-block">Laptop Rental</label>
         <div class="form-check form-check-inline mt-1">
           <input type="checkbox" class="form-check-input" id="requires_laptop_rental" name="requires_laptop_rental" value="1"

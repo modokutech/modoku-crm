@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix131 — HRDCorp claimable per class; "(Public Training)" on Enrolled Participants
+
+**Date:** 2026-10-05
+
+- New **HRDCorp claimable** switch on the New/Edit Class form, on by default (new column
+  `course_sessions.hrdcorp_claimable`, default 1, so every existing class stays claimable).
+- When it's off: the class page hides the HRDCorp Grant Documents section, the grant-documents
+  reminders skip that class, the "HRDCorp Claimable" row on the class page says No, and the
+  signed-quotation confirmation email leaves out the HRDCorp documents paragraph. These used to follow
+  the Course's flag (or always show); they now follow the class.
+- Class page: the "Enrolled Participants" heading now reads "Enrolled Participants (Public Training)".
+
 ## Fix130 — SST label: no stray space before ", amount inclusive", no ".0" on the rate
 
 **Date:** 2026-10-04

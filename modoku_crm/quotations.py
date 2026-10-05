@@ -258,7 +258,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
             if session_row["training_mode"] in ("Virtual", "Hybrid") and session_row["meeting_link"]:
                 meeting_link_line = f"Meeting Link: {session_row['meeting_link']}\n"
             hrdcorp_para = ""
-            if session_row["hrdf_claimable"]:
+            if session_row["hrdcorp_claimable"]:
                 hrdcorp_para = (
                     "We'll send a separate email with the necessary HRDCorp documents for your grant "
                     "application (including the HRDCorp Programme No.) once they're ready.\n\n"

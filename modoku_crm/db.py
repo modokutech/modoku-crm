@@ -1164,6 +1164,12 @@ _COLUMN_MIGRATIONS = [
     ("invoices", "upfront_type", "TEXT"),
     ("invoices", "upfront_value", "REAL"),
     ("invoices", "upfront_amount", "REAL NOT NULL DEFAULT 0"),
+    # Fix131: whether THIS class is HRDCorp claimable, set per class rather
+    # than taken from the Course (the same course can run as a claimable
+    # in-house class for one client and a non-claimable one for another).
+    # On by default, so every existing class keeps showing its HRDCorp
+    # Grant Documents exactly as before.
+    ("course_sessions", "hrdcorp_claimable", "INTEGER NOT NULL DEFAULT 1"),
 ]
 
 

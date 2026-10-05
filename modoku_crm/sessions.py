@@ -702,6 +702,7 @@ def _notify_pending_grant_docs():
         """SELECT cs.id, cs.owner_user_id, cs.start_date, c.title AS course_title
            FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
            WHERE cs.status != 'Cancelled'
+             AND COALESCE(cs.hrdcorp_claimable, 1) = 1
              AND (cs.grant_docs_sent_at IS NULL OR cs.grant_docs_sent_at = '')
              AND cs.start_date IS NOT NULL AND cs.start_date != ''"""
     )
@@ -884,8 +885,8 @@ def new():
                        venue, start_date, end_date, training_time, training_type, training_mode,
                        meeting_link, capacity, status, notes, evaluation_form_link, session_code,
                        requires_laptop_rental, laptop_rental_qty, has_exam, exam_participants,
-                       room_setup, owner_user_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       room_setup, owner_user_id, hrdcorp_claimable)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     course_id,
                     trainer_ids[0] if trainer_ids else None,
@@ -909,6 +910,7 @@ def new():
                     exam_participants,
                     request.form.get("room_setup") or None,
                     g.user["id"],
+                    1 if request.form.get("hrdcorp_claimable") else 0,
                 ),
             )
             _set_session_trainers(sid, trainer_ids)
@@ -1294,7 +1296,7 @@ def edit(session_id):
                 """UPDATE course_sessions SET course_id=?, trainer_id=?, client_company_id=?, pic_lead_id=?,
                        venue=?, start_date=?, end_date=?, training_time=?, training_type=?,
                        training_mode=?, meeting_link=?, capacity=?, status=?, notes=?, evaluation_form_link=?,
-                       requires_laptop_rental=?, laptop_rental_qty=?, room_setup=?
+                       requires_laptop_rental=?, laptop_rental_qty=?, room_setup=?, hrdcorp_claimable=?
                    WHERE id=?""",
                 (
                     course_id,
@@ -1320,6 +1322,7 @@ def edit(session_id):
                     requires_laptop_rental,
                     laptop_rental_qty,
                     request.form.get("room_setup") or None,
+                    1 if request.form.get("hrdcorp_claimable") else 0,
                     session_id,
                 ),
             )

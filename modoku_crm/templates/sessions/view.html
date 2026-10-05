@@ -88,7 +88,7 @@
           </div>
         </td></tr>
         {% endif %}
-        <tr><td class="text-muted">HRDCorp Claimable</td><td>{{ 'Yes' if s.hrdf_claimable else 'No' }}</td></tr>
+        <tr><td class="text-muted">HRDCorp Claimable</td><td>{{ 'Yes' if s.hrdcorp_claimable else 'No' }}</td></tr>
         <tr><td class="text-muted">Laptop Rental</td><td>{% if s.requires_laptop_rental %}Yes{% if s.laptop_rental_qty %} ({{ s.laptop_rental_qty }} unit{{ 's' if s.laptop_rental_qty|int != 1 }}){% endif %}{% else %}No{% endif %}</td></tr>
         {% if s.has_exam %}
         <tr><td class="text-muted">Exam</td><td>Yes{% if s.exam_participants %} ({{ s.exam_participants }} participant{{ 's' if s.exam_participants|int != 1 }}){% endif %}</td></tr>
@@ -107,6 +107,8 @@
       {% if s.notes %}<hr><p class="small mb-0">{{ s.notes }}</p>{% endif %}
     </div>
 
+{# Fix131: only an HRDCorp-claimable class needs the grant documents pack. #}
+{% if s.hrdcorp_claimable %}
 <div class="card p-3 mt-3">
       <h6>HRDCorp Grant Documents</h6>
       <p class="small text-muted mb-2">The 4 documents a client needs for their HRDCorp grant application. Three are pulled automatically from the Course and Trainer modules; the Quotation is uploaded here.</p>
@@ -200,6 +202,7 @@
         </form>
       </div>
     </div>
+{% endif %}
 
 <div class="card p-3 mt-3">
       <h6>Training Banner</h6>
@@ -472,7 +475,7 @@
   <div class="col-lg-8" id="classDetailsColRight">
 <div class="card p-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h6 class="mb-0">Enrolled Participants</h6>
+        <h6 class="mb-0">Enrolled Participants <span class="text-muted small fw-normal">(Public Training)</span></h6>
         <div class="d-flex gap-2">
           {% if g.user.role == 'admin' and enrollments %}
           <div class="dropdown">
