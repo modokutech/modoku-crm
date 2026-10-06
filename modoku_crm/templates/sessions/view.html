@@ -143,7 +143,7 @@
         <li class="mb-1">
           {% if s.grant_quotation_file %}
           <i class="bi bi-file-earmark-check text-success me-1"></i>
-          <a href="{{ url_for('sessions.download_grant_quotation', session_id=s.id) }}" target="_blank">Quotation</a>
+          <a href="{{ url_for('sessions.download_grant_quotation', session_id=s.id) }}" target="_blank">Quotation</a>{% if s.grant_quotation_file.startswith('grantquote_signed_') %} <span class="text-muted">(client's signed copy, added automatically)</span>{% endif %}
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
           <span class="text-muted">Quotation, not uploaded yet</span>

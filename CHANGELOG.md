@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix140 — Signed quotation fills the class's HRDCorp Grant Documents automatically
+
+**Date:** 2026-10-06
+
+- When a signed quotation comes back (client return link or staff upload) and it's linked to a class,
+  the signed copy is also put into that class's HRDCorp Grant Documents as the Quotation, labelled
+  "client's signed copy, added automatically".
+- Same when a signed quotation is linked to its class later through Edit (no emails are sent for that).
+- A quotation staff uploaded into Grant Documents themselves is never replaced; only an empty slot, or
+  an earlier automatic copy (a newer signed copy wins).
+
 ## Fix139 — JD14: status on the class page's button, signed copy shown in the JD14 module
 
 **Date:** 2026-10-06

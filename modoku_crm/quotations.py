@@ -153,6 +153,38 @@ def _ensure_return_token(quotation_id):
     return token
 
 
+GRANT_QUOTE_AUTO_PREFIX = "grantquote_signed_"
+
+
+def _copy_signed_to_grant_docs(quotation_id, session_id):
+    """Fix140: puts a quotation's client-signed copy into its class's HRDCorp
+    Grant Documents as the Quotation, so it needn't be uploaded twice. Never
+    replaces a quotation staff uploaded there themselves - only an empty
+    slot, or one this same automatic copy filled earlier (a newer signed
+    copy then wins). Returns True if it copied. Best-effort, never raises."""
+    try:
+        q = db.query("SELECT signed_file FROM quotations WHERE id = ?", (quotation_id,), one=True)
+        cs = db.query("SELECT grant_quotation_file FROM course_sessions WHERE id = ?", (session_id,), one=True)
+        if not q or not q["signed_file"] or cs is None:
+            return False
+        current = cs["grant_quotation_file"] or ""
+        if current and not current.startswith(GRANT_QUOTE_AUTO_PREFIX):
+            return False
+        src = os.path.join(_quotation_upload_dir(quotation_id), q["signed_file"])
+        if not os.path.exists(src):
+            return False
+        import shutil
+        stored_name = f"{GRANT_QUOTE_AUTO_PREFIX}{uuid.uuid4().hex[:8]}_{secure_filename(q['signed_file'])}"
+        shutil.copyfile(src, os.path.join(_sessions._attendance_dir(session_id), stored_name))
+        db.execute("UPDATE course_sessions SET grant_quotation_file = ? WHERE id = ?", (stored_name, session_id))
+        activity.log("update", "session", session_id,
+                     "Signed quotation added to the HRDCorp Grant Documents automatically")
+        return True
+    except Exception:  # noqa: BLE001 - a convenience copy must never break the signed-quotation flow
+        current_app.logger.exception("Failed to copy signed quotation %s into grant documents", quotation_id)
+        return False
+
+
 def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
     """Runs once a signed quotation has been received, however it arrived —
     a client's self-service upload via the public return link, or a staff
@@ -233,6 +265,9 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
     )
     if session_row is None:
         return
+
+    # Fix140: the signed copy doubles as the Grant Documents' Quotation.
+    _copy_signed_to_grant_docs(quotation_id, session_row["id"])
 
     if session_row["status"] == "Proposed":
         db.execute("UPDATE course_sessions SET status = 'Scheduled' WHERE id = ?", (session_row["id"],))
@@ -923,6 +958,11 @@ def edit(quotation_id):
         if round(old_total, 2) != round(new_total, 2):
             detail = f" - total changed from RM {fmtmoney(old_total)} to RM {fmtmoney(new_total)}"
         activity.log("update", "quotation", quotation_id, f"Updated quotation {q['quote_no']}{detail}")
+        # Fix140: a signed quotation linked to its class only now still fills
+        # that class's Grant Documents Quotation slot (no emails sent).
+        if fields["session_id"] and str(fields["session_id"]) != str(q["session_id"] or "") and q["signed_file"]:
+            if _copy_signed_to_grant_docs(quotation_id, int(fields["session_id"])):
+                flash("The signed quotation was added to the class's HRDCorp Grant Documents.", "info")
         flash("Quotation updated.", "success")
         if detail and (q["status"] == "Accepted" or q["signed_file"]):
             flash(f"Heads up: the client signed this quotation at RM {fmtmoney(old_total)}. The total is now "
