@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix139 — JD14: status on the class page's button, signed copy shown in the JD14 module
+
+**Date:** 2026-10-06
+
+- Class page: the "Signed JD14 Copy" section is gone (upload, return-link and forward-email forms).
+  The JD14 card's button now shows where the JD14 is at: Prepare & Send JD14 Form -> Continue JD14 Form
+  (not signed yet) -> JD14 Signed, Send to Client -> JD14 Sent, Awaiting Client's Signed Copy (with the
+  sent date) -> JD14 Complete, Signed Copy Received (with the received date).
+- JD14 module, each class: new "Client's Signed Copy" card with the received date and a View link once
+  it's back, and an Upload/Replace for a copy that came by email. That upload records it as received,
+  notifies the office, and does not email the client (the old class-page upload sent the client a
+  "please return it" link).
+
 ## Fix138 — In-app notification when a class document is uploaded
 
 **Date:** 2026-10-06

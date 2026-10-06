@@ -17,14 +17,16 @@ NOTE (Fix93) - the on-screen live preview in templates/jd14/edit.html is
 rendered by pdfgen._build_jd14_html itself (see live_preview()), so there
 is ONE layout to maintain; the preview and the PDF can't drift apart.
 """
+import os
 import re
 
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
-from . import activity, db, fmtaddress, mailer, settings
+from . import activity, db, doc_sanity, fmtaddress, mailer, settings
 from .auth import admin_required, login_required
 from .pdfgen import _build_jd14_html, generate_jd14_pdf
-from .sessions import ensure_jd14_return_token
+from .sessions import (_attendance_dir, _handle_jd14_upload, _notify_document_uploaded,
+                       ensure_jd14_return_token)
 
 bp = Blueprint("jd14", __name__, url_prefix="/jd14")
 
@@ -482,3 +484,31 @@ def send(session_id):
     activity.log("send_email", "session", session_id, f"Sent JD14 Form to {to_email}")
     flash(f"JD14 Form emailed to {to_email}.", "success")
     return redirect(url_for("jd14.edit", session_id=session_id))
+
+
+@bp.route("/sessions/<int:session_id>/signed-copy", methods=("POST",))
+@login_required
+def upload_signed_copy(session_id):
+    """Fix139: staff upload the client's countersigned JD14 when it came back
+    by email instead of through the return link. Unlike the old class-page
+    upload, this never emails the client a "please return it" link - the
+    signed copy is already here."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("jd14.index"))
+    if not request.files.get("jd14_file") or not request.files["jd14_file"].filename:
+        flash("Choose the signed JD14 file first.", "danger")
+        return redirect(url_for("jd14.edit", session_id=session_id))
+    stored_name = _handle_jd14_upload(session_id)
+    if stored_name:
+        db.execute("UPDATE course_sessions SET jd14_received_at = datetime('now'), jd14_received_via = 'staff_upload' "
+                   "WHERE id = ?", (session_id,))
+        activity.log("upload", "session", session_id, "Uploaded the client's signed JD14 copy")
+        warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_id), stored_name), "jd14")
+        _notify_document_uploaded(session_id, "JD14 Form", ai_warning=warning)
+        flash("Signed JD14 copy saved.", "success")
+        if warning:
+            flash(warning, "warning")
+    return redirect(url_for("jd14.edit", session_id=session_id))
+

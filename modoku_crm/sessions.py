@@ -1036,7 +1036,18 @@ def view(session_id):
 
     open_pos_after_cancel = _open_pos_for_session(session_id) if session_row["status"] == "Cancelled" else []
 
+    # Fix139: the class page's JD14 button reflects where the JD14 is at.
+    from .jd14 import jd14_stage
+    jd14_row = db.query("SELECT * FROM jd14_forms WHERE session_id = ?", (session_id,), one=True)
+    if session_row["jd14_file"]:
+        jd14_status = "received"
+    elif jd14_row is None:
+        jd14_status = "not_started"
+    else:
+        jd14_status = "draft" if not jd14_row["signed_at"] else jd14_stage(session_row, jd14_row)
+
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
+                            jd14_status=jd14_status, jd14_form=jd14_row,
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,

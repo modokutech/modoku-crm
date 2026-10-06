@@ -42,6 +42,30 @@
 </div>
 {% endif %}
 
+{# Fix139: the client's countersigned copy lives here now (moved off the class page). #}
+<div class="card p-3 mb-3 {{ 'border-success' if s.jd14_file }}">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <h6 class="mb-1">Client's Signed Copy</h6>
+      {% if s.jd14_file %}
+      <p class="small mb-0">
+        <i class="bi bi-check-circle-fill text-success me-1"></i>
+        {% if s.jd14_received_at %}Received {{ 'from the client' if s.jd14_received_via == 'client_upload' else '' }} on {{ s.jd14_received_at|fmtdatetime }}.{% else %}On file.{% endif %}
+        <a href="{{ url_for('sessions.download_jd14', session_id=s.id) }}" target="_blank" class="ms-1"><i class="bi bi-file-earmark-pdf me-1"></i>View signed JD14</a>
+      </p>
+      {% else %}
+      <p class="small text-muted mb-0">Not received yet. When the client uploads it through the return link in the email, it shows up here and you get a notification.</p>
+      {% endif %}
+    </div>
+    <form method="post" action="{{ url_for('jd14.upload_signed_copy', session_id=s.id) }}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+      {{ csrf_field()|safe }}
+      <input type="file" name="jd14_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required style="max-width:260px">
+      <button class="btn btn-sm btn-outline-success text-nowrap" type="submit">{{ 'Replace' if s.jd14_file else 'Upload' }}</button>
+    </form>
+  </div>
+  {% if not s.jd14_file %}<small class="text-muted mt-1">Got it by email instead? Upload it here. Max 2 MB.</small>{% endif %}
+</div>
+
 <div class="row g-3">
   <div class="col-lg-6">
     <div class="card p-3">

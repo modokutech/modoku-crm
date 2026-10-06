@@ -334,88 +334,23 @@
     {# Fix132: JD14 is the HRDCorp SBL-Khas claim form, so only for a claimable class (or one that already has JD14 paperwork). #}
     {% if s.hrdcorp_claimable or s.jd14_file or s.jd14_sent_at %}
         <div class="card p-3 mt-3">
-        <h6>Prepare JD14 Form</h6>
+        <h6>JD14 Form</h6>
         <p class="small text-muted mb-2">Fill in our part of the HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14), get it signed and stamped, and send it to the client to countersign.</p>
-        <a href="{{ url_for('jd14.edit', session_id=s.id) }}" class="btn btn-sm btn-outline-success w-100">
-          <i class="bi bi-file-earmark-check me-1"></i>Prepare &amp; Send JD14 Form
+        {# Fix139: the button shows where the JD14 is at; the client's signed copy now lives in the JD14 module. #}
+        {% set jd14_btn = {
+             'not_started': ('btn-outline-success', 'bi-file-earmark-plus', 'Prepare &amp; Send JD14 Form'),
+             'draft': ('btn-outline-secondary', 'bi-pencil-square', 'Continue JD14 Form (not signed yet)'),
+             'preparing': ('btn-outline-primary', 'bi-send', 'JD14 Signed, Send to Client'),
+             'awaiting_return': ('btn-outline-warning', 'bi-hourglass-split', 'JD14 Sent, Awaiting Client&#39;s Signed Copy'),
+             'received': ('btn-success', 'bi-check2-circle', 'JD14 Complete, Signed Copy Received'),
+           }[jd14_status] %}
+        <a href="{{ url_for('jd14.edit', session_id=s.id) }}" class="btn btn-sm {{ jd14_btn[0] }} w-100">
+          <i class="bi {{ jd14_btn[1] }} me-1"></i>{{ jd14_btn[2]|safe }}
         </a>
-        </div>
-        <div class="card p-3 mt-3">
-        <h6>Signed JD14 Copy</h6>
-        {% if s.jd14_file %}
-        <p class="small mb-2">
-          <i class="bi bi-file-earmark-check text-success me-1"></i>
-          <a href="{{ url_for('sessions.download_jd14', session_id=s.id) }}" target="_blank">View signed JD14</a>
-        </p>
-        <p class="small text-muted mb-2">Uploading a new file below will replace this one.</p>
-        {% else %}
-        <p class="small text-muted mb-2">Once the client's signed copy comes back (by email or the return link below), upload it here.</p>
-        {% endif %}
-
-        <form method="post" action="{{ url_for('sessions.upload_jd14', session_id=s.id) }}" enctype="multipart/form-data" class="d-flex gap-2">
-          {{ csrf_field()|safe }}
-          <input type="file" name="jd14_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" required>
-          <button class="btn btn-sm btn-success text-nowrap" type="submit">Upload</button>
-        </form>
-        <small class="text-muted">Max 2 MB.</small>
-
-        {% if s.jd14_file %}
-        <hr>
-        <div class="border rounded p-2 mb-3">
-          <p class="small fw-semibold mb-1">Send Return Link to Client</p>
-          <p class="small text-muted mb-2">A link where the client can upload their signed JD14 copy directly (single file only, no login needed. This is also sent automatically the moment you upload the JD14 form above (if a client email is on file)) use this to resend or CC someone else.</p>
-          {% if s.jd14_received_at %}
-          <p class="small text-muted mb-2"><i class="bi bi-check-circle me-1"></i>A signed copy was received via this link on {{ s.jd14_received_at|fmtdatetime }}.</p>
-          {% endif %}
-          <form method="post" action="{{ url_for('sessions.send_jd14_return_link', session_id=s.id) }}">
-            {{ csrf_field()|safe }}
-            <div class="mb-2">
-              <label class="form-label small">Send to</label>
-              <input type="email" name="to_email" class="form-control form-control-sm" value="{{ s.pic_email or s.client_email or '' }}" placeholder="client@email.com" required>
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
-              <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">Subject</label>
-              <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_jd14_return_email_subject }}">
-            </div>
-            <div class="mb-2">
-              <label class="form-label small">Message</label>
-              <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_jd14_return_email_body }}</textarea>
-              <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
-            </div>
-            <button class="btn btn-sm btn-success w-100" type="submit" {{ 'disabled' if not mail_configured }}>
-              <i class="bi bi-envelope me-1"></i>Send Return Link
-            </button>
-          </form>
-        </div>
-
-        {% if s.jd14_sent_at %}
-        <p class="small text-warning-emphasis mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.jd14_sent_to }} on {{ s.jd14_sent_at|fmtdatetime }}.</p>
-        {% endif %}
-        <form method="post" action="{{ url_for('sessions.send_jd14_email', session_id=s.id) }}">
-          {{ csrf_field()|safe }}
-          <div class="mb-2">
-            <label class="form-label small">Send to</label>
-            <input type="email" name="to_email" class="form-control form-control-sm" value="{{ s.pic_email or s.client_email or '' }}" placeholder="name@email.com" required>
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">CC <span class="text-muted small fw-normal">(optional)</span></label>
-            <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses">
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">Subject</label>
-            <input type="text" name="subject" class="form-control form-control-sm" value="{{ default_jd14_email_subject }}">
-          </div>
-          <div class="mb-2">
-            <label class="form-label small">Message</label>
-            <textarea name="body" class="form-control form-control-sm" rows="6">{{ default_jd14_email_body }}</textarea>
-            <small class="text-muted">Our standard footer (address &amp; website) is added automatically, no need to include it here.</small>
-          </div>
-          <button class="btn btn-sm btn-outline-success w-100" type="submit" {{ 'disabled' if not mail_configured }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.jd14_sent_at else 'Send' }} JD14 Form</button>
-        </form>
+        {% if jd14_status == 'awaiting_return' and jd14_form.sent_at %}
+        <p class="small text-muted mt-2 mb-0">Emailed to {{ jd14_form.sent_to }} on {{ jd14_form.sent_at|fmtdate }}.</p>
+        {% elif jd14_status == 'received' %}
+        <p class="small text-muted mt-2 mb-0">{% if s.jd14_received_at %}{{ 'Client returned it' if s.jd14_received_via == 'client_upload' else 'Received' }} on {{ s.jd14_received_at|fmtdate }}. {% endif %}View it in the JD14 module.</p>
         {% endif %}
     </div>
     {% endif %}
