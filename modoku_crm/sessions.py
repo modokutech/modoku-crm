@@ -372,7 +372,8 @@ def _t3_form_pdf_filename(session_row):
 
 def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
     """Emails the admin-configured notification addresses (Settings) that a
-    document is ready on a class. Best-effort — a notification failure (or
+    document is ready on a class, and (Fix138) shows it in-app to every
+    admin and the class owner. Best-effort — a notification failure (or
     email not being configured at all) must never block the upload that
     triggered it.
 
@@ -382,7 +383,7 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
     logged-in staff session to flash a warning to directly."""
     try:
         session_row = db.query(
-            """SELECT cs.start_date, cs.end_date, c.title AS course_title FROM course_sessions cs
+            """SELECT cs.start_date, cs.end_date, cs.owner_user_id, c.title AS course_title FROM course_sessions cs
                JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?""",
             (session_id,), one=True,
         )
@@ -390,6 +391,17 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
             return
         date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
         subject = f"{doc_label} ready - {session_row['course_title']} ({date_range})"
+        # Fix138: in-app too, not just email - every admin plus the class's
+        # owner (notify() skips the duplicate when the owner is an admin).
+        in_app_title = f"{doc_label} uploaded - {session_row['course_title']}"
+        in_app_body = f"Class: {session_row['course_title']} ({date_range})" + (
+            f"\nNote (AI sanity-check): {ai_warning}" if ai_warning else "")
+        class_link = url_for("sessions.view", session_id=session_id)
+        notifications.notify_admins("document_uploaded", in_app_title, body=in_app_body, link=class_link)
+        owner = session_row["owner_user_id"]
+        if owner and not db.query("SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND active = 1",
+                                  (owner,), one=True):
+            notifications.notify(owner, "document_uploaded", in_app_title, body=in_app_body, link=class_link)
         body = (
             f"{doc_label} has just been uploaded for:\n\n"
             f"Class: {session_row['course_title']}\n"

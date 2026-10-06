@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix138 — In-app notification when a class document is uploaded
+
+**Date:** 2026-10-06
+
+- Bug: a returned JD14 form (and the other "document ready" uploads: staff JD14 upload, signed T3
+  Attendance Form, Evaluation Report) only sent the notification email, nothing in-app. They now also
+  notify every admin and the class owner in-app ("JD14 Form uploaded - <course>"), linking to the
+  class page, with the AI sanity-check note when there is one. Works even if email isn't set up.
+
 ## Fix137 — Invoice email: friendlier closing, points to hello@modoku.tech
 
 **Date:** 2026-10-05
