@@ -95,6 +95,7 @@ def _attention_items():
             """SELECT cs.id, c.title AS course_title, cs.start_date
                FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
                WHERE cs.status != 'Cancelled' AND (cs.grant_docs_sent_at IS NULL OR cs.grant_docs_sent_at = '')
+                 AND COALESCE(cs.hrdcorp_claimable, 1) = 1  -- Fix146: not for non-HRDCorp classes
                  AND cs.start_date IS NOT NULL AND cs.start_date != ''
                ORDER BY cs.start_date ASC"""
         )

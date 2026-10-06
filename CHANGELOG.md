@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix146 — Dashboard: no "Grant Documents not sent" for non-HRDCorp classes
+
+**Date:** 2026-10-06
+
+- The dashboard's "Needs Your Attention" list of classes with unsent grant documents ignored the
+  per-class HRDCorp claimable switch (missed in Fix131). A class with it switched off no longer appears.
+
 ## Fix145 — Petty cash notifications
 
 **Date:** 2026-10-06
