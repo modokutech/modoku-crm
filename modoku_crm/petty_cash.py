@@ -22,7 +22,7 @@ from flask import (Blueprint, Response, current_app, flash, g, redirect, render_
                     request, send_from_directory, url_for)
 from werkzeug.utils import secure_filename
 
-from . import activity, db, doc_sanity, uploadutil
+from . import activity, db, doc_sanity, fmtmoney, notifications, uploadutil
 from .auth import admin_required, login_required
 from .docutil import content_disposition
 
@@ -133,6 +133,16 @@ def new():
                 _handle_receipt_upload(voucher_id)
                 activity.log("create", "petty_cash_voucher", voucher_id,
                              f"Raised petty cash voucher {voucher_no} for {payee_name}")
+                # Fix145: admins see the request in-app (not the requester themselves).
+                link = url_for("petty_cash.view", voucher_id=voucher_id)
+                for admin in db.query("SELECT id FROM users WHERE role = 'admin' AND active = 1 AND id != ?",
+                                      (g.user["id"],)):
+                    notifications.notify(
+                        admin["id"], "petty_cash_requested",
+                        f"Petty cash request {voucher_no} - RM {fmtmoney(amount_f)}",
+                        body=f"{g.user['name']} requested RM {fmtmoney(amount_f)} for {payee_name}: {purpose}",
+                        link=link, dedupe_key=f"petty_cash:{voucher_id}:requested",
+                    )
                 flash(f"Voucher {voucher_no} submitted, pending approval.", "success")
                 return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
 
@@ -271,6 +281,15 @@ def approve(voucher_id):
     )
     activity.log("approve", "petty_cash_voucher", voucher_id,
                  f"Approved petty cash voucher {voucher['voucher_no']}")
+    # Fix145: tell whoever raised it.
+    if voucher["requested_by"] and voucher["requested_by"] != g.user["id"]:
+        notifications.notify(
+            voucher["requested_by"], "petty_cash_approved",
+            f"Petty cash {voucher['voucher_no']} approved",
+            body=f"{g.user['name']} approved your request of RM {fmtmoney(voucher['amount'])} for "
+                 f"{voucher['payee_name']}.",
+            link=url_for("petty_cash.view", voucher_id=voucher_id),
+        )
     flash(f"Voucher {voucher['voucher_no']} approved.", "success")
     return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
 
@@ -295,6 +314,15 @@ def reject(voucher_id):
     )
     activity.log("reject", "petty_cash_voucher", voucher_id,
                  f"Rejected petty cash voucher {voucher['voucher_no']}")
+    # Fix145: tell whoever raised it.
+    if voucher["requested_by"] and voucher["requested_by"] != g.user["id"]:
+        notifications.notify(
+            voucher["requested_by"], "petty_cash_rejected",
+            f"Petty cash {voucher['voucher_no']} rejected",
+            body=f"{g.user['name']} rejected your request of RM {fmtmoney(voucher['amount'])} for "
+                 f"{voucher['payee_name']}." + (f" Reason: {reason}" if reason else ""),
+            link=url_for("petty_cash.view", voucher_id=voucher_id),
+        )
     flash(f"Voucher {voucher['voucher_no']} rejected.", "success")
     return redirect(url_for("petty_cash.view", voucher_id=voucher_id))
 

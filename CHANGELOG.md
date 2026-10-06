@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix145 — Petty cash notifications
+
+**Date:** 2026-10-06
+
+- Bug: raising a petty cash voucher didn't notify anyone in-app. Now every admin (except the person who
+  raised it) gets "Petty cash request PCV-... - RM ..." with who asked, for whom and why, linking to the
+  voucher.
+- The requester is notified in-app when their voucher is approved or rejected (with the rejection
+  reason, if given).
+
 ## Fix144 — Invoice form: SST section arranged like the quotation form
 
 **Date:** 2026-10-06
