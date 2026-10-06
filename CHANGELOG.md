@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix143 — Invoice: optional Attention To; HRDCorp billing clears PIC, fills Employer
+
+**Date:** 2026-10-06
+
+- Attention To (PIC) is optional: left blank, there's no "Attn:" line on the invoice page or PDF.
+  Before, a blank field still showed the class's PIC. That fallback now only applies to invoices
+  created before the field existed (stored as NULL; a blank one is stored as "").
+- Choosing **HRDCorp** as the client empties Attention To and fills Employer with the linked class's
+  client name. Works in either order (HRDCorp then class, or class then HRDCorp); with HRDCorp chosen,
+  picking a class no longer switches the client away from HRDCorp.
+
 ## Fix142 — Invoice PDF and email: no ".00" on whole amounts
 
 **Date:** 2026-10-06

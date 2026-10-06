@@ -307,7 +307,10 @@ def _invoice_from_form(form):
     fields = {
         "company_id": form.get("company_id") or None,
         "bill_to_name": bill_to_name,
-        "attention_to": (form.get("attention_to") or "").strip() or None,
+        # Fix143: "" = deliberately left blank (no Attn line). NULL is only
+        # on invoices from before the field existed, which fall back to the
+        # class's PIC (_class_pic_name).
+        "attention_to": (form.get("attention_to") or "").strip(),
         "bill_to_address": form.get("bill_to_address") or None,
         "project_title": form.get("project_title") or None,
         "employer": form.get("employer") or None,
@@ -344,9 +347,10 @@ def _save_items(invoice_id, items):
 
 def _class_pic_name(invoice):
     """Fix134: the PIC name an invoice is addressed to - what was typed in
-    Attention To, else (older invoices) the linked class's PIC."""
-    if "attention_to" in invoice.keys() and invoice["attention_to"]:
-        return invoice["attention_to"]
+    Attention To (blank stays blank, Fix143), else for invoices from before
+    the field existed (NULL) the linked class's PIC."""
+    if "attention_to" in invoice.keys() and invoice["attention_to"] is not None:
+        return invoice["attention_to"] or None
     session_id = invoice["session_id"] if "session_id" in invoice.keys() else None
     if not session_id and invoice["grant_id"]:
         matches = db.query("SELECT id FROM course_sessions WHERE hrdcorp_grant_id = ?", (invoice["grant_id"],))

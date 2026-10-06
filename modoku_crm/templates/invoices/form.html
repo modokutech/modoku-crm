@@ -37,7 +37,7 @@
         <label class="form-label">Client (optional)</label>
         <select id="company_id" name="company_id" class="form-select">
           <option value="">Walk-in / individual</option>
-          <option value="" data-name="Pembangunan Sumber Manusia Berhad"
+          <option value="" data-hrdcorp="1" data-name="Pembangunan Sumber Manusia Berhad"
                   data-address="Wisma HRD Corp, Jalan Beringin, Damansara Heights, 50490 Kuala Lumpur"
                   data-sst="" data-tin=""
                   {{ 'selected' if invoice and not inv.company_id and inv.bill_to_name == 'Pembangunan Sumber Manusia Berhad' }}>HRDCorp</option>
@@ -66,7 +66,7 @@
         <input type="text" id="attention_to" name="attention_to" class="form-control" list="pic_suggestions"
                value="{{ inv.attention_to or '' }}" placeholder="e.g. Nurfaten Umyra Binti Jamdan">
         <datalist id="pic_suggestions"></datalist>
-        <small class="text-muted">Shown as "Attn:" under the Billed To name. Filled from the class's PIC.</small>
+        <small class="text-muted">Optional. Shown as "Attn:" under the Billed To name; leave blank to leave it out. Filled from the class's PIC (not for HRDCorp).</small>
       </div>
       <div class="col-12">
         <label class="form-label">Bill to address</label>
@@ -78,7 +78,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">Employer</label>
-        <input type="text" name="employer" class="form-control" value="{{ inv.employer or '' }}">
+        <input type="text" name="employer" id="employer" class="form-control" value="{{ inv.employer or '' }}">
       </div>
       <div class="col-md-6">
         <label class="form-label">Grant ID</label>
@@ -234,6 +234,26 @@ function refreshPicSuggestions() {
   });
 }
 
+// Fix143: billing HRDCorp means no PIC, and Employer is the actual client
+// (the linked class's client).
+function isHrdcorpSelected() {
+  const sel = document.getElementById('company_id');
+  const opt = sel.options[sel.selectedIndex];
+  return !!(opt && opt.dataset.hrdcorp);
+}
+function linkedClassOption() {
+  const sel = document.getElementById('session_id');
+  const opt = sel.options[sel.selectedIndex];
+  return opt && opt.value ? opt : null;
+}
+function applyHrdcorpBilling() {
+  document.getElementById('attention_to').value = '';
+  const cls = linkedClassOption();
+  if (cls && cls.dataset.clientName) {
+    document.getElementById('employer').value = cls.dataset.clientName;
+  }
+}
+
 document.getElementById('company_id').addEventListener('change', function () {
   const opt = this.options[this.selectedIndex];
   document.getElementById('bill_to_name').value = opt.dataset.name || '';
@@ -241,6 +261,7 @@ document.getElementById('company_id').addEventListener('change', function () {
   document.getElementById('sst_reg_no').value = opt.dataset.sst || '';
   document.getElementById('buyer_tin').value = opt.dataset.tin || '';
   refreshPicSuggestions();
+  if (isHrdcorpSelected()) applyHrdcorpBilling();
 });
 refreshPicSuggestions();
 
@@ -249,7 +270,7 @@ function fillFromClass() {
   const opt = sel.options[sel.selectedIndex];
   if (!opt || !opt.value) { return; }
 
-  if (!IS_EDIT) {
+  if (!IS_EDIT && !isHrdcorpSelected()) {
     if (opt.dataset.companyId) {
       const companySelect = document.getElementById('company_id');
       companySelect.value = opt.dataset.companyId;
@@ -258,7 +279,11 @@ function fillFromClass() {
       document.getElementById('bill_to_name').value = opt.dataset.clientName;
     }
   }
-  setField(document.getElementById('attention_to'), opt.dataset.picName || '');
+  if (isHrdcorpSelected()) {
+    applyHrdcorpBilling();
+  } else {
+    setField(document.getElementById('attention_to'), opt.dataset.picName || '');
+  }
   setField(document.getElementById('project_title'), opt.dataset.courseTitle || '');
   // Fix115: the class's HRDCorp Grant ID; blank when it has none.
   setField(document.getElementById('grant_id'), opt.dataset.grantId || '');
