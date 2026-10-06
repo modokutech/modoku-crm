@@ -1173,6 +1173,11 @@ _COLUMN_MIGRATIONS = [
     # Fix134: the client's PIC an invoice is addressed to ("Attn:" under
     # Billed To). Older invoices fall back to their class's PIC.
     ("invoices", "attention_to", "TEXT"),
+    # Fix141: when the T3 Attendance Form link was last emailed for a class
+    # and to whom (manual Send/Resend, or the automatic send after a signed
+    # quotation), shown in the class page's Send box.
+    ("course_sessions", "t3_link_sent_at", "TEXT"),
+    ("course_sessions", "t3_link_sent_to", "TEXT"),
 ]
 
 

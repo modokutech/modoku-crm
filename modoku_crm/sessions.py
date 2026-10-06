@@ -1046,8 +1046,21 @@ def view(session_id):
     else:
         jd14_status = "draft" if not jd14_row["signed_at"] else jd14_stage(session_row, jd14_row)
 
+    # Fix141: when the T3 link was last emailed. Sends before Fix141 were only
+    # recorded on the linked quotation (the automatic post-signing email).
+    t3_link_sent = None
+    if session_row["t3_link_sent_at"]:
+        t3_link_sent = {"at": session_row["t3_link_sent_at"], "to": session_row["t3_link_sent_to"]}
+    else:
+        q_sent = db.query("""SELECT t3_link_sent_at, sent_to_email FROM quotations
+                             WHERE session_id = ? AND t3_link_sent_at IS NOT NULL
+                             ORDER BY t3_link_sent_at DESC LIMIT 1""", (session_id,), one=True)
+        if q_sent:
+            t3_link_sent = {"at": q_sent["t3_link_sent_at"],
+                            "to": f"{q_sent['sent_to_email'] or 'the client'} (automatic, after the signed quotation)"}
+
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
-                            jd14_status=jd14_status, jd14_form=jd14_row,
+                            jd14_status=jd14_status, jd14_form=jd14_row, t3_link_sent=t3_link_sent,
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
@@ -1280,6 +1293,9 @@ def send_t3_form(session_id):
         flash(f"Email failed to send: {exc}", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
 
+    sent_to = to_email + (f" (cc {cc_email})" if cc_email else "")
+    db.execute("UPDATE course_sessions SET t3_link_sent_at = datetime('now'), t3_link_sent_to = ? WHERE id = ?",
+               (sent_to, session_id))
     activity.log("send_email", "session", session_id, f"Sent T3 Attendance Form link to {to_email}")
     flash(f"T3 Attendance Form link sent to {to_email}.", "success")
     return redirect(url_for("sessions.view", session_id=session_id))

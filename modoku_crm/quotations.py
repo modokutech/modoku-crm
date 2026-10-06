@@ -320,6 +320,8 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
                 related_type="quotation", related_id=quotation_id,
             )
             db.execute("UPDATE quotations SET t3_link_sent_at = datetime('now') WHERE id = ?", (quotation_id,))
+            db.execute("UPDATE course_sessions SET t3_link_sent_at = datetime('now'), t3_link_sent_to = ? WHERE id = ?",
+                       (f"{to_email} (automatic, after the signed quotation)", session_row["id"]))
         except Exception:  # noqa: BLE001
             current_app.logger.exception("Failed to send T3 form link for quotation %s", quotation_id)
 

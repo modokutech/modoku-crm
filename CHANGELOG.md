@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix141 — Class page shows when the T3 Attendance Form link was last sent
+
+**Date:** 2026-10-06
+
+- The "Send Online Attendance Form Link" box now shows "Last sent to <email> (cc ...) on <date, time>",
+  or "Not sent yet". Recorded for both the manual Send/Resend and the automatic email after a signed
+  quotation (new columns `course_sessions.t3_link_sent_at` / `t3_link_sent_to`). Automatic sends from
+  before this fix are picked up from the linked quotation.
+
 ## Fix140 — Signed quotation fills the class's HRDCorp Grant Documents automatically
 
 **Date:** 2026-10-06
