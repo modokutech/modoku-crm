@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix144 — Invoice form: SST section arranged like the quotation form
+
+**Date:** 2026-10-06
+
+- SST Rate first, "This amount is SST included" next to it with its explanation in a light grey box,
+  then the Totals preview full width underneath (same as quotations, Fix128/129).
+
 ## Fix143 — Invoice: optional Attention To; HRDCorp billing clears PIC, fills Employer
 
 **Date:** 2026-10-06

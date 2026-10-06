@@ -147,20 +147,24 @@
 
     <hr>
     <div class="row g-3">
-      <div class="col-12">
-        <div class="form-check">
+      {# Fix144: same arrangement as the quotation form - SST rate, then the tick box with its note in a light box, then the totals. #}
+      <div class="col-md-3">
+        <label class="form-label">SST Rate (%) <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="number" step="0.01" min="0" name="sst_rate" id="sst_rate_field" class="form-control" value="{{ (inv.sst_rate|fmtrate) if inv.sst_rate else 0 }}">
+      </div>
+      <div class="col-md-9 pt-md-4">
+        <div class="form-check mt-md-2">
           <input type="checkbox" class="form-check-input" id="sst_inclusive_check" name="sst_inclusive" value="1" {{ 'checked' if inv.sst_inclusive }}>
           <label class="form-check-label" for="sst_inclusive_check">This amount is SST included</label>
         </div>
-        <small class="text-muted d-block mb-2">Tick this if the unit prices below are all-in prices (SST already
-          included). The sub-total and SST will be worked backwards from them so the total stays the same as what
-          you typed. Leave unticked to add SST on top instead.</small>
+        <div class="d-flex gap-2 mt-2 px-3 py-2 rounded small text-muted" style="background:#f8f9fb;border:1px solid #eef1f5;">
+          <i class="bi bi-info-circle mt-1"></i>
+          <span>Tick this if the unit prices above are all-in prices (SST already included). The sub-total and SST
+            will be worked backwards from them so the total stays the same as what you typed. Leave unticked to
+            add SST on top instead.</span>
+        </div>
       </div>
-      <div class="col-md-3">
-        <label class="form-label">SST Rate (%)</label>
-        <input type="number" step="0.01" min="0" name="sst_rate" id="sst_rate_field" class="form-control" value="{{ (inv.sst_rate|fmtrate) if inv.sst_rate else 0 }}">
-      </div>
-      <div class="col-md-9">
+      <div class="col-12">
         <label class="form-label">Totals preview</label>
         <div class="d-flex flex-wrap gap-4 align-items-baseline border rounded px-3 py-2 bg-light">
           <div><span class="text-muted small d-block">Sub-total</span><span id="preview_subtotal" class="fw-semibold">RM 0.00</span></div>
