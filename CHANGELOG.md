@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix142 — Invoice PDF and email: no ".00" on whole amounts
+
+**Date:** 2026-10-06
+
+- Invoice PDF amounts (rate, amount, sub-total, SST, total, upfront, total due) now drop a ".00":
+  10,500.00 -> 10,500, while 10,500.10 stays 10,500.10. Same for "Amount due" in the invoice email.
+  The invoice web page already worked this way (`fmtmoney`); the PDF now uses the same helper.
+  Quotation and PO PDFs are unchanged.
+
 ## Fix141 — Class page shows when the T3 Attendance Form link was last sent
 
 **Date:** 2026-10-06

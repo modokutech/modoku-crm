@@ -15,7 +15,7 @@ from flask import current_app
 from markupsafe import escape
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from . import fmtrate
+from . import fmtmoney, fmtrate
 
 
 # The certificate's signee — a fixed company signatory (not the logged-in
@@ -577,8 +577,8 @@ def _build_invoice_html(invoice, items):
             f"<td style='font-weight:600;vertical-align:top'>{item['description']}{sub_detail}</td>"
             f"<td style='vertical-align:top'>{item['duration'] or ''}</td>"
             f"<td style='text-align:right;vertical-align:top;white-space:nowrap'>{qty_display}</td>"
-            f"<td style='text-align:right;vertical-align:top'>{item['unit_price']:,.2f}</td>"
-            f"<td style='text-align:right;vertical-align:top'>{item['amount']:,.2f}</td></tr>"
+            f"<td style='text-align:right;vertical-align:top'>{fmtmoney(item['unit_price'])}</td>"
+            f"<td style='text-align:right;vertical-align:top'>{fmtmoney(item['amount'])}</td></tr>"
         )
     item_rows_html = "".join(item_rows)
 
@@ -595,7 +595,7 @@ def _build_invoice_html(invoice, items):
 
     sst_row = (
         f"<tr><td class='muted' style='border:none'>SST ({fmtrate(invoice['sst_rate'])}%)</td>"
-        f"<td style='border:none;text-align:right'>{invoice['sst_amount']:,.2f}</td></tr>"
+        f"<td style='border:none;text-align:right'>{fmtmoney(invoice['sst_amount'])}</td></tr>"
     ) if invoice["sst_rate"] else ""
 
     # Fix114: an upfront payment already received - the total before it, then
@@ -606,9 +606,9 @@ def _build_invoice_html(invoice, items):
         gross = invoice["subtotal"] + invoice["sst_amount"]
         upfront_rows = (
             (f"<tr><td class='muted' style='border:none'>Total</td>"
-             f"<td style='border:none;text-align:right'>{gross:,.2f}</td></tr>" if invoice["sst_amount"] else "")
+             f"<td style='border:none;text-align:right'>{fmtmoney(gross)}</td></tr>" if invoice["sst_amount"] else "")
             + f"<tr><td class='muted' style='border:none'>{upfront_label(invoice)}</td>"
-            f"<td style='border:none;text-align:right'>({invoice['upfront_amount']:,.2f})</td></tr>"
+            f"<td style='border:none;text-align:right'>({fmtmoney(invoice['upfront_amount'])})</td></tr>"
         )
 
     notes_html = (
@@ -704,11 +704,11 @@ def _build_invoice_html(invoice, items):
   <table style="border:none;margin-top:0"><tr style="border:none"><td style="border:none;width:60%"></td>
     <td style="border:none">
       <table>
-        <tr><td class="muted" style="border:none">Sub-total</td><td style="border:none;text-align:right">{invoice['subtotal']:,.2f}</td></tr>
+        <tr><td class="muted" style="border:none">Sub-total</td><td style="border:none;text-align:right">{fmtmoney(invoice['subtotal'])}</td></tr>
         {sst_row}
         {upfront_rows}
         <tr style="font-weight:700" class="brand"><td style="border-top:1px solid #d8dce3">{'Balance Due' if upfront_rows else 'Total Due'}</td>
-          <td style="border-top:1px solid #d8dce3;text-align:right">{invoice['currency']} {invoice['total']:,.2f}</td></tr>
+          <td style="border-top:1px solid #d8dce3;text-align:right">{invoice['currency']} {fmtmoney(invoice['total'])}</td></tr>
       </table>
     </td>
   </tr></table>

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
-from . import activity, db, fmtdate, mailer, notifications, parse_money
+from . import activity, db, fmtdate, fmtmoney, mailer, notifications, parse_money
 from . import settings as settings_module
 from .auth import admin_required, login_required
 from .csvutil import csv_response
@@ -166,7 +166,7 @@ def _default_invoice_email_body(invoice, pic=None):
         f"Dear {greeting_name},\n\n"
         f"Please find attached invoice {invoice['invoice_no']} for your reference.\n\n"
         f"{project_line}"
-        f"Amount due: {invoice['currency']} {invoice['total']:,.2f}\n"
+        f"Amount due: {invoice['currency']} {fmtmoney(invoice['total'])}\n"
         f"Due date: {fmtdate(invoice['due_date'])}\n\n"
         "We would appreciate payment by the due date. If you have any questions, please feel free to "
         "contact us at hello@modoku.tech.\n\n"

@@ -135,9 +135,9 @@ def fmtmoney(value):
     keeps them ('21000.10' -> '21,000.10'). None/blank is treated as 0 so
     callers don't need an `or 0` guard everywhere.
 
-    This only affects on-screen HTML pages — the PDF generator (pdfgen.py)
-    formats its own amounts directly and never calls this filter, so
-    invoices/quotations/POs always show the full '.00' regardless."""
+    Used on the HTML pages, and (Fix142) for the amounts in the invoice PDF
+    and invoice email. Other PDFs (quotations, POs) still format their own
+    amounts with the full '.00'."""
     try:
         amount = float(value) if value not in (None, "") else 0.0
     except (TypeError, ValueError):
