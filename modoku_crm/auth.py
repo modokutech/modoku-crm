@@ -87,6 +87,13 @@ def _hash_otp(code):
 def _finish_login(user, remember_next=True):
     session.clear()
     session["user_id"] = user["id"]
+    # Fix153: the CSRF token goes into the logged-in session right here.
+    # Created later (when the first page renders its forms), the browser's
+    # parallel requests for that page's images/CSS - which re-save the
+    # permanent session cookie on every response - could overwrite it with
+    # the token-less cookie, and the page's forms then failed with
+    # "Your session expired" (400).
+    session["csrf_token"] = secrets.token_hex(32)
     session.permanent = True
     g.user = user
     activity.log("login", "user", user["id"], f"{user['name']} logged in")

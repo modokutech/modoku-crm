@@ -284,6 +284,24 @@ def add_activity(lead_id):
     return redirect(url_for("leads.view", lead_id=lead_id))
 
 
+@bp.route("/<int:lead_id>/status", methods=("POST",))
+@login_required
+def update_status(lead_id):
+    """Fix153: change only a lead's status, straight from the Leads list,
+    without opening (and risking edits to) the full Edit form."""
+    lead = db.query("SELECT id, name, status FROM leads WHERE id = ?", (lead_id,), one=True)
+    status = request.form.get("status")
+    if lead is None or status not in STATUSES:
+        flash("Couldn't update that lead's status.", "danger")
+        return redirect(request.referrer or url_for("leads.index"))
+    if status != lead["status"]:
+        lost_reason = (request.form.get("lost_reason") or "").strip() or None if status == "Lost" else None
+        db.execute("UPDATE leads SET status = ?, lost_reason = ? WHERE id = ?", (status, lost_reason, lead_id))
+        activity.log("update", "lead", lead_id, f"Lead {lead['name']}: {lead['status']} -> {status}")
+        flash(f"{lead['name']} moved to {status}.", "success")
+    return redirect(request.referrer or url_for("leads.index"))
+
+
 @bp.route("/<int:lead_id>/edit", methods=("GET", "POST"))
 @login_required
 def edit(lead_id):

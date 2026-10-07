@@ -48,16 +48,27 @@
           <td>{{ l.company_name or '-' }}</td>
           <td class="small">{{ l.email or '' }}{% if l.email and l.phone %}<br>{% endif %}{{ l.phone or '' }}</td>
           <td>{{ l.source or '-' }}</td>
-          <td>
-            <span class="badge badge-status
-              {% if l.status == 'Deal Closed' %}bg-success
-              {% elif l.status == 'Lost' %}bg-danger
-              {% elif l.status == 'New' %}badge-brand
-              {% elif l.status == 'Proposal Sent' %}bg-primary-subtle text-primary-emphasis
-              {% elif l.status == 'Had Meeting' %}bg-warning-subtle text-warning-emphasis
-              {% else %}bg-info-subtle text-info-emphasis{% endif %}">
-              {{ l.status }}
-            </span>
+          {# Fix153: click the status to change it right here. #}
+          <td onclick="event.stopPropagation()">
+            <div class="dropdown">
+              <button type="button" class="badge badge-status border-0 dropdown-toggle lead-status-btn
+                {% if l.status == 'Deal Closed' %}bg-success
+                {% elif l.status == 'Lost' %}bg-danger
+                {% elif l.status == 'New' %}badge-brand
+                {% elif l.status == 'Proposal Sent' %}bg-primary-subtle text-primary-emphasis
+                {% elif l.status == 'Had Meeting' %}bg-warning-subtle text-warning-emphasis
+                {% else %}bg-info-subtle text-info-emphasis{% endif %}"
+                data-bs-toggle="dropdown" aria-expanded="false" title="Change status">{{ l.status }}</button>
+              <form method="post" action="{{ url_for('leads.update_status', lead_id=l.id) }}" class="dropdown-menu p-1 shadow-sm lead-status-form">
+                {{ csrf_field()|safe }}
+                <input type="hidden" name="lost_reason" value="">
+                <div class="dropdown-header small py-1">Change status</div>
+                {% for st in statuses %}
+                <button type="submit" name="status" value="{{ st }}" class="dropdown-item small {{ 'active' if st == l.status }}"
+                        {% if st == 'Lost' %}data-ask-reason="1"{% endif %}>{{ st }}</button>
+                {% endfor %}
+              </form>
+            </div>
           </td>
           <td>{{ l.assigned_name or '-' }}</td>
           <td class="small text-muted">{{ l.created_at|fmtdate }}</td>
@@ -70,4 +81,18 @@
   <p class="text-muted mb-0">No leads match your filters yet.</p>
   {% endif %}
 </div>
+<style>
+  .lead-status-btn { cursor: pointer; }
+  .lead-status-btn::after { margin-left: .35em; vertical-align: .15em; border-top-width: .28em; border-right-width: .28em; border-left-width: .28em; }
+</style>
+<script>
+// Fix153: moving a lead to Lost asks for an (optional) reason, same field as the Edit form.
+document.querySelectorAll('.lead-status-form [data-ask-reason]').forEach(function (btn) {
+  btn.addEventListener('click', function (e) {
+    const reason = window.prompt('Reason this lead was lost (optional):', '');
+    if (reason === null) { e.preventDefault(); return; }
+    btn.form.querySelector('input[name="lost_reason"]').value = reason;
+  });
+});
+</script>
 {% endblock %}

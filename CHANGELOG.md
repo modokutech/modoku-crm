@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix153 — Change a lead's status from the Leads list; fix random "session expired" after login
+
+**Date:** 2026-10-07
+
+- Leads list: the Status badge is now a small menu. Click it, pick a status, and only the status is saved
+  (new route `/leads/<id>/status`), no Edit form needed. Moving to Lost asks for an optional reason.
+  Each change is logged ("Lead X: New -> Contacted"). Clicking elsewhere on the row still opens the lead.
+- Bug: right after logging in, a form could fail with 400 "Your session expired..." The CSRF token was
+  only created when the first page rendered its forms, and that page's parallel image/CSS requests
+  re-saved the (permanent) session cookie without it. The token is now created at login
+  (`auth._finish_login`).
+
 ## Fix152 — Class page Training Report: email form folds away once sent
 
 **Date:** 2026-10-07
