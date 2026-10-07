@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix149 — Training report cover: bigger date and "Course Training Report for <client>"
+
+**Date:** 2026-10-07
+
+- Cover page (drawn with Pillow, so exact sizes): date Poppins Light 12pt -> Regular 14pt;
+  "Course Training Report" 14 -> 16pt, "for" 11 -> 13pt, client name 16 -> 18pt.
+
 ## Fix148 — Change who an existing trainer PO is issued to
 
 **Date:** 2026-10-07

@@ -386,10 +386,12 @@ def _build_cover_pdf(course_title, date_range, client_name):
     draw = ImageDraw.Draw(img)
 
     title_font = _cover_font(_FONT_BOLD, 22)
-    date_font = _cover_font(_FONT_LIGHT, 12)
-    label_font = _cover_font(_FONT_REGULAR, 14)
-    for_font = _cover_font(_FONT_GEORGIA_ITALIC, 11)
-    client_font = _cover_font(_FONT_BOLD, 16)
+    # Fix149: date one weight up (Light -> Regular) and +2pt; the
+    # "Course Training Report / for / <client>" block +2pt each.
+    date_font = _cover_font(_FONT_REGULAR, 14)
+    label_font = _cover_font(_FONT_REGULAR, 16)
+    for_font = _cover_font(_FONT_GEORGIA_ITALIC, 13)
+    client_font = _cover_font(_FONT_BOLD, 18)
     company_font = _cover_font(_FONT_REGULAR, 10)
 
     y = _cover_center(draw, 38, course_title, title_font, "white", max_width_mm=155)
