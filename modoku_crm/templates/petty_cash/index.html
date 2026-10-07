@@ -32,7 +32,7 @@
           <td>{{ v.purpose }}</td>
           <td>{{ v.category or '-' }}</td>
           <td class="text-end">RM {{ v.amount|fmtmoney }}</td>
-          <td>{{ v.requested_by_name or ', ' }}</td>
+          <td>{{ v.requested_by_name or '-' }}</td>
           <td>
             <span class="badge badge-status
               {% if v.status == 'Approved' %}bg-success

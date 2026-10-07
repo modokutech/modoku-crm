@@ -606,7 +606,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       feeSpan.className = 'fw-semibold';
       feeSpan.appendChild(textNode(fmtMoney(r.investment_fee)));
       row.appendChild(feeSpan);
-      let detail = ', ' + r.programme;
+      let detail = ' · ' + r.programme;
       if (r.client_company_name) detail += ' · ' + r.client_company_name;
       if (r.no_of_pax) detail += ' · ' + r.no_of_pax + ' pax';
       detail += ' · ' + r.quote_no;

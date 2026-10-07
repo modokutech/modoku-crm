@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix151 — Training Report list shows "Sent"; stray "," placeholders fixed
+
+**Date:** 2026-10-07
+
+- Training Report list: once the report is emailed to the client, the Report column shows
+  "Sent <date, time>" with who it went to, instead of only "Generated".
+- Empty cells in several lists (Training Report trainer/responses, invoices/POs/vendor POs "created by",
+  petty cash "raised by", activity and mail logs) showed a stray "," instead of "-". Fixed. The quotation
+  pricing suggestions read "RM 21,000 · Programme" instead of "RM 21,000, Programme".
+
 ## Fix150 — Training report email speaks as "we"
 
 **Date:** 2026-10-07

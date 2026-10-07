@@ -19,11 +19,15 @@
         {% for s in rows %}
         <tr onclick="window.location='{{ url_for('training_reports.view', session_id=s.id) }}'" style="cursor:pointer">
           <td class="fw-semibold">{{ s.course_title }}</td>
-          <td>{{ s.trainer_name or ', ' }}</td>
+          <td>{{ s.trainer_name or '-' }}</td>
           <td class="text-nowrap">{{ s.start_date|fmtdaterange(s.end_date) }}</td>
-          <td>{{ s.response_count if s.response_count is not none else ', ' }}</td>
+          <td>{{ s.response_count if s.response_count is not none else '-' }}</td>
           <td>
-            {% if s.generated_at %}
+            {# Fix151: once the report has been emailed to the client, that's the status that matters. #}
+            {% if s.evaluation_sent_at %}
+            <span class="badge bg-primary" title="Sent to {{ s.evaluation_sent_to or 'the client' }}"><i class="bi bi-envelope-check me-1"></i>Sent {{ s.evaluation_sent_at|fmtdatetime }}</span>
+            {% if s.evaluation_sent_to %}<div class="small text-muted mt-1">to {{ s.evaluation_sent_to }}</div>{% endif %}
+            {% elif s.generated_at %}
             <span class="badge bg-success">Generated {{ s.generated_at|fmtdatetime }}</span>
             {% else %}
             <span class="badge bg-secondary">Not generated yet</span>

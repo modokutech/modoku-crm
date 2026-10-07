@@ -522,7 +522,8 @@ def build_report(session_id, user_id=None):
 def index():
     rows = db.query(
         """SELECT cs.id, c.title AS course_title, t.name AS trainer_name, cs.start_date, cs.end_date,
-                  cs.evaluation_form_link, tr.response_count, tr.generated_at
+                  cs.evaluation_form_link, tr.response_count, tr.generated_at,
+                  cs.evaluation_sent_at, cs.evaluation_sent_to
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN trainers t ON t.id = cs.trainer_id
