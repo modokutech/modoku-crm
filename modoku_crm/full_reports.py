@@ -564,7 +564,7 @@ def _default_full_report_email_body(session_row):
         f"Hi {greeting_name or 'there'},\n\n"
         f"Thank you for giving us the opportunity to host the {session_row['course_title']} training for "
         "your team.\n\n"
-        "I'd like to share the training evaluation report with you. It includes valuable feedback from "
+        "We'd like to share the training evaluation report with you. It includes valuable feedback from "
         "the participants.\n\n"
         "Feel free to review the report and share it with your team. If you have any questions or need "
         "further information, please don't hesitate to reach out. We're happy to help.\n\n"

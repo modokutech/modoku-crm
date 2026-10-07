@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix150 — Training report email speaks as "we"
+
+**Date:** 2026-10-07
+
+- Default email body: "I'd like to share the training evaluation report..." is now "We'd like to share...",
+  matching the rest of the email.
+
 ## Fix149 — Training report cover: bigger date and "Course Training Report for <client>"
 
 **Date:** 2026-10-07
