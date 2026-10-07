@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix152 — Class page Training Report: email form folds away once sent
+
+**Date:** 2026-10-07
+
+- After the evaluation report has been emailed, the class page's Training Report card shows the
+  "Emailed to ... on ..." line and a "Resend / Edit Email" button; the To/CC/Subject/Message form
+  expands only when that's clicked. Before it's sent, the form shows as before.
+
 ## Fix151 — Training Report list shows "Sent"; stray "," placeholders fixed
 
 **Date:** 2026-10-07

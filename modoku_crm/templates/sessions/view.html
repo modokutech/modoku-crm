@@ -390,7 +390,13 @@
         <hr>
         {% if s.evaluation_sent_at %}
         <p class="small text-warning-emphasis mb-2"><i class="bi bi-check-circle me-1"></i>Emailed to {{ s.evaluation_sent_to }} on {{ s.evaluation_sent_at|fmtdatetime }}.</p>
+        {# Fix152: once sent, the email form folds away behind a Resend button. #}
+        <button class="btn btn-sm btn-outline-secondary w-100 mb-2" type="button" data-bs-toggle="collapse"
+                data-bs-target="#evaluationEmailForm" aria-expanded="false" aria-controls="evaluationEmailForm">
+          <i class="bi bi-envelope me-1"></i>Resend / Edit Email
+        </button>
         {% endif %}
+        <div class="{{ 'collapse' if s.evaluation_sent_at }}" id="evaluationEmailForm">
         <form method="post" action="{{ url_for('sessions.send_evaluation_email', session_id=s.id) }}">
           {{ csrf_field()|safe }}
           <div class="mb-2">
@@ -412,6 +418,7 @@
           </div>
           <button class="btn btn-sm btn-outline-success w-100" type="submit"><i class="bi bi-envelope me-1"></i>{{ 'Resend' if s.evaluation_sent_at else 'Send' }} Evaluation Report to Client</button>
         </form>
+        </div>
         {% endif %}
     </div>
   </div>
