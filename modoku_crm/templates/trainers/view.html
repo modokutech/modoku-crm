@@ -34,6 +34,7 @@
         <tr><td class="text-muted">Email</td><td>{{ trainer.email or '-' }}</td></tr>
         <tr><td class="text-muted">Phone</td><td>{{ trainer.phone or '-' }}</td></tr>
         <tr><td class="text-muted">Rate Per Day</td><td>RM {{ trainer.rate_per_day|fmtmoney }}</td></tr>
+        {% if trainer.company_name %}<tr><td class="text-muted">Company</td><td>{{ trainer.company_name }}{% if trainer.company_address %}<div class="small text-muted">{{ trainer.company_address }}</div>{% endif %}<div class="small text-muted">POs are issued to this company.</div></td></tr>{% endif %}
         <tr><td class="text-muted">Half-Day Rate</td><td>RM {{ trainer.half_day_rate|fmtmoney }}</td></tr>
         <tr><td class="text-muted">Outstation Rate</td><td>RM {{ trainer.outstation_rate|fmtmoney }}</td></tr>
       </table>

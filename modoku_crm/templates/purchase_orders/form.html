@@ -24,7 +24,8 @@
         <select name="trainer_id" id="trainer_select" class="form-select" required>
           <option value="">Select trainer</option>
           {% for t in trainers %}
-          <option value="{{ t.id }}" data-rate="{{ t.rate_per_day or 0 }}" {{ 'selected' if preselect_trainer == t.id }}>{{ t.name }}</option>
+          <option value="{{ t.id }}" data-rate="{{ t.rate_per_day or 0 }}" data-company="{{ t.company_name or '' }}"
+                  data-company-address="{{ t.company_address or '' }}" {{ 'selected' if preselect_trainer == t.id }}>{{ t.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -37,6 +38,16 @@
           {% endfor %}
         </select>
         <small class="text-muted">Only create a PO once the client has confirmed the date.</small>
+      </div>
+      {# Fix147: PO issued to the trainer's company; filled from the trainer's record. #}
+      <div class="col-md-6">
+        <label class="form-label">Company <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" name="bill_company" id="bill_company" class="form-control" placeholder="Leave blank to issue to the trainer personally">
+        <small class="text-muted">Filled from the trainer's record. The PO is then issued to this company, attention to the trainer.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Company Address <span class="text-muted small fw-normal">(optional)</span></label>
+        <textarea name="bill_address" id="bill_address" class="form-control" rows="2"></textarea>
       </div>
       <div class="col-md-4">
         <label class="form-label">Fee Amount</label>
@@ -145,6 +156,21 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   trainerSelect.addEventListener('change', updateFee);
   sessionSelect.addEventListener('change', updateFee);
   updateFee();
+})();
+
+// Fix147: Company / Company Address follow the selected trainer's record
+// (blank for a trainer paid personally); still editable for this PO.
+(function () {
+  const trainerSelect = document.getElementById('trainer_select');
+  const company = document.getElementById('bill_company');
+  const address = document.getElementById('bill_address');
+  function fillCompany() {
+    const opt = trainerSelect.selectedOptions[0];
+    company.value = (opt && opt.dataset.company) || '';
+    address.value = (opt && opt.dataset.companyAddress) || '';
+  }
+  trainerSelect.addEventListener('change', fillCompany);
+  if (trainerSelect.value) fillCompany();
 })();
 </script>
 {% endblock %}

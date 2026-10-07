@@ -229,7 +229,8 @@ def address_lines(address):
     e.g. 'Wisma HRD Corp, Jalan Beringin,' / 'Damansara Heights,' /
     '50490 Kuala Lumpur.'. The line from the 5-digit postcode onwards is the
     last line; the parts before it are split into two lines of about equal
-    length. An address typed with its own line breaks keeps them."""
+    length (or kept as one when that's short, Fix147). An address typed
+    with its own line breaks keeps them."""
     address = (address or "").strip()
     if not address:
         return []
@@ -238,7 +239,9 @@ def address_lines(address):
     parts = [p.strip() for p in address.split(",") if p.strip()]
     tail_at = next((i for i, p in enumerate(parts) if re.match(r"\d{5}\b", p)), len(parts) - 1)
     head, tail = parts[:tail_at], ", ".join(parts[tail_at:])
-    if len(head) <= 1:
+    # Fix147: a short street part ('No 12, Jalan SS2/24') stays on one line
+    # rather than being broken into two tiny ones.
+    if len(head) <= 1 or len(", ".join(head)) <= 32:
         lines = [", ".join(head)] if head else []
     else:
         split = min(range(1, len(head)),

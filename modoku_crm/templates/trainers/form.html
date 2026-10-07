@@ -42,6 +42,19 @@
         <small class="text-muted">Used to auto-prefill the Purchase Order fee (rate × course duration).</small>
       </div>
     </div>
+    {# Fix147: for trainers paid through their own company. #}
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Company <span class="text-muted small fw-normal">(optional)</span></label>
+        <input type="text" name="company_name" class="form-control" placeholder="e.g. Harjinthar Consulting Sdn Bhd"
+               value="{{ (trainer.company_name or '') if trainer else '' }}">
+        <small class="text-muted">Fill in only if POs should be issued to the trainer's company.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Company Address <span class="text-muted small fw-normal">(optional)</span></label>
+        <textarea name="company_address" class="form-control" rows="2">{{ (trainer.company_address or '') if trainer else '' }}</textarea>
+      </div>
+    </div>
     <div class="row g-3 mb-3">
       <div class="col-md-6">
         <label class="form-label">Half-Day Rate (RM)</label>

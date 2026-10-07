@@ -1178,6 +1178,13 @@ _COLUMN_MIGRATIONS = [
     # quotation), shown in the class page's Send box.
     ("course_sessions", "t3_link_sent_at", "TEXT"),
     ("course_sessions", "t3_link_sent_to", "TEXT"),
+    # Fix147: some trainers are paid through their own company. Saved on the
+    # trainer as the default, and copied onto each PO (editable there) so an
+    # issued PO keeps the name/address it was issued to.
+    ("trainers", "company_name", "TEXT"),
+    ("trainers", "company_address", "TEXT"),
+    ("purchase_orders", "bill_company", "TEXT"),
+    ("purchase_orders", "bill_address", "TEXT"),
 ]
 
 

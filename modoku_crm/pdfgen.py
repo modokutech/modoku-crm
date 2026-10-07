@@ -312,8 +312,7 @@ def _build_html(po, items, grand_total):
   <table style="border:none">
     <tr style="border:none">
       <td style="border:none;width:50%">
-        <div class="muted" style="font-size:11px;text-transform:uppercase">Issued To (Trainer)</div>
-        <strong>{po['trainer_name'] or 'Trainer removed'}</strong><br>
+        {_po_issued_to_html(po)}
         {po['trainer_email'] or ''}<br>{(po['trainer_phone'] if 'trainer_phone' in po.keys() else None) or ''}
       </td>
       <td style="border:none;text-align:right">
@@ -1841,6 +1840,22 @@ def generate_jd14_pdf(session_row, jd14_row, signed_by_user):
                 os.remove(path)
             except OSError:
                 pass
+
+
+def _po_issued_to_html(po):
+    """Fix147: a trainer PO's addressee - the trainer's company (with its
+    address, attention to the trainer) when the PO carries one, else the
+    trainer personally as before."""
+    from . import address_lines
+    trainer = escape(po["trainer_name"] or "Trainer removed")
+    company = po["bill_company"] if "bill_company" in po.keys() else None
+    if not company:
+        return ('<div class="muted" style="font-size:11px;text-transform:uppercase">Issued To (Trainer)</div>'
+                f"<strong>{trainer}</strong><br>")
+    address = po["bill_address"] if "bill_address" in po.keys() else None
+    lines = "".join(f"{escape(l)}<br>" for l in address_lines(address)) if address else ""
+    return ('<div class="muted" style="font-size:11px;text-transform:uppercase">Issued To</div>'
+            f"<strong>{escape(company)}</strong><br>{lines}Attn: {trainer}<br>")
 
 
 def generate_po_pdf(po, items, grand_total):

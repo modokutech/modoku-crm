@@ -343,8 +343,9 @@ def new():
                 po_no = _next_po_no()
                 po_id = db.execute(
                     """INSERT INTO purchase_orders (po_no, session_id, trainer_id, fee_amount, currency,
-                           status, terms, trainer_responsibilities, issue_date, notes, created_by)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                           status, terms, trainer_responsibilities, issue_date, notes, created_by,
+                           bill_company, bill_address)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (
                         po_no,
                         session_id,
@@ -357,6 +358,8 @@ def new():
                         request.form.get("issue_date") or date.today().isoformat(),
                         request.form.get("notes") or None,
                         g.user["id"],
+                        (request.form.get("bill_company") or "").strip() or None,
+                        (request.form.get("bill_address") or "").strip() or None,
                     ),
                 )
                 _save_extra_items(po_id, request.form)

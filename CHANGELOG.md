@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix147 — Trainer POs can be issued to the trainer's company
+
+**Date:** 2026-10-07
+
+- Trainers: new optional **Company** and **Company Address** (`trainers.company_name/company_address`),
+  shown on the trainer's page.
+- New PO: Company / Company Address fields, filled from the selected trainer and editable; saved on the
+  PO (`purchase_orders.bill_company/bill_address`) so an issued PO keeps what it was issued to.
+- PO page and PDF: with a company, "Issued To" shows the company, its address and "Attn: <trainer>";
+  without one, unchanged ("Issued To (Trainer)").
+- `address_lines`: a short street part before the postcode now stays on one line
+  ("No 12, Jalan SS2/24," rather than "No 12," / "Jalan SS2/24,"). Longer ones split as before.
+
 ## Fix146 — Dashboard: no "Grant Documents not sent" for non-HRDCorp classes
 
 **Date:** 2026-10-06

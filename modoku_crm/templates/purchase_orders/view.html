@@ -50,8 +50,16 @@
 
       <div class="row mb-4">
         <div class="col-md-6">
+          {# Fix147: issued to the trainer's company when one is set on the PO. #}
+          {% if po.bill_company %}
+          <div class="small text-muted text-uppercase">Issued To</div>
+          <div class="fw-semibold">{{ po.bill_company }}</div>
+          {% if po.bill_address %}<div>{% for line in address_lines(po.bill_address) %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>{% endif %}
+          <div>Attn: {{ po.trainer_name or 'Trainer removed' }}</div>
+          {% else %}
           <div class="small text-muted text-uppercase">Issued To (Trainer)</div>
           <div class="fw-semibold">{{ po.trainer_name or 'Trainer removed' }}</div>
+          {% endif %}
           <div>{{ po.trainer_email or '' }}</div>
           <div>{{ po.trainer_phone or '' }}</div>
         </div>
