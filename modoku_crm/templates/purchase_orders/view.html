@@ -62,6 +62,26 @@
           {% endif %}
           <div>{{ po.trainer_email or '' }}</div>
           <div>{{ po.trainer_phone or '' }}</div>
+          {# Fix148: change the addressee without raising a new PO. #}
+          <a class="small d-print-none" data-bs-toggle="collapse" href="#issuedToForm" role="button" aria-expanded="false">
+            <i class="bi bi-pencil me-1"></i>Change Issued To
+          </a>
+          <div class="collapse d-print-none mt-2" id="issuedToForm">
+            <form method="post" action="{{ url_for('purchase_orders.update_issued_to', po_id=po.id) }}" class="border rounded p-2 bg-light">
+              {{ csrf_field()|safe }}
+              <label class="form-label small mb-1">Company <span class="text-muted">(blank = the trainer personally)</span></label>
+              <input type="text" name="bill_company" class="form-control form-control-sm mb-2"
+                     value="{{ po.bill_company or po.trainer_company_name or '' }}">
+              <label class="form-label small mb-1">Company Address</label>
+              <textarea name="bill_address" class="form-control form-control-sm mb-2" rows="2">{{ po.bill_address or (po.trainer_company_address if not po.bill_company else '') or '' }}</textarea>
+              <div class="form-check small mb-2">
+                <input class="form-check-input" type="checkbox" name="save_to_trainer" value="1" id="save_to_trainer" {{ 'checked' if not po.trainer_company_name }}>
+                <label class="form-check-label" for="save_to_trainer">Also save to the trainer's record for future POs</label>
+              </div>
+              <button class="btn btn-sm btn-success" type="submit">Save</button>
+              <small class="text-muted ms-2">Same PO number, fee and status. Resend the PO afterwards.</small>
+            </form>
+          </div>
         </div>
         <div class="col-md-6 text-md-end">
           <div><span class="text-muted">Issue date:</span> {{ po.issue_date|fmtdate }}</div>

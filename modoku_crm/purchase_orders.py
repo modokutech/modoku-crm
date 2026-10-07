@@ -380,6 +380,7 @@ def new():
 def view(po_id):
     po = db.query(
         """SELECT po.*, t.name AS trainer_name, t.email AS trainer_email, t.phone AS trainer_phone,
+                  t.company_name AS trainer_company_name, t.company_address AS trainer_company_address,
                   c.title AS course_title, cs.start_date, cs.end_date, cs.venue, cs.training_time,
                   cs.training_mode, cs.meeting_link, cs.training_banner_file, cs.evaluation_qr_poster_file,
                   cl.name AS client_name,
@@ -425,6 +426,30 @@ def view(po_id):
                             payment_receipts=payment_receipts,
                             default_payment_receipt_email_subject=_default_payment_receipt_email_subject(po),
                             default_payment_receipt_email_body=_default_payment_receipt_email_body(po))
+
+
+@bp.route("/<int:po_id>/issued-to", methods=("POST",))
+@login_required
+def update_issued_to(po_id):
+    """Fix148: change who an existing PO is issued to (the trainer's company
+    and its address, or blank for the trainer personally) without raising a
+    new PO - same PO number, fee, status and uploads."""
+    po = db.query("SELECT * FROM purchase_orders WHERE id = ?", (po_id,), one=True)
+    if po is None:
+        flash("Purchase order not found.", "danger")
+        return redirect(url_for("purchase_orders.index"))
+    company = (request.form.get("bill_company") or "").strip() or None
+    address = (request.form.get("bill_address") or "").strip() or None
+    db.execute("UPDATE purchase_orders SET bill_company = ?, bill_address = ? WHERE id = ?", (company, address, po_id))
+    if request.form.get("save_to_trainer") and company:
+        db.execute("UPDATE trainers SET company_name = ?, company_address = ? WHERE id = ?",
+                   (company, address, po["trainer_id"]))
+    activity.log("update", "purchase_order", po_id,
+                 f"{po['po_no']} now issued to {company or 'the trainer personally'}")
+    flash(f"{po['po_no']} is now issued to {company or 'the trainer personally'}.", "success")
+    if po["sent_at"]:
+        flash("This PO was already emailed to the trainer. Resend it below so they have the updated copy.", "warning")
+    return redirect(url_for("purchase_orders.view", po_id=po_id))
 
 
 @bp.route("/<int:po_id>/download")

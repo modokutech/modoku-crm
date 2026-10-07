@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix148 — Change who an existing trainer PO is issued to
+
+**Date:** 2026-10-07
+
+- PO page: "Change Issued To" (under Issued To) edits the Company and Company Address on an existing PO,
+  or clears them to issue it to the trainer personally. Same PO number, fee, status and uploads.
+- Pre-filled from the PO, else the trainer's saved company. "Also save to the trainer's record for future
+  POs" updates the trainer too (ticked by default when the trainer has no company yet).
+- If the PO was already emailed, a reminder says to resend it. The change is logged in the Activity Log.
+
 ## Fix147 — Trainer POs can be issued to the trainer's company
 
 **Date:** 2026-10-07
