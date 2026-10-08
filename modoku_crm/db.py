@@ -1257,6 +1257,13 @@ def _apply_light_migrations(db):
     db.execute("UPDATE quotation_items SET training_type = 'In-house Training' WHERE training_type = 'In-House Training'")
     db.commit()
 
+    # Fix154: "exercise files(if any)" -> "exercise files (if any)" in the
+    # trainer's responsibilities already saved on existing POs. Safe to re-run.
+    db.execute("UPDATE purchase_orders SET trainer_responsibilities = "
+               "REPLACE(trainer_responsibilities, 'exercise files(if any)', 'exercise files (if any)') "
+               "WHERE trainer_responsibilities LIKE '%exercise files(if any)%'")
+    db.commit()
+
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
     # any existing nonzero others_fee into one item (using its remarks text

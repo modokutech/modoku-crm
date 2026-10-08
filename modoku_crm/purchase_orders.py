@@ -37,7 +37,7 @@ DEFAULT_TRAINER_RESPONSIBILITIES = "\n".join([
     "You shall display and use the official training banner provided by Modoku at the start of the "
     "training session and/or during breaks, including as a screen saver where applicable.",
     "Please allow adequate break time after each module to allow everyone to refresh, if needed.",
-    "Please ensure that the training handouts/course manuals/exercise files(if any) are shared with "
+    "Please ensure that the training handouts/course manuals/exercise files (if any) are shared with "
     "the participants at the start of the training.",
     "Before ending the training, kindly share the post-test (if any) and evaluation form (attached).",
     "Please ensure that all participants complete and sign the attendance list and submit it back to "

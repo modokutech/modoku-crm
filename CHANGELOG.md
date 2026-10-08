@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix154 — PO trainer's responsibilities: "exercise files (if any)"
+
+**Date:** 2026-10-08
+
+- Missing space fixed in the default Trainer's Responsibilities text ("exercise files(if any)" ->
+  "exercise files (if any)"). Existing POs that saved the old text are corrected automatically on restart.
+
 ## Fix153 — Change a lead's status from the Leads list; fix random "session expired" after login
 
 **Date:** 2026-10-07
