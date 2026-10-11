@@ -327,7 +327,10 @@ def manage(session_id):
     for p in participants:
         days_done, _ = attendance_days.attendance_status(p["id"], session_row)
         participants_with_status.append({"p": p, "days_done": days_done})
+    from .sessions import ensure_t3_public_token
+    trainer_qr_url = url_for("t3_public.sign_in_qr", token=ensure_t3_public_token(session_id), _external=True)
     return render_template("t3/manage.html", s=session_row, participants=participants_with_status,
+                            trainer_qr_url=trainer_qr_url,
                             total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
                             remaining=t3_remaining_capacity(session_row),
                             training_days=training_days, signatures_by_participant=signatures_by_participant)

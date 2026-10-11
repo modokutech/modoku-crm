@@ -516,7 +516,9 @@
         <div class="small">
           <div class="text-muted mb-1">Sign-in QR for the same link, for participants to scan and sign on training day.</div>
           <a href="{{ url_for('t3.sign_in_qr', session_id=s.id) }}" target="_blank" class="me-2"><i class="bi bi-display me-1"></i>Show full screen</a>
-          <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}"><i class="bi bi-download me-1"></i>Download</a>
+          <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}" class="me-2"><i class="bi bi-download me-1"></i>Download</a>
+          <a href="#" onclick="navigator.clipboard.writeText('{{ trainer_qr_url }}'); this.innerHTML='<i class=&quot;bi bi-check2 me-1&quot;></i>Link copied'; return false;"
+             title="{{ trainer_qr_url }}"><i class="bi bi-link-45deg me-1"></i>Copy QR link for trainer</a>
         </div>
       </div>
       {% endif %}

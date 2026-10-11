@@ -24,6 +24,12 @@
     <a href="{{ url_for('t3.sign_in_qr', session_id=s.id) }}" class="btn btn-sm btn-success" target="_blank">
       <i class="bi bi-qr-code me-1"></i>Show Sign-in QR
     </a>
+    {# Fix157: public link to the same screen, for the trainer (no login needed). #}
+    <button type="button" class="btn btn-sm btn-outline-success" id="copyTrainerQrLink"
+            data-link="{{ trainer_qr_url }}" title="{{ trainer_qr_url }}"
+            onclick="navigator.clipboard.writeText(this.dataset.link); this.innerHTML='<i class=&quot;bi bi-check2 me-1&quot;></i>Link copied';">
+      <i class="bi bi-link-45deg me-1"></i>Copy QR Link for Trainer
+    </button>
     {% endif %}
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
       <i class="bi bi-robot me-1"></i>AI Match Attendance

@@ -21,7 +21,7 @@ import os
 import uuid
 from datetime import date
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 
 from . import attendance_days, db, uploadutil
 from . import certificates as _certificates
@@ -45,6 +45,35 @@ def _find_session(token):
            JOIN courses c ON c.id = cs.course_id WHERE cs.t3_public_token = ?""",
         (token,), one=True,
     )
+
+
+@bp.route("/<token>/sign-in-qr")
+def sign_in_qr(token):
+    """Fix157: the full-screen sign-in QR, public - a link staff can give the
+    trainer (no login) to put on the training-room screen. Shows the QR only
+    while the class's e-Signature is on."""
+    session_row = _find_session(token)
+    if session_row is None:
+        return render_template("t3_public/not_found.html")
+    return render_template("t3/sign_in_qr.html", s=session_row, public=True, token=token,
+                            sign_url=url_for("t3_public.form", token=token, _external=True))
+
+
+@bp.route("/<token>/sign-in-qr.png")
+def sign_in_qr_png(token):
+    from . import poster
+    from .docutil import content_disposition
+    session_row = _find_session(token)
+    if session_row is None or not session_row["e_signature_enabled"]:
+        return Response(status=404)
+    size = 1200 if request.args.get("download") else 900
+    png = poster.qr_png(url_for("t3_public.form", token=token, _external=True), box_size=size,
+                        logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
+    headers = {"Cache-Control": "no-store"}
+    if request.args.get("download"):
+        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
+        headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
+    return Response(png, mimetype="image/png", headers=headers)
 
 
 @bp.route("/example.csv")

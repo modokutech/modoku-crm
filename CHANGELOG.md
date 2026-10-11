@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix157 — Public sign-in QR link for trainers
+
+**Date:** 2026-10-11
+
+- New public page `/t3-form/<class token>/sign-in-qr` (and its `.png`): the same full-screen sign-in QR,
+  no login needed, so a trainer can open it on the training-room screen. Unique per class (uses the class's
+  existing T3 link token). While e-Signature is off it shows "Sign-in isn't open for this class yet"
+  instead of the QR, and the image returns nothing.
+- "Copy QR Link for Trainer" on the T3 Attendance List and "Copy QR link for trainer" on the class page
+  (both only while e-Signature is on).
+
 ## Fix156 — Sign-in QR only while e-Signature is on
 
 **Date:** 2026-10-11

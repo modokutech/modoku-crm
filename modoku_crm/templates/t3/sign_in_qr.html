@@ -32,15 +32,30 @@
   </style>
 </head>
 <body>
+  {# Fix157: also served publicly (public=True) from the class's T3 link, for trainers without a login. #}
+  {% if public %}
+    {% set png_url = url_for('t3_public.sign_in_qr_png', token=token) %}
+    {% set download_url = url_for('t3_public.sign_in_qr_png', token=token, download=1) %}
+  {% else %}
+    {% set png_url = url_for('t3.sign_in_qr_png', session_id=s.id) %}
+    {% set download_url = url_for('t3.sign_in_qr_png', session_id=s.id, download=1) %}
+  {% endif %}
   <div class="tools">
+    {% if s.e_signature_enabled %}
     <button type="button" onclick="document.documentElement.requestFullscreen && document.documentElement.requestFullscreen()">Full screen</button>
-    <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}">Download PNG</a>
-    <a href="{{ url_for('t3.manage', session_id=s.id) }}">Close</a>
+    <a href="{{ download_url }}">Download PNG</a>
+    {% endif %}
+    {% if not public %}<a href="{{ url_for('t3.manage', session_id=s.id) }}">Close</a>{% endif %}
   </div>
   <h1>{{ s.course_title }}</h1>
   <div class="date">{{ s.start_date|fmtdaterange(s.end_date) }}</div>
-  <div class="qr"><img src="{{ url_for('t3.sign_in_qr_png', session_id=s.id) }}" alt="Sign-in QR code"></div>
+  {% if s.e_signature_enabled %}
+  <div class="qr"><img src="{{ png_url }}" alt="Sign-in QR code"></div>
   <p class="scan">Scan to sign your attendance</p>
   <p class="hint">Find your name on the list and tap Sign.</p>
+  {% else %}
+  <p class="scan" style="margin-top:4vh">Sign-in isn't open for this class yet.</p>
+  <p class="hint" style="margin-top:0">Please check with Modoku Tech. Refresh this page once it's turned on.</p>
+  {% endif %}
 </body>
 </html>

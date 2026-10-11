@@ -1064,6 +1064,7 @@ def view(session_id):
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
+                            trainer_qr_url=url_for("t3_public.sign_in_qr", token=t3_token, _external=True),
                             ai_configured=ai_match.is_configured(),
                             eval_forms_ready=evaluation_forms.is_connected() and bool(evaluation_forms.get_template_id()),
                             full_report=full_reports.get_full_report(session_id),
