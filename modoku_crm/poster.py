@@ -165,3 +165,38 @@ def generate_evaluation_poster(course_title, date_text, form_link, logo_path=Non
     buf = BytesIO()
     canvas.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
+
+
+def qr_png(value, box_size=900, logo_path=None):
+    """Fix155: the T3 e-signature sign-in QR as PNG bytes. Classic square
+    modules with a 4-module white margin (the rounded, gapped style of the
+    evaluation poster didn't decode in testing), error correction H, and the
+    Modoku logo on a white plate in the centre (well within what level H
+    can recover)."""
+    import io
+    matrix, n = _qr_matrix(value)
+    quiet = 4
+    cell = max(1, box_size // (n + quiet * 2))
+    size = cell * (n + quiet * 2)
+    img = Image.new("RGB", (size, size), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    for r in range(n):
+        for c in range(n):
+            if matrix[r][c]:
+                x0, y0 = (c + quiet) * cell, (r + quiet) * cell
+                draw.rectangle([x0, y0, x0 + cell - 1, y0 + cell - 1], fill=QR_DARK)
+    if logo_path and os.path.exists(logo_path):
+        try:
+            logo = Image.open(logo_path).convert("RGBA")
+            w = int(size * 0.22)
+            h = int(logo.height * w / logo.width)
+            logo = logo.resize((w, h))
+            pad = int(size * 0.02)
+            x, y = (size - w) // 2, (size - h) // 2
+            draw.rounded_rectangle([x - pad, y - pad, x + w + pad, y + h + pad], radius=pad, fill=(255, 255, 255))
+            img.paste(logo, (x, y), logo)
+        except Exception:  # noqa: BLE001 - a missing/broken logo just means a plain QR
+            pass
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()

@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix155 — Sign-in QR for e-Signature
+
+**Date:** 2026-10-11
+
+- T3 Attendance List: "Show Sign-in QR" (shown when e-Signature is on) opens a full-screen page for the
+  training-room screen: class title and date, a large QR of the class's T3 Attendance Form link, "Scan to
+  sign your attendance". Full screen and Download PNG buttons.
+- Class page: a small QR of the same link under "Online Attendance Form Link", with Show full screen and
+  Download.
+- QR drawn with classic square modules, a 4-module margin, error correction H and the Modoku logo in the
+  centre (`poster.qr_png`); verified to decode to the right link, including when shrunk.
+
 ## Fix154 — PO trainer's responsibilities: "exercise files (if any)"
 
 **Date:** 2026-10-08

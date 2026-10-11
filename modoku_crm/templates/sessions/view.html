@@ -507,6 +507,17 @@
         <input type="text" class="form-control" value="{{ t3_url }}" readonly id="t3LinkInput">
         <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('t3LinkInput').value)">Copy Link</button>
       </div>
+      {# Fix155: the same link as a QR code. #}
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}" title="Download QR code">
+          <img src="{{ url_for('t3.sign_in_qr_png', session_id=s.id) }}" alt="QR code for the Online Attendance Form" width="88" height="88" class="border rounded" loading="lazy">
+        </a>
+        <div class="small">
+          <div class="text-muted mb-1">QR code for the same link{% if s.e_signature_enabled %}, for participants to scan and sign on training day{% endif %}.</div>
+          <a href="{{ url_for('t3.sign_in_qr', session_id=s.id) }}" target="_blank" class="me-2"><i class="bi bi-display me-1"></i>Show full screen</a>
+          <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}"><i class="bi bi-download me-1"></i>Download</a>
+        </div>
+      </div>
 
       <div class="border rounded p-2 mb-3">
         <p class="small fw-semibold mb-1">Send Online Attendance Form Link</p>

@@ -17,7 +17,8 @@ import io
 import os
 from datetime import datetime, timedelta
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, send_from_directory, url_for
+from flask import (Blueprint, Response, current_app, flash, redirect, render_template, request,
+                   send_from_directory, url_for)
 
 from . import ai_match, attendance_days, db, fmtdate, uploadutil
 from . import certificates as _certificates
@@ -682,6 +683,42 @@ def ai_match_reread(session_id, return_id):
     else:
         flash(f"Re-read. Auto-marked {summary['marked']} attended.", "success")
     return redirect(url_for("t3.ai_match_review", session_id=session_id))
+
+
+def _sign_in_url(session_id):
+    from .sessions import ensure_t3_public_token
+    return url_for("t3_public.form", token=ensure_t3_public_token(session_id), _external=True)
+
+
+@bp.route("/sessions/<int:session_id>/sign-in-qr")
+@login_required
+def sign_in_qr(session_id):
+    """Fix155: full-screen page for the training-room screen - a big QR of
+    the class's T3 Attendance Form link, where participants sign on their
+    phones (e-Signature)."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    return render_template("t3/sign_in_qr.html", s=session_row, sign_url=_sign_in_url(session_id))
+
+
+@bp.route("/sessions/<int:session_id>/sign-in-qr.png")
+@login_required
+def sign_in_qr_png(session_id):
+    from . import poster
+    from .docutil import content_disposition
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        return Response(status=404)
+    size = 1200 if request.args.get("download") else 900
+    png = poster.qr_png(_sign_in_url(session_id), box_size=size,
+                        logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
+    headers = {"Cache-Control": "private, max-age=300"}
+    if request.args.get("download"):
+        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
+        headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
+    return Response(png, mimetype="image/png", headers=headers)
 
 
 @bp.route("/sessions/<int:session_id>/toggle-e-signature", methods=("POST",))

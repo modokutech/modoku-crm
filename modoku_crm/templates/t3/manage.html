@@ -19,6 +19,12 @@
         <label class="form-check-label small" for="eSignatureToggle">e-Signature</label>
       </div>
     </form>
+    {% if s.e_signature_enabled %}
+    {# Fix155: full-screen QR for participants to scan and sign. #}
+    <a href="{{ url_for('t3.sign_in_qr', session_id=s.id) }}" class="btn btn-sm btn-success" target="_blank">
+      <i class="bi bi-qr-code me-1"></i>Show Sign-in QR
+    </a>
+    {% endif %}
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
       <i class="bi bi-robot me-1"></i>AI Match Attendance
     </a>
