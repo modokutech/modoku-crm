@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix156 — Sign-in QR only while e-Signature is on
+
+**Date:** 2026-10-11
+
+- The class page's QR, the full-screen sign-in page and the QR image itself now all depend on the class's
+  e-Signature switch. With it off: no QR on the class page, no button on the T3 Attendance List, the
+  full-screen page redirects back to the list with a note, and the image link returns nothing (404).
+
 ## Fix155 — Sign-in QR for e-Signature
 
 **Date:** 2026-10-11

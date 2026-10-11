@@ -700,6 +700,9 @@ def sign_in_qr(session_id):
     if session_row is None:
         flash("Session not found.", "danger")
         return redirect(url_for("sessions.index"))
+    if not session_row["e_signature_enabled"]:
+        flash("Turn on e-Signature for this class first; the sign-in QR is only available while it's on.", "warning")
+        return redirect(url_for("t3.manage", session_id=session_id))
     return render_template("t3/sign_in_qr.html", s=session_row, sign_url=_sign_in_url(session_id))
 
 
@@ -709,7 +712,7 @@ def sign_in_qr_png(session_id):
     from . import poster
     from .docutil import content_disposition
     session_row = _session_or_none(session_id)
-    if session_row is None:
+    if session_row is None or not session_row["e_signature_enabled"]:
         return Response(status=404)
     size = 1200 if request.args.get("download") else 900
     png = poster.qr_png(_sign_in_url(session_id), box_size=size,

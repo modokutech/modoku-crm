@@ -37,9 +37,6 @@
     <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}">Download PNG</a>
     <a href="{{ url_for('t3.manage', session_id=s.id) }}">Close</a>
   </div>
-  {% if not s.e_signature_enabled %}
-  <div class="off">e-Signature is switched off for this class. Turn it on in the T3 Attendance List so participants can sign.</div>
-  {% endif %}
   <h1>{{ s.course_title }}</h1>
   <div class="date">{{ s.start_date|fmtdaterange(s.end_date) }}</div>
   <div class="qr"><img src="{{ url_for('t3.sign_in_qr_png', session_id=s.id) }}" alt="Sign-in QR code"></div>
