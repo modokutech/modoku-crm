@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix160 — Scan mode no longer crops off writing outside the table
+
+**Date:** 2026-10-12
+
+- When the paper edge doesn't show (white table, photo zoomed in on the page), the biggest rectangle in
+  the photo is the printed attendance table, and scan mode cropped to it. That cut off names written
+  under the table (no empty row left) and the certification / director's signature / stamp section.
+- Now, after finding a rectangle, it checks for writing outside it. If there is any, the rectangle is
+  treated as the table: the photo is still straightened by the table's lines, but the crop is the full
+  extent of the writing plus a margin, so nothing written on the page is lost.
+- Only ink on paper-bright background counts, so wood grain or a patterned desk isn't mistaken for
+  writing.
+
 ## Fix159 — Attendance photo scan mode rebuilt (CamScanner-style)
 
 **Date:** 2026-10-12

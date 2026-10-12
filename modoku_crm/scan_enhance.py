@@ -139,6 +139,106 @@ def _warp_to_corners(image, corners):
     return cv2.warpPerspective(image, matrix, (max_width, max_height))
 
 
+def _ink_mask(gray, corners):
+    """Dark strokes (print, pen, stamps) that sit on paper-bright background,
+    with single-pixel noise removed. Used to tell "the page" from "a box
+    printed on the page" (Fix160). The brightness gate is what keeps a
+    wood-grain or patterned desk from counting as writing: its local
+    background is well below the paper's (measured inside `corners`)."""
+    import cv2
+    import numpy as np
+
+    block = max(15, (min(gray.shape[:2]) // 40) | 1)
+    ink = cv2.adaptiveThreshold(cv2.GaussianBlur(gray, (3, 3), 0), 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                cv2.THRESH_BINARY_INV, block, 15)
+    ink = cv2.morphologyEx(ink, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+
+    inside = np.zeros(gray.shape[:2], np.uint8)
+    cv2.fillConvexPoly(inside, corners.astype(np.int32), 255)
+    paper = float(np.percentile(gray[inside > 0], 75))
+    k = block * 2 + 1
+    local_bg = cv2.GaussianBlur(cv2.dilate(gray, np.ones((k, k), np.uint8)), (0, 0), block)
+    ink[local_bg < paper * 0.8] = 0
+    return ink
+
+
+def _has_content_outside(ink, corners):
+    """Fix160: True if there's real writing outside the quad - meaning the
+    quad is the printed attendance table (or another box ON the page), not
+    the paper itself. Happens when the paper edge doesn't show (white table,
+    photo zoomed in on the page). Cropping to it would cut off names written
+    under the table and the certification/signature block, so the caller
+    keeps that content instead. A thin band just outside the quad and along
+    the photo's own border is ignored (paper edge / desk edge, not writing)."""
+    import cv2
+    import numpy as np
+
+    h, w = ink.shape[:2]
+    band = max(3, int(min(h, w) * 0.02))
+    inside = np.zeros((h, w), np.uint8)
+    cv2.fillConvexPoly(inside, corners.astype(np.int32), 255)
+    near = cv2.dilate(inside, np.ones((band * 2 + 1, band * 2 + 1), np.uint8))
+    outside = near == 0
+    outside[:band, :] = outside[-band:, :] = False
+    outside[:, :band] = outside[:, -band:] = False
+    outside_area = int(outside.sum())
+    if outside_area < h * w * 0.03:
+        return False
+    out_ink = int((ink[outside] > 0).sum())
+    # A plain or wood desk scores ~0 here; a page with writing round the
+    # table scores 3-8%. 0.5% (and a minimum absolute amount) sits well clear
+    # of both.
+    return out_ink > outside_area * 0.005 and out_ink > h * w * 0.001
+
+
+def _warp_keeping_content(image, corners, ink, det_scale):
+    """Fix160: straighten using the quad's perspective (the table's ruled
+    lines are a reliable rectangle), but keep everything that's written
+    around it: the output is the bounding box of all ink once straightened,
+    plus a margin - not just the quad."""
+    import cv2
+    import numpy as np
+
+    (tl, tr, br, bl) = corners
+    qw = max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl))
+    qh = max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl))
+    if qw < 10 or qh < 10:
+        return None
+    rect = np.array([[0, 0], [qw - 1, 0], [qw - 1, qh - 1], [0, qh - 1]], dtype="float32")
+    matrix = cv2.getPerspectiveTransform(corners.astype("float32"), rect)
+
+    # Where the whole photo lands once straightened (capped, so a strong
+    # perspective can't stretch the far side to an enormous canvas).
+    h, w = image.shape[:2]
+    frame = cv2.perspectiveTransform(np.float32([[[0, 0]], [[w, 0]], [[w, h]], [[0, h]]]), matrix).reshape(4, 2)
+    x0 = max(frame[:, 0].min(), -1.0 * qw)
+    y0 = max(frame[:, 1].min(), -1.0 * qh)
+    x1 = min(frame[:, 0].max(), 2.0 * qw)
+    y1 = min(frame[:, 1].max(), 2.0 * qh)
+    shift = np.array([[1, 0, -x0], [0, 1, -y0], [0, 0, 1]], dtype=np.float64)
+    full = shift @ matrix
+    out_w, out_h = int(x1 - x0), int(y1 - y0)
+
+    # Find the content's extent on the small ink mask, warped the same way.
+    down = np.diag([det_scale, det_scale, 1.0])
+    up = np.diag([1.0 / det_scale, 1.0 / det_scale, 1.0])
+    ink_w = cv2.warpPerspective(ink, down @ full @ up,
+                                (max(1, int(out_w * det_scale)), max(1, int(out_h * det_scale))))
+    # Rows/columns with a meaningful amount of ink - stray specks don't count.
+    rows = np.where((ink_w > 0).sum(axis=1) > max(3, ink_w.shape[1] * 0.004))[0]
+    cols = np.where((ink_w > 0).sum(axis=0) > max(3, ink_w.shape[0] * 0.004))[0]
+    if len(rows) == 0 or len(cols) == 0:
+        return None
+    margin = 0.03 * max(qw, qh)
+    cx0 = max(0, int(cols[0] / det_scale - margin))
+    cy0 = max(0, int(rows[0] / det_scale - margin))
+    cx1 = min(out_w, int(cols[-1] / det_scale + margin))
+    cy1 = min(out_h, int(rows[-1] / det_scale + margin))
+    crop = np.array([[1, 0, -cx0], [0, 1, -cy0], [0, 0, 1]], dtype=np.float64)
+    return cv2.warpPerspective(image, crop @ full, (cx1 - cx0, cy1 - cy0),
+                               flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+
+
 def _flatten_lighting(image):
     """Fix159: the step that makes a phone photo look scanned. Estimates the
     paper's own brightness across the page (ink removed by a max-filter,
@@ -202,9 +302,17 @@ def enhance_to_scan(src_path, dst_path):
         h, w = image.shape[:2]
         det_scale = 1000.0 / max(h, w) if max(h, w) > 1000 else 1.0
         det = cv2.resize(image, (int(w * det_scale), int(h * det_scale)), interpolation=cv2.INTER_AREA) if det_scale < 1 else image
-        corners = _find_document_corners(cv2.cvtColor(det, cv2.COLOR_BGR2GRAY))
+        det_gray = cv2.cvtColor(det, cv2.COLOR_BGR2GRAY)
+        corners = _find_document_corners(det_gray)
         working = image
-        if corners is not None:
+        ink = _ink_mask(det_gray, corners) if corners is not None else None
+        if corners is not None and _has_content_outside(ink, corners):
+            # Fix160: that's the printed table, not the page - straighten by
+            # it but keep names written below it, the signature block, etc.
+            warped = _warp_keeping_content(image, corners / det_scale, ink, det_scale)
+            if warped is not None:
+                working = warped
+        elif corners is not None:
             warped = _warp_to_corners(image, corners / det_scale)
             if warped is not None:
                 # Trim a sliver off each edge so no desk shows along the border.
