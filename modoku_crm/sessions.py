@@ -295,7 +295,7 @@ def _default_evaluation_email_body(session_row):
     date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
     greeting_name = session_row["pic_name"] if "pic_name" in session_row.keys() and session_row["pic_name"] else None
     return (
-        f"Hi {greeting_name or 'there'},\n\n"
+        f"Dear {greeting_name or 'Sir/Madam'},\n\n"
         "Please find attached the training evaluation report for the training below.\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n\n"

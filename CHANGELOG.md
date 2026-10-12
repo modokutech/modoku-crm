@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix158 — Training report emails open with "Dear"
+
+**Date:** 2026-10-12
+
+- Both training report emails (Approve & Send in the Training Report module, and Send Evaluation Report on
+  the class page) now open "Dear <PIC name>," instead of "Hi <PIC name>," ("Dear Sir/Madam," with no PIC).
+
 ## Fix157 — Public sign-in QR link for trainers
 
 **Date:** 2026-10-11
