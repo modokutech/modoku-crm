@@ -1,8 +1,8 @@
 """"Scan mode" for photos submitted through the public Return Attendance
 Form (see attendance_return.py) — a trainer's phone photo of the signed T3
 sheet is often at an angle, dim, or a little soft, so this turns it into a
-flat, contrast-enhanced, crisper version that's easier to read back in the
-office. Everything here is deterministic image processing (OpenCV) run
+flat, clean colour "scan" (white paper, no shadows, crisp ink - the
+CamScanner-style look, Fix159) that's easier to read back in the office. Everything here is deterministic image processing (OpenCV) run
 entirely on our own server — no external API, no account, no per-use cost,
 and nothing generative: it straightens and sharpens what's actually in the
 photo, it never invents detail that wasn't there.
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # 4000px+ on the long side, which makes contour detection and filtering slow
 # for no real benefit: the output here is for on-screen viewing, not print,
 # so anything beyond this is downscaled first (aspect ratio kept).
-_MAX_DIMENSION = 2000
+_MAX_DIMENSION = 3000
 
 # A candidate 4-point contour has to cover at least this fraction of the
 # photo's area to be trusted as "the document" rather than some other
@@ -71,29 +71,44 @@ def _find_document_corners(gray):
     """Best-effort search for a 4-cornered document-shaped region in a
     grayscale image. Returns an ordered (4, 2) float32 array of corners, or
     None if nothing confident enough was found - callers treat None as
-    "skip perspective correction, enhance the full photo instead"."""
+    "skip perspective correction, enhance the full photo instead".
+
+    Fix159: tries a few edge/threshold maps (a plain Canny misses pages on
+    a light desk or with a soft shadow across the edge) and keeps the
+    largest convex 4-sided shape that's big enough to be the page."""
     import cv2
     import numpy as np
 
     h, w = gray.shape[:2]
     image_area = h * w
-
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
-    edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
 
-    contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
+    candidates = []
+    canny = cv2.Canny(blurred, 50, 150)
+    candidates.append(cv2.dilate(canny, np.ones((3, 3), np.uint8), iterations=1))
+    canny_soft = cv2.Canny(blurred, 20, 80)
+    candidates.append(cv2.morphologyEx(canny_soft, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8), iterations=2))
+    _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    candidates.append(cv2.morphologyEx(otsu, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8)))
 
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area < image_area * _MIN_DOCUMENT_AREA_FRACTION:
-            continue
-        perimeter = cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
-        if len(approx) == 4:
-            return _order_corners(approx.astype("float32"))
-    return None
+    best, best_area = None, 0
+    for edge_map in candidates:
+        contours, _ = cv2.findContours(edge_map, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:8]:
+            hull = cv2.convexHull(contour)
+            area = cv2.contourArea(hull)
+            if area < image_area * _MIN_DOCUMENT_AREA_FRACTION or area <= best_area:
+                continue
+            # A page that fills (almost) the whole photo is the photo edge, not the page.
+            if area > image_area * 0.985:
+                continue
+            perimeter = cv2.arcLength(hull, True)
+            for eps in (0.02, 0.03, 0.04):
+                approx = cv2.approxPolyDP(hull, eps * perimeter, True)
+                if len(approx) == 4 and cv2.isContourConvex(approx):
+                    best, best_area = approx, area
+                    break
+    return _order_corners(best.astype("float32")) if best is not None else None
 
 
 def _warp_to_corners(image, corners):
@@ -124,14 +139,50 @@ def _warp_to_corners(image, corners):
     return cv2.warpPerspective(image, matrix, (max_width, max_height))
 
 
+def _flatten_lighting(image):
+    """Fix159: the step that makes a phone photo look scanned. Estimates the
+    paper's own brightness across the page (ink removed by a max-filter,
+    then smoothed) and divides it out of each colour channel - shadows,
+    vignetting and warm/dim light all become clean white paper, while ink
+    keeps its colour (blue signatures stay blue)."""
+    import cv2
+    import numpy as np
+
+    h, w = image.shape[:2]
+    small_scale = 600.0 / max(h, w)
+    small = cv2.resize(image, (max(1, int(w * small_scale)), max(1, int(h * small_scale))), interpolation=cv2.INTER_AREA)
+    k = max(7, int(round(max(small.shape[:2]) / 45)) | 1)
+    background = cv2.dilate(small, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
+    background = cv2.medianBlur(background, k if k <= 255 else 255)
+    background = cv2.GaussianBlur(background, (0, 0), k / 2)
+    background = cv2.resize(background, (w, h), interpolation=cv2.INTER_CUBIC)
+    return cv2.divide(image, np.maximum(background, 1), scale=255)
+
+
+def _scan_levels(flat):
+    """Paper to pure white, ink deep and solid: a white point just under
+    the paper, a black point from the darkest ink, and a gentle curve so
+    faint pen strokes darken without the page turning harsh black-and-white."""
+    import cv2
+    import numpy as np
+
+    sample = flat[::4, ::4].mean(axis=2)
+    white = max(float(np.percentile(sample, 60)) * 0.97, 200.0)
+    black = min(float(np.percentile(sample, 0.5)), 120.0)
+    # One lookup table instead of float maths on every pixel.
+    x = np.arange(256, dtype=np.float32)
+    lut = (np.clip((x - black) / max(white - black, 1.0), 0, 1) ** 1.6 * 255.0).astype(np.uint8)
+    return cv2.LUT(flat.astype(np.uint8), lut)
+
+
 def enhance_to_scan(src_path, dst_path):
     """Reads the image at src_path, straightens it if a confident
-    document-shaped region is found, contrast-enhances and sharpens it, and
-    writes the result to dst_path as a JPEG. Returns True on success, False
-    on any failure (bad/corrupt file, OpenCV not installed, nothing
-    readable) - never raises, so a bad submission can never break the
-    trainer's upload. src_path is opened read-only and is never written
-    to or deleted."""
+    document-shaped region is found, turns it into a clean colour "scan"
+    (white paper, no shadows, crisp ink) and writes the result to dst_path
+    as a JPEG. Returns True on success, False on any failure (bad/corrupt
+    file, OpenCV not installed, nothing readable) - never raises, so a bad
+    submission can never break the trainer's upload. src_path is opened
+    read-only and is never written to or deleted."""
     if not is_available():
         return False
     try:
@@ -147,30 +198,30 @@ def enhance_to_scan(src_path, dst_path):
             scale = _MAX_DIMENSION / max(h, w)
             image = cv2.resize(image, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
 
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        corners = _find_document_corners(gray)
+        # Find the page on a smaller copy (faster, steadier), warp the full one.
+        h, w = image.shape[:2]
+        det_scale = 1000.0 / max(h, w) if max(h, w) > 1000 else 1.0
+        det = cv2.resize(image, (int(w * det_scale), int(h * det_scale)), interpolation=cv2.INTER_AREA) if det_scale < 1 else image
+        corners = _find_document_corners(cv2.cvtColor(det, cv2.COLOR_BGR2GRAY))
         working = image
         if corners is not None:
-            warped = _warp_to_corners(image, corners)
+            warped = _warp_to_corners(image, corners / det_scale)
             if warped is not None:
-                working = warped
+                # Trim a sliver off each edge so no desk shows along the border.
+                th, tw = warped.shape[:2]
+                m = max(2, int(min(th, tw) * 0.006))
+                working = warped[m:th - m, m:tw - m]
 
-        gray = cv2.cvtColor(working, cv2.COLOR_BGR2GRAY)
-        # Light denoise before sharpening, so contrast/sharpening doesn't
-        # also amplify JPEG/sensor noise into visible speckling.
-        denoised = cv2.fastNlMeansDenoising(gray, h=7)
-        # CLAHE: local (not global) contrast boost - brings out faint pen
-        # strokes/print without blowing out already-bright paper the way a
-        # flat contrast stretch would.
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        contrasted = clahe.apply(denoised)
-        # Unsharp mask: blur a copy, then push the original further away
-        # from that blur - the standard "make edges crisper" sharpening
-        # technique, applied lightly so text doesn't get a harsh halo.
-        blurred = cv2.GaussianBlur(contrasted, (0, 0), sigmaX=3)
-        sharpened = cv2.addWeighted(contrasted, 1.5, blurred, -0.5, 0)
+        # Light, edge-keeping denoise first so the level stretch doesn't turn
+        # sensor/JPEG noise into speckles (the white point then clears what's
+        # left on the paper). A 3x3 median, not NL-means: same result here at
+        # a fraction of the time, which matters as it runs during the upload.
+        working = cv2.medianBlur(working, 3)
+        result = _scan_levels(_flatten_lighting(working))
+        # Gentle unsharp mask for crisp strokes (small radius, so no halo).
+        soft = cv2.GaussianBlur(result, (0, 0), sigmaX=1.0)
+        result = cv2.addWeighted(result, 1.6, soft, -0.6, 0)
 
-        result = cv2.cvtColor(sharpened, cv2.COLOR_GRAY2BGR)
         ok = cv2.imwrite(dst_path, result, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
         return bool(ok)
     except Exception:  # noqa: BLE001 - enhancement must never break the upload it's enhancing

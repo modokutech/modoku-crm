@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix159 — Attendance photo scan mode rebuilt (CamScanner-style)
+
+**Date:** 2026-10-12
+
+- `scan_enhance.py` rewritten. The old version was grayscale + contrast, so paper stayed grey, shadows
+  stayed in, and blue signatures turned grey.
+- Page detection now tries three edge methods and picks the best page outline, then straightens it and
+  trims the edge.
+- Lighting is flattened (background estimate divided out), so paper goes white and hand/phone shadows
+  disappear. Levels push ink dark and paper clean white, then a light sharpen.
+- Output stays in colour: blue pen signatures stay blue.
+- Works up to 3000px on the long side; about 0.6s per photo.
+- Applies to new uploads only. Existing scan copies aren't regenerated.
+
 ## Fix158 — Training report emails open with "Dear"
 
 **Date:** 2026-10-12
