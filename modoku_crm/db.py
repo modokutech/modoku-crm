@@ -984,6 +984,8 @@ def close_db(e=None):
 # whatever the user has already entered) is left untouched.
 _COLUMN_MIGRATIONS = [
     ("full_training_reports", "key_findings_text", "TEXT"),  # Fix90
+    ("full_training_reports", "batch_no", "INTEGER"),  # Fix165
+    ("full_training_reports", "compare_session_id", "INTEGER"),  # Fix165
     ("leads", "role", "TEXT"),
     ("enrollments", "ic_no", "TEXT"),
     ("enrollments", "gender", "TEXT"),

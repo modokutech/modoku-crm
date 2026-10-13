@@ -1,6 +1,65 @@
 {% extends "base.html" %}
 {% block title %}Full Report{% endblock %}
 {% block content %}
+{% macro batch_fields() %}
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label small mb-1">Batch</label>
+      <select name="batch_no" class="form-select form-select-sm" id="batch_no">
+        <option value="">Not part of a batch</option>
+        {% for n in range(1, max_batch + 1) %}
+        <option value="{{ n }}" {{ 'selected' if batch_no == n }}>Batch {{ n }}{{ ' (suggested)' if suggested_batch == n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-8">
+      <label class="form-label small mb-1">Compare with an earlier class</label>
+      <select name="compare_session_id" class="form-select form-select-sm" {{ 'disabled' if not compare_options }}>
+        <option value="">{{ "Don't compare" if compare_options else 'No earlier class with feedback for this client' }}</option>
+        {% for c in compare_options %}
+        <option value="{{ c.id }}" {{ 'selected' if compare_id == c.id }}>
+          {% if c.batch_no %}Batch {{ c.batch_no }}, {% endif %}{{ c.course_title }}, {{ c.start_date|fmtdaterange(c.end_date) }}{{ '' if c.same_course else ' (different course)' }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  {% if suggested_batch %}
+  <p class="small text-muted mt-2 mb-0"><i class="bi bi-lightbulb me-1"></i>Suggested Batch {{ suggested_batch }}: {{ batch_reason }}.</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro rewrite_menu(section) %}
+  <div class="btn-group">
+    <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section=section, style='rephrase') }}"
+            class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}
+            title="Same meaning, different wording">
+      <i class="bi bi-stars me-1"></i>Rephrase
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split"
+            data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" {{ 'disabled' if not ai_configured }}>
+      <span class="visually-hidden">More rewrite options</span>
+    </button>
+    <div class="dropdown-menu dropdown-menu-end p-2" style="min-width: 290px;">
+      {% for key in ['shorter', 'detailed', 'formal', 'warmer'] %}
+      <button type="submit" class="dropdown-item rounded small"
+              formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section=section, style=key) }}">{{ rewrite_styles[key][0] }}</button>
+      {% endfor %}
+      <button type="submit" class="dropdown-item rounded small"
+              formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section=section, style='fresh') }}"
+              title="Write this section again from the class data">Fresh draft from the data</button>
+      <div class="dropdown-divider"></div>
+      <label class="small text-muted px-2 mb-1">Or tell AI what to change</label>
+      <div class="input-group input-group-sm px-1">
+        <input type="text" name="instruction_{{ section }}" class="form-control" maxlength="300"
+               placeholder="e.g. mention the hands-on exercises"
+               onkeydown="if (event.key === 'Enter') { event.preventDefault(); this.nextElementSibling.click(); }">
+        <button type="submit" class="btn btn-primary"
+                formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section=section, style='custom') }}">Go</button>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
 <div class="page-header">
   <div>
     <h4 class="mb-0">{{ s.course_title }}, Full Report</h4>
@@ -18,8 +77,11 @@
 {% if not full_report %}
 <div class="card p-4 text-center">
   <p class="text-muted mb-3">No draft yet. Generate one from this class's evaluation data.</p>
-  <form method="post" action="{{ url_for('full_reports.generate', session_id=s.id) }}" class="d-inline">
+  <form method="post" action="{{ url_for('full_reports.generate', session_id=s.id) }}">
     {{ csrf_field()|safe }}
+    {% if suggested_batch or compare_options %}
+    <div class="text-start mx-auto mb-3" style="max-width: 640px;">{{ batch_fields() }}</div>
+    {% endif %}
     <button class="btn btn-primary" type="submit" {{ 'disabled' if not ai_configured }}>
       <i class="bi bi-file-earmark-richtext me-1"></i>Generate Full Report
     </button>
@@ -43,6 +105,9 @@
   </a>
 </div>
 
+{% if full_report.batch_no %}
+<p class="small text-muted mb-3"><i class="bi bi-layers me-1"></i>Sent as Batch {{ full_report.batch_no }}.</p>
+{% endif %}
 <div class="card p-3 mb-3">
   <h6 class="mb-2">Foreword</h6>
   <p class="mb-0" style="white-space: pre-wrap;">{{ full_report.foreword_text }}</p>
@@ -68,7 +133,7 @@
   Review and edit the four sections below. Everything else (participant list, ratings, charts, open-text
   feedback) is pulled fresh from the evaluation data when the PDF is built, not written by AI.
   Your edits are kept: clicking Generate Full Report again from the class page never overwrites text you've
-  already saved here, and only "Rewrite with AI" replaces a section on purpose.
+  already saved here. Only the Rephrase menu replaces a section, and only when you click it.
 </p>
 
 <form method="post" action="{{ url_for('full_reports.save', session_id=s.id) }}" id="draftForm">
@@ -76,33 +141,60 @@
 
   <div class="card p-3 mb-3">
     <div class="d-flex justify-content-between align-items-center mb-2">
-      <h6 class="mb-0">Foreword</h6>
-      <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='foreword') }}"
-              class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
-        <i class="bi bi-stars me-1"></i>Rewrite with AI
+      <h6 class="mb-0"><i class="bi bi-layers me-1"></i>Batch &amp; Comparison</h6>
+      <button type="submit" formaction="{{ url_for('full_reports.rewrite_all', session_id=s.id) }}"
+              class="btn btn-sm btn-outline-primary" {{ 'disabled' if not ai_configured }}
+              onclick="return confirm('Rewrite all sections with these batch details? This replaces the text in every section.');">
+        <i class="bi bi-arrow-repeat me-1"></i>Rewrite all with this
       </button>
+    </div>
+    {{ batch_fields() }}
+    {% if comparison %}
+    <div class="table-responsive mt-3">
+      <table class="table table-sm mb-0 small align-middle">
+        <thead><tr class="text-muted">
+          <th class="fw-normal">Compared with the earlier class</th><th class="fw-normal text-end">Earlier</th>
+          <th class="fw-normal text-end">This {{ 'batch' if batch_no else 'class' }}</th><th class="fw-normal text-end">Change</th>
+        </tr></thead>
+        <tbody>
+          {% for r in comparison.rows %}
+          <tr><td>{{ r.label }}</td><td class="text-end">{{ r.prev }}</td><td class="text-end fw-semibold">{{ r.cur }}</td>
+            <td class="text-end">{% if r.delta is none %}<span class="text-muted">-</span>{% elif r.delta > 0 %}<span class="text-success"><i class="bi bi-arrow-up-short"></i>{{ '%g'|format(r.delta) }}{{ r.unit }}</span>{% elif r.delta < 0 %}<span class="text-danger"><i class="bi bi-arrow-down-short"></i>{{ '%g'|format(-r.delta) }}{{ r.unit }}</span>{% else %}<span class="text-muted">same</span>{% endif %}</td></tr>
+          {% endfor %}
+          {% for c in comparison.criteria[:3] if c.delta != 0 %}
+          <tr><td class="text-muted">{{ c.question }}</td><td class="text-end">{{ c.prev }}</td><td class="text-end">{{ c.cur }}</td>
+            <td class="text-end">{% if c.delta > 0 %}<span class="text-success"><i class="bi bi-arrow-up-short"></i>{{ '%g'|format(c.delta) }}</span>{% else %}<span class="text-danger"><i class="bi bi-arrow-down-short"></i>{{ '%g'|format(-c.delta) }}</span>{% endif %}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Calculated from the evaluation data, not by AI. Key Findings gets a "Compared with" point and the Conclusion mentions the trend once you rewrite them.</p>
+    {% endif %}
+    {% if earlier_reports %}
+    <p class="small text-muted mt-2 mb-0"><i class="bi bi-shuffle me-1"></i>{{ s.client_name }} has had {{ earlier_reports }} earlier report{{ 's' if earlier_reports != 1 }} from us. AI avoids reusing their wording.</p>
+    {% endif %}
+  </div>
+
+  <div class="card p-3 mb-3" id="sec-foreword">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0">Foreword</h6>
+      {{ rewrite_menu('foreword') }}
     </div>
     <textarea name="foreword_text" class="form-control" rows="4">{{ full_report.foreword_text or '' }}</textarea>
   </div>
 
-  <div class="card p-3 mb-3">
+  <div class="card p-3 mb-3" id="sec-objective">
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Objective</h6>
-      <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='objective') }}"
-              class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
-        <i class="bi bi-stars me-1"></i>Rewrite with AI
-      </button>
+      {{ rewrite_menu('objective') }}
     </div>
     <textarea name="objective_text" class="form-control" rows="6">{{ full_report.objective_text or '' }}</textarea>
   </div>
 
-  <div class="card p-3 mb-3">
+  <div class="card p-3 mb-3" id="sec-key_findings">
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Key Findings</h6>
-      <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='key_findings') }}"
-              class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
-        <i class="bi bi-stars me-1"></i>Rewrite with AI
-      </button>
+      {{ rewrite_menu('key_findings') }}
     </div>
     <p class="small text-muted mb-1">
       The short, scannable summary clients actually read. It sits right under the Training Performance Details
@@ -112,13 +204,10 @@
     <textarea name="key_findings_text" class="form-control" rows="6">{{ full_report.key_findings_text or '' }}</textarea>
   </div>
 
-  <div class="card p-3 mb-3">
+  <div class="card p-3 mb-3" id="sec-conclusion">
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Conclusion</h6>
-      <button type="submit" formaction="{{ url_for('full_reports.rewrite', session_id=s.id, section='conclusion') }}"
-              class="btn btn-sm btn-outline-secondary" {{ 'disabled' if not ai_configured }}>
-        <i class="bi bi-stars me-1"></i>Rewrite with AI
-      </button>
+      {{ rewrite_menu('conclusion') }}
     </div>
     <textarea name="conclusion_text" class="form-control" rows="4">{{ full_report.conclusion_text or '' }}</textarea>
   </div>

@@ -10,6 +10,24 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix165 — Training report: rephrase options, varied wording per client, batches
+
+**Date:** 2026-10-13
+
+- Each section's "Rewrite with AI" is now a **Rephrase** menu: Rephrase (same meaning, new wording),
+  Shorter, More detailed, More formal, Warmer, Fresh draft from the data, or type your own instruction
+  ("mention the hands-on exercises"). Rephrasing keeps every fact and number.
+- Repeat clients: every draft/rewrite is shown the same section from this client's earlier reports and
+  told not to reuse their opening or phrasing, so reports stop looking the same. The page says how many
+  earlier reports the client has had.
+- **Batch & Comparison** card: pick Batch 1-10 (auto-suggested from the client's earlier runs of the
+  same course) and an earlier class to compare with. The comparison (average rating, % positive,
+  responses, criteria that moved most) is calculated from the data, not by AI, and shown on the page.
+  Key Findings gets a "Compared with Batch N" point, the Conclusion mentions the trend, the Foreword says
+  "the second batch". "Rewrite all with this" redoes every section after changing the batch.
+- PDF: the cover's date line reads "Batch 2 · <dates>" and the Program row "<course> (Batch 2)".
+- New columns `full_training_reports.batch_no` and `compare_session_id` (added automatically on boot).
+
 ## Fix164 — Cancelled classes: Training Report and JD14 marked "Not required"
 
 **Date:** 2026-10-13

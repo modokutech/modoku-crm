@@ -22,6 +22,16 @@ that's already there in any of the three columns — it only fills in
 whichever section(s), if any, are still empty (a failed earlier AI call,
 say) — so an edit you've made always sticks; see build_or_refresh_draft.
 
+Fix165: each section's "Rephrase" menu reworks the current text (same
+facts, new wording: shorter, more detailed, more formal, warmer, or the
+user's own instruction) or writes a fresh draft from the data. Every AI
+call is shown the same section from this client's earlier reports and told
+not to reuse their wording, so repeat clients don't get the same report
+every time. A report can be marked as Batch N and compared with an earlier
+class: the comparison numbers are computed here (batch_comparison), and the
+AI only words them (a "Compared with Batch 1" Key Findings point, the
+trend in the Conclusion, "the second batch" in the Foreword).
+
 Once "Approve & Send" is clicked: the final PDF is rendered (full_report_
 pdf.build_full_report_pdf) from the CURRENT saved draft text and the
 freshest data, saved into course_sessions.evaluation_report_file (the
@@ -141,7 +151,7 @@ def _duration_text(session_row):
         return "unknown duration"
 
 
-def _generate_foreword(session_row):
+def _generate_foreword(session_row, extra=""):
     client_name = session_row["client_name"] if "client_name" in session_row.keys() else None
     client_line = (f'Client: {client_name}' if client_name else
                    'Client: none on file for this class, write generically about "all participants" '
@@ -167,7 +177,7 @@ def _generate_foreword(session_row):
         "template every time this is generated. Keep it warm, plain, and professional; avoid bombastic, "
         "overly enthusiastic, or obviously AI-generated language (no \"unparalleled\", \"game-changing\", "
         "\"delve\", excessive exclamation marks). One short paragraph, 2-4 sentences. Reply with ONLY a "
-        "JSON object, nothing else: {\"text\": \"...\"}"
+        "JSON object, nothing else: {\"text\": \"...\"}" + extra
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=400)
     text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
@@ -243,7 +253,7 @@ def _outline_content_block(session_row):
         return None
 
 
-def _generate_objective(session_row):
+def _generate_objective(session_row, extra=""):
     """Writes the Objective section — grounded in the course's actual
     uploaded outline document when Claude can read one (PDF/image), so it
     aligns with what the outline really covers rather than the shorter
@@ -269,7 +279,7 @@ def _generate_objective(session_row):
             f"Course: {session_row['course_title']}\n\n"
             "Base the content on what the attached outline actually covers. Its real topics, skills, "
             "and target audience, never invent a capability, tool, or audience the outline doesn't "
-            "actually mention. " + _OBJECTIVE_STYLE_RULES
+            "actually mention. " + _OBJECTIVE_STYLE_RULES + extra
         )
         try:
             parsed = _call_claude_json_with_document(outline_prompt, outline_block, max_tokens=700)
@@ -290,14 +300,14 @@ def _generate_objective(session_row):
         "Now write the Objective section for this course:\n"
         f"Course: {session_row['course_title']}\n"
         f"Course description (base your content on this, never invent a capability it doesn't "
-        f"actually mention): {description_line}\n\n" + _OBJECTIVE_STYLE_RULES
+        f"actually mention): {description_line}\n\n" + _OBJECTIVE_STYLE_RULES + extra
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=700)
     text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
     return text or None
 
 
-def _generate_conclusion(session_row, report):
+def _generate_conclusion(session_row, report, extra=""):
     lines = []
     if report:
         for combined in (report.get("combined_ratings") or []):
@@ -334,6 +344,7 @@ def _generate_conclusion(session_row, report):
         "Refer to the results only in general terms (e.g. \"strongly positive feedback\"). Vary your wording and "
         "structure naturally rather than reusing a fixed template every time. Avoid bombastic or "
         "obviously AI-generated language. Reply with ONLY a JSON object, nothing else: {\"text\": \"...\"}"
+        + extra
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=500)
     text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
@@ -344,7 +355,250 @@ def _has_feedback(report):
     return bool(report and (report.get("numeric_summary") or report.get("text_summary")))
 
 
-def _generate_key_findings(session_row, report):
+# --- Fix165: batches, batch-vs-batch comparison, and varied wording ----------
+
+_ORDINALS = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh",
+             8: "eighth", 9: "ninth", 10: "tenth"}
+MAX_BATCH = 10
+
+# "Rewrite with AI" options. "fresh" writes the section again from the class
+# data; the rest rework the CURRENT text (same facts, different wording).
+REWRITE_STYLES = {
+    "fresh": ("Fresh draft", None),
+    "rephrase": ("Rephrase, same meaning", "Keep the same length and tone, just say it differently."),
+    "shorter": ("Shorter", "Make it noticeably shorter and tighter, keeping the key points."),
+    "detailed": ("More detailed", "Make it a little fuller and more specific, without padding or "
+                                  "inventing anything."),
+    "formal": ("More formal", "Make the tone more formal and corporate."),
+    "warmer": ("Warmer", "Make the tone warmer and more personal, still professional."),
+    "custom": ("Your own instruction", None),
+}
+
+
+def batch_ordinal(batch_no):
+    return _ORDINALS.get(batch_no, f"no. {batch_no}")
+
+
+def _earlier_classes(session_row):
+    """This client's other classes that ran before this one (not cancelled),
+    newest first, each flagged with whether it's the same course and has
+    evaluation data to compare against."""
+    if not session_row["client_company_id"]:
+        return []
+    rows = db.query(
+        """SELECT cs.id, cs.start_date, cs.end_date, cs.course_id, c.title AS course_title,
+                  tr.id AS report_id, ftr.batch_no
+           FROM course_sessions cs
+           JOIN courses c ON c.id = cs.course_id
+           LEFT JOIN training_reports tr ON tr.session_id = cs.id
+           LEFT JOIN full_training_reports ftr ON ftr.session_id = cs.id
+           WHERE cs.client_company_id = ? AND cs.id != ? AND cs.status != 'Cancelled'
+             AND cs.start_date < ?
+           ORDER BY cs.start_date DESC""",
+        (session_row["client_company_id"], session_row["id"], session_row["start_date"]),
+    )
+    return [dict(r, same_course=(r["course_id"] == session_row["course_id"]), has_data=bool(r["report_id"]))
+            for r in rows]
+
+
+def batch_suggestion(session_row):
+    """(suggested batch_no or None, suggested compare_session_id or None,
+    reason text). Batch N = this is the client's Nth class of the same
+    course; a lone class (no earlier or later run of the same course for
+    this client) isn't a batch at all."""
+    earlier_same = [r for r in _earlier_classes(session_row) if r["same_course"]]
+    if earlier_same:
+        last_batch = earlier_same[0]["batch_no"]
+        batch = (last_batch + 1) if last_batch else len(earlier_same) + 1
+        compare = next((r["id"] for r in earlier_same if r["has_data"]), None)
+        return (min(batch, MAX_BATCH), compare,
+                f"this client's {batch_ordinal(batch)} run of this course")
+    if session_row["client_company_id"]:
+        later = db.query(
+            """SELECT 1 FROM course_sessions WHERE client_company_id = ? AND course_id = ? AND id != ?
+               AND status != 'Cancelled' AND start_date > ? LIMIT 1""",
+            (session_row["client_company_id"], session_row["course_id"], session_row["id"],
+             session_row["start_date"]), one=True,
+        )
+        if later:
+            return 1, None, "more runs of this course are booked for this client"
+    return None, None, ""
+
+
+def compare_options(session_row):
+    """Earlier classes for this client that have evaluation data - the
+    "Compare with" dropdown. Same course first."""
+    rows = [r for r in _earlier_classes(session_row) if r["has_data"]]
+    return sorted(rows, key=lambda r: (not r["same_course"], r["start_date"]), reverse=False)
+
+
+def _overall(report):
+    combined = (report or {}).get("combined_ratings") or []
+    return combined[0] if combined else None
+
+
+def batch_comparison(session_id, compare_session_id):
+    """Exact, code-computed comparison between this class's evaluation and
+    an earlier one's (no AI): overall average, share of positive ratings,
+    responses, and the criteria that moved most. None if either side has no
+    data. The AI only ever words these numbers, it never computes them."""
+    if not compare_session_id:
+        return None
+    cur = training_reports.get_report(session_id)
+    prev = training_reports.get_report(compare_session_id)
+    if not _has_feedback(cur) or not _has_feedback(prev):
+        return None
+    out = {"rows": [], "criteria": []}
+    c_all, p_all = _overall(cur), _overall(prev)
+    if c_all and p_all and c_all.get("scale_max") == p_all.get("scale_max"):
+        out["rows"].append({"label": "Average rating", "prev": f"{p_all['average']}/{p_all['scale_max']}",
+                            "cur": f"{c_all['average']}/{c_all['scale_max']}",
+                            "delta": round(float(c_all["average"]) - float(p_all["average"]), 2), "unit": ""})
+        out["rows"].append({"label": "Positive ratings", "prev": f"{p_all['pct_positive']}%",
+                            "cur": f"{c_all['pct_positive']}%",
+                            "delta": c_all["pct_positive"] - p_all["pct_positive"], "unit": " pts"})
+    out["rows"].append({"label": "Responses", "prev": str(prev["response_count"]), "cur": str(cur["response_count"]),
+                        "delta": None, "unit": ""})
+    prev_avg = {q["question"].strip().lower(): q for q in prev["numeric_summary"] if "average" in q}
+    for q in cur["numeric_summary"]:
+        if "average" not in q:
+            continue
+        pq = prev_avg.get(q["question"].strip().lower())
+        if pq is None or pq.get("scale_max", 5) != q.get("scale_max", 5):
+            continue
+        delta = round(float(q["average"]) - float(pq["average"]), 2)
+        out["criteria"].append({"question": q["question"], "prev": pq["average"], "cur": q["average"],
+                                "scale_max": q.get("scale_max", 5), "delta": delta})
+    out["criteria"].sort(key=lambda r: abs(r["delta"]), reverse=True)
+    if not out["rows"] and not out["criteria"]:
+        return None
+    return out
+
+
+def _comparison_lines(comparison, prev_label, cur_label):
+    lines = []
+    for r in comparison["rows"]:
+        delta = "" if r["delta"] is None else f" (change {r['delta']:+g}{r['unit']})"
+        lines.append(f"- {r['label']}: {prev_label} {r['prev']} -> {cur_label} {r['cur']}{delta}")
+    moved = [c for c in comparison["criteria"] if abs(c["delta"]) >= 0.1][:4]
+    for c in moved:
+        lines.append(f"- \"{c['question']}\": {prev_label} {c['prev']}/{c['scale_max']} -> "
+                     f"{cur_label} {c['cur']}/{c['scale_max']} (change {c['delta']:+g})")
+    return lines
+
+
+def _earlier_texts_for_client(session_row, column):
+    """The same section from up to 3 other reports for this client (sent
+    ones first) - shown to the AI so it doesn't keep landing on the same
+    wording for a client who gets a report from us every few weeks."""
+    if not session_row["client_company_id"]:
+        return []
+    rows = db.query(
+        f"""SELECT ftr.{column} AS text FROM full_training_reports ftr
+            JOIN course_sessions cs ON cs.id = ftr.session_id
+            WHERE cs.client_company_id = ? AND ftr.session_id != ?
+              AND ftr.{column} IS NOT NULL AND ftr.{column} != ''
+            ORDER BY ftr.approved_at IS NULL, ftr.approved_at DESC, ftr.id DESC LIMIT 3""",
+        (session_row["client_company_id"], session_row["id"]),
+    )
+    return [r["text"][:900] for r in rows]
+
+
+def earlier_report_count(session_row):
+    if not session_row["client_company_id"]:
+        return 0
+    row = db.query(
+        """SELECT COUNT(*) AS n FROM full_training_reports ftr JOIN course_sessions cs ON cs.id = ftr.session_id
+           WHERE cs.client_company_id = ? AND ftr.session_id != ? AND ftr.approved_at IS NOT NULL""",
+        (session_row["client_company_id"], session_row["id"]), one=True,
+    )
+    return row["n"] if row else 0
+
+
+def _writing_context(session_row, section, batch_no=None, compare_session_id=None):
+    """Extra prompt text for one section: the batch, the batch-vs-batch
+    numbers (Key Findings / Conclusion only), and this client's earlier
+    wording to steer away from. Empty string when there's nothing to add."""
+    parts = []
+    if batch_no:
+        ordinal = batch_ordinal(batch_no)
+        if section == "foreword":
+            parts.append(f"This report is for the {ordinal} batch (Batch {batch_no}) of this training for "
+                         f"this client. Mention that naturally, e.g. \"the {ordinal} batch of ...\".")
+        elif section == "objective":
+            parts.append(f"This is Batch {batch_no} of this training. You may refer to \"this batch\" once "
+                         "if it reads naturally, but keep the focus on what the course equips participants "
+                         "to do.")
+        else:
+            parts.append(f"This report is for Batch {batch_no} (the {ordinal} batch) of this training for "
+                         "this client.")
+    comparison = batch_comparison(session_row["id"], compare_session_id) if section in (
+        "key_findings", "conclusion") else None
+    if comparison:
+        prev = db.query("SELECT start_date, end_date FROM course_sessions WHERE id = ?",
+                        (compare_session_id,), one=True)
+        prev_batch = db.query("SELECT batch_no FROM full_training_reports WHERE session_id = ?",
+                              (compare_session_id,), one=True)
+        prev_label = (f"Batch {prev_batch['batch_no']}" if prev_batch and prev_batch["batch_no"]
+                      else f"the earlier class ({fmtdaterange(prev['start_date'], prev['end_date'])})")
+        cur_label = f"Batch {batch_no}" if batch_no else "this class"
+        lines = _comparison_lines(comparison, prev_label, cur_label)
+        if section == "key_findings":
+            parts.append(
+                f"Exact comparison with {prev_label} (computed, already correct):\n" + "\n".join(lines) + "\n"
+                f"Add ONE point labelled \"Compared with {prev_label}\" summarising the most meaningful "
+                "change using only these numbers. Be honest: if results dipped, say so constructively. If "
+                "the change is tiny (under 0.1 on the average), say results were consistent."
+            )
+        else:
+            parts.append(
+                f"For context, compared with {prev_label}:\n" + "\n".join(lines) + "\n"
+                "Reflect the overall direction in one natural phrase (e.g. building on the earlier batch, "
+                "or results holding steady). No numbers or percentages."
+            )
+    earlier = _earlier_texts_for_client(session_row, f"{section}_text")
+    if earlier:
+        quoted = "\n\n".join(f"[Earlier report {i}]\n{t}" for i, t in enumerate(earlier, 1))
+        parts.append(
+            "This client has already received reports from us with the wording below for this same "
+            "section. Write noticeably different wording: a different opening, different sentence "
+            "structure, and none of their distinctive phrases. Same professional tone.\n\n" + quoted
+        )
+    if not parts:
+        return ""
+    return "\n\nAdditional context:\n" + "\n\n".join(parts) + "\n\nStill reply with ONLY the JSON object."
+
+
+def _rephrase(session_row, section, current_text, style, instruction, batch_no, compare_session_id):
+    """Reworks the section's CURRENT text: same facts, numbers and meaning,
+    new wording (plus the chosen style, or the user's own instruction)."""
+    label = SECTION_LABELS[section]
+    directive = REWRITE_STYLES[style][1] if style != "custom" else (
+        f"Follow this instruction from our staff: \"{instruction}\". It can change tone, length, emphasis "
+        "or what's mentioned, but never add a fact, number or claim that isn't in the text or context.")
+    fmt = ("Keep the format: one point per line, each starting with a short label and a colon. No bullets "
+           "or numbering characters." if section == "key_findings" else
+           "Keep it as plain paragraphs separated by a blank line.")
+    prompt = (
+        f"Below is the \"{label}\" section of Modoku Tech Sdn Bhd's post-training evaluation report for "
+        f"the course \"{session_row['course_title']}\", which goes to the client company.\n\n"
+        f"Current text:\n{current_text}\n\n"
+        "Rewrite it. Keep every fact, number, name and the overall meaning exactly as they are. "
+        f"{directive} Make it read noticeably different from the current text (different opening and "
+        f"sentence structure). {fmt} Plain, professional English; avoid bombastic or obviously "
+        "AI-generated language (no \"delve\", \"unparalleled\", \"game-changing\"). "
+        "Reply with ONLY a JSON object, nothing else: {\"text\": \"...\"}"
+        + _writing_context(session_row, section, batch_no, compare_session_id)
+    )
+    parsed = training_reports._call_claude_json(prompt, max_tokens=900)
+    text = parsed.get("text", "").strip() if isinstance(parsed, dict) else ""
+    if section == "key_findings" and text:
+        points = [" ".join(p.split()).lstrip("-•· ").strip() for p in text.splitlines()]
+        text = "\n".join(p for p in points if p)
+    return text or None
+
+
+def _generate_key_findings(session_row, report, extra=""):
     """Fix90: the one-glance "Key Findings" list that sits under the
     Training Performance Details table. Built from what the Training Report
     page already shows (exact combined ratings + per-criterion averages,
@@ -398,6 +652,7 @@ def _generate_key_findings(session_row, report):
         "- Plain, professional English. No fluff, no marketing language, no \"overall this was a highly "
         "successful\" style filler.\n"
         "Reply with ONLY a JSON object, nothing else: {\"points\": [\"Label: sentence\", ...]}"
+        + extra.replace("Still reply with ONLY the JSON object.", "Still reply with ONLY the {\"points\": [...]} JSON object.")
     )
     parsed = training_reports._call_claude_json(prompt, max_tokens=700)
     points = parsed.get("points") if isinstance(parsed, dict) else None
@@ -408,7 +663,7 @@ def _generate_key_findings(session_row, report):
     return "\n".join(points) or None
 
 
-def build_or_refresh_draft(session_id, user_id=None):
+def build_or_refresh_draft(session_id, user_id=None, batch_no=None, compare_session_id=None):
     """Creates the draft row if it doesn't exist yet, then AI-fills
     whichever of the three text columns is still empty — never touches a
     column that already has text in it (an edit you made always sticks;
@@ -433,6 +688,14 @@ def build_or_refresh_draft(session_id, user_id=None):
         )
 
     report = training_reports.get_report(session_id)
+    # Fix165: batch/comparison picked on the Generate screen (first draft), or
+    # whatever's already saved on the draft.
+    if existing is not None and batch_no is None and compare_session_id is None:
+        batch_no, compare_session_id = existing["batch_no"], existing["compare_session_id"]
+
+    def ctx(section):
+        return _writing_context(session_row, section, batch_no, compare_session_id)
+
     current = {
         "foreword_text": existing["foreword_text"] if existing else None,
         "objective_text": existing["objective_text"] if existing else None,
@@ -442,13 +705,13 @@ def build_or_refresh_draft(session_id, user_id=None):
     errors = []
     if not current["foreword_text"]:
         try:
-            current["foreword_text"] = _generate_foreword(session_row)
+            current["foreword_text"] = _generate_foreword(session_row, ctx("foreword"))
         except Exception:  # noqa: BLE001
             current_app.logger.exception("AI foreword generation failed for session %s", session_id)
             errors.append("Foreword")
     if not current["objective_text"]:
         try:
-            current["objective_text"] = _generate_objective(session_row)
+            current["objective_text"] = _generate_objective(session_row, ctx("objective"))
         except Exception:  # noqa: BLE001
             current_app.logger.exception("AI objective generation failed for session %s", session_id)
             errors.append("Objective")
@@ -457,7 +720,7 @@ def build_or_refresh_draft(session_id, user_id=None):
     # the section), and a later Generate fills it in once data arrives.
     if not current["key_findings_text"] and _has_feedback(report):
         try:
-            current["key_findings_text"] = _generate_key_findings(session_row, report)
+            current["key_findings_text"] = _generate_key_findings(session_row, report, ctx("key_findings"))
             if not current["key_findings_text"]:
                 errors.append("Key Findings")
         except Exception:  # noqa: BLE001
@@ -465,41 +728,51 @@ def build_or_refresh_draft(session_id, user_id=None):
             errors.append("Key Findings")
     if not current["conclusion_text"]:
         try:
-            current["conclusion_text"] = _generate_conclusion(session_row, report)
+            current["conclusion_text"] = _generate_conclusion(session_row, report, ctx("conclusion"))
         except Exception:  # noqa: BLE001
             current_app.logger.exception("AI conclusion generation failed for session %s", session_id)
             errors.append("Conclusion")
 
     db.execute(
         """INSERT INTO full_training_reports (session_id, foreword_text, objective_text, key_findings_text,
-                                               conclusion_text, generated_at, generated_by)
-           VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
+                                               conclusion_text, generated_at, generated_by, batch_no,
+                                               compare_session_id)
+           VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?, ?)
            ON CONFLICT(session_id) DO UPDATE SET
                foreword_text = excluded.foreword_text,
                objective_text = excluded.objective_text,
                key_findings_text = excluded.key_findings_text,
                conclusion_text = excluded.conclusion_text,
                generated_at = datetime('now'),
-               generated_by = excluded.generated_by""",
+               generated_by = excluded.generated_by,
+               batch_no = excluded.batch_no,
+               compare_session_id = excluded.compare_session_id""",
         (session_id, current["foreword_text"], current["objective_text"], current["key_findings_text"],
-         current["conclusion_text"], user_id),
+         current["conclusion_text"], user_id, batch_no, compare_session_id),
     )
     if errors:
         raise FullReportError(
             f"Draft saved, but AI couldn't write the {', '.join(errors)} section"
             f"{'s' if len(errors) > 1 else ''} just now. Edit {'them' if len(errors) > 1 else 'it'} in "
-            "by hand below, or try Rewrite with AI again in a moment."
+            "by hand below, or try Rephrase > Fresh draft again in a moment."
         )
     return get_full_report(session_id)
 
 
-def rewrite_section(session_id, section, user_id=None):
-    """Regenerates exactly one of the three prose sections via AI,
-    discarding only that section's current text — the other two are left
-    untouched. Raises FullReportError if locked, unconfigured, or the call
-    fails."""
+def rewrite_section(session_id, section, user_id=None, style="fresh", instruction=None):
+    """Regenerates exactly one of the prose sections via AI, discarding
+    only that section's current text — the others are left untouched.
+    Fix165: `style` "fresh" writes it again from the class data; any other
+    REWRITE_STYLES key reworks the current text (same facts, new wording),
+    "custom" following the user's own `instruction`. Raises FullReportError
+    if locked, unconfigured, or the call fails."""
     if section not in DRAFT_SECTIONS:
         raise FullReportError("Unknown report section.")
+    if style not in REWRITE_STYLES:
+        style = "fresh"
+    instruction = " ".join((instruction or "").split())[:300]
+    if style == "custom" and not instruction:
+        raise FullReportError("Type an instruction first, e.g. \"mention the hands-on exercises\".")
     if not training_reports.is_ai_configured():
         raise FullReportError("AI drafting isn't set up (ANTHROPIC_API_KEY isn't configured).")
     session_row = _session_context(session_id)
@@ -509,19 +782,27 @@ def rewrite_section(session_id, section, user_id=None):
     if is_locked(existing):
         raise FullReportError("This class's report has already been sent. It can no longer be edited.")
 
+    batch_no = existing["batch_no"] if existing else None
+    compare_id = existing["compare_session_id"] if existing else None
+    current_text = ((existing[f"{section}_text"] if existing else None) or "").strip()
+    if style != "fresh" and not current_text:
+        style = "fresh"  # nothing to rework yet - write it from the data instead
+    extra = _writing_context(session_row, section, batch_no, compare_id)
     try:
-        if section == "foreword":
-            text = _generate_foreword(session_row)
+        if style != "fresh":
+            text = _rephrase(session_row, section, current_text, style, instruction, batch_no, compare_id)
+        elif section == "foreword":
+            text = _generate_foreword(session_row, extra)
         elif section == "objective":
-            text = _generate_objective(session_row)
+            text = _generate_objective(session_row, extra)
         elif section == "key_findings":
             report = training_reports.get_report(session_id)
             if not _has_feedback(report):
                 raise FullReportError("No evaluation feedback for this class yet, so there's nothing to "
                                       "summarize into Key Findings. Refresh the Training Report first.")
-            text = _generate_key_findings(session_row, report)
+            text = _generate_key_findings(session_row, report, extra)
         else:
-            text = _generate_conclusion(session_row, training_reports.get_report(session_id))
+            text = _generate_conclusion(session_row, training_reports.get_report(session_id), extra)
     except FullReportError:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -641,6 +922,7 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
         "objective_text": existing["objective_text"] or "",
         "key_findings_text": existing["key_findings_text"] or "",
         "conclusion_text": existing["conclusion_text"] or "",
+        "batch_no": existing["batch_no"],
         "numeric_summary": report["numeric_summary"],
         "text_summary": report["text_summary"],
     }
@@ -673,11 +955,30 @@ def approve_and_send(session_id, to_email, subject, body, cc_email=None, user_id
     activity.log("send_email", "session", session_id, f"Approved and emailed Full Training Report to {to_email}")
 
 
+def _batch_from_form():
+    """(batch_no, compare_session_id) from the Batch & Comparison fields."""
+    try:
+        batch_no = int(request.form.get("batch_no") or 0)
+    except ValueError:
+        batch_no = 0
+    batch_no = batch_no if 1 <= batch_no <= MAX_BATCH else None
+    try:
+        compare_id = int(request.form.get("compare_session_id") or 0) or None
+    except ValueError:
+        compare_id = None
+    return batch_no, compare_id
+
+
 def _save_draft_from_form(session_id):
-    """Saves all four text boxes exactly as currently on screen."""
+    """Saves all four text boxes exactly as currently on screen (and,
+    Fix165, the Batch & Comparison picks)."""
     save_draft(session_id, request.form.get("foreword_text", ""), request.form.get("objective_text", ""),
                request.form.get("conclusion_text", ""),
                key_findings_text=request.form.get("key_findings_text", ""))
+    if "batch_no" in request.form:
+        batch_no, compare_id = _batch_from_form()
+        db.execute("UPDATE full_training_reports SET batch_no = ?, compare_session_id = ? WHERE session_id = ?",
+                   (batch_no, compare_id, session_id))
 
 
 # --- Routes --------------------------------------------------------------
@@ -690,8 +991,17 @@ def edit(session_id):
         flash("Class not found.", "danger")
         return redirect(url_for("training_reports.index"))
     full_report = get_full_report(session_id)
+    suggested_batch, suggested_compare, batch_reason = batch_suggestion(session_row)
+    if full_report is not None:
+        batch_no, compare_id = full_report["batch_no"], full_report["compare_session_id"]
+    else:
+        batch_no, compare_id = suggested_batch, suggested_compare
     return render_template(
         "full_reports/edit.html", s=session_row, full_report=full_report, locked=is_locked(full_report),
+        batch_no=batch_no, compare_id=compare_id, suggested_batch=suggested_batch, batch_reason=batch_reason,
+        compare_options=compare_options(session_row), comparison=batch_comparison(session_id, compare_id),
+        earlier_reports=earlier_report_count(session_row), max_batch=MAX_BATCH,
+        rewrite_styles=REWRITE_STYLES, batch_ordinal=batch_ordinal,
         ai_configured=training_reports.is_ai_configured(),
         default_email_subject=_default_full_report_email_subject(session_row),
         default_email_body=_default_full_report_email_body(session_row),
@@ -702,7 +1012,9 @@ def edit(session_id):
 @login_required
 def generate(session_id):
     try:
-        build_or_refresh_draft(session_id, user_id=g.user["id"] if g.user else None)
+        batch_no, compare_id = _batch_from_form() if "batch_no" in request.form else (None, None)
+        build_or_refresh_draft(session_id, user_id=g.user["id"] if g.user else None,
+                               batch_no=batch_no, compare_session_id=compare_id)
     except FullReportError as exc:
         flash(str(exc), "danger" if get_full_report(session_id) is None else "warning")
         return redirect(url_for("training_reports.view", session_id=session_id))
@@ -732,11 +1044,41 @@ def rewrite(session_id, section):
     # is on screen" rule as save()/approve() below).
     try:
         _save_draft_from_form(session_id)
-        rewrite_section(session_id, section, user_id=g.user["id"] if g.user else None)
+        style = request.args.get("style", "fresh")
+        rewrite_section(session_id, section, user_id=g.user["id"] if g.user else None, style=style,
+                        instruction=request.form.get(f"instruction_{section}"))
+    except FullReportError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("full_reports.edit", session_id=session_id, _anchor=f"sec-{section}"))
+    how = REWRITE_STYLES.get(request.args.get("style", "fresh"), REWRITE_STYLES["fresh"])[0].lower()
+    flash(f"{SECTION_LABELS.get(section, section.title())} rewritten by AI ({how}).", "success")
+    return redirect(url_for("full_reports.edit", session_id=session_id, _anchor=f"sec-{section}"))
+
+
+@bp.route("/<int:session_id>/full/rewrite-all", methods=("POST",))
+@login_required
+def rewrite_all(session_id):
+    """Fix165: after changing the Batch / Compare with picks, write every
+    section again with that context (one click instead of four)."""
+    try:
+        _save_draft_from_form(session_id)
     except FullReportError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("full_reports.edit", session_id=session_id))
-    flash(f"{SECTION_LABELS.get(section, section.title())} rewritten by AI.", "success")
+    failed = []
+    has_feedback = _has_feedback(training_reports.get_report(session_id))
+    for section in DRAFT_SECTIONS:
+        if section == "key_findings" and not has_feedback:
+            continue  # nothing to summarise yet - the PDF leaves the section out
+        try:
+            rewrite_section(session_id, section, user_id=g.user["id"] if g.user else None)
+        except FullReportError:
+            failed.append(SECTION_LABELS[section])
+    if failed:
+        flash(f"Rewrote the rest, but couldn't rewrite {', '.join(failed)} just now. Try again in a moment.",
+              "warning")
+    else:
+        flash("All sections rewritten with the batch details.", "success")
     return redirect(url_for("full_reports.edit", session_id=session_id))
 
 
@@ -775,6 +1117,7 @@ def preview(session_id):
         "objective_text": full_report["objective_text"] or "",
         "key_findings_text": full_report["key_findings_text"] or "",
         "conclusion_text": full_report["conclusion_text"] or "",
+        "batch_no": full_report["batch_no"],
         "numeric_summary": report["numeric_summary"],
         "text_summary": report["text_summary"],
     }
