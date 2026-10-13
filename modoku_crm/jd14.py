@@ -227,9 +227,9 @@ def index():
     if direction not in ("asc", "desc"):
         direction = "desc"
 
-    # Fix168: a class that isn't HRDCorp claimable has no JD14, so it's left
-    # off this list entirely. A cancelled one stays, greyed out as "Not
-    # required" (Fix164, see jd14/index.html).
+    # Fix168/169: a class that isn't HRDCorp claimable, or was cancelled, has
+    # no JD14, so it's left off this list entirely (its pages are blocked
+    # too, see _block_cancelled_class).
     sql = """SELECT cs.id, cs.start_date, cs.end_date, cs.status, cs.jd14_file, c.title AS course_title,
                     co.name AS client_name, jf.signed_at, jf.sent_at, jf.id AS jd14_forms_id,
                     COALESCE(cs.hrdcorp_claimable, 1) AS hrdcorp_claimable
@@ -237,7 +237,7 @@ def index():
              JOIN courses c ON c.id = cs.course_id
              LEFT JOIN companies co ON co.id = cs.client_company_id
              LEFT JOIN jd14_forms jf ON jf.session_id = cs.id
-             WHERE COALESCE(cs.hrdcorp_claimable, 1) = 1"""
+             WHERE COALESCE(cs.hrdcorp_claimable, 1) = 1 AND cs.status != 'Cancelled'"""
     args = []
     if q:
         sql += " AND (c.title LIKE ? OR co.name LIKE ? OR cs.venue LIKE ?)"

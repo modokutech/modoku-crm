@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix169 — Cancelled classes hidden from the JD14 list
+
+**Date:** 2026-10-13
+
+- The JD14 list now also leaves out cancelled classes (instead of the greyed "Not required" row from
+  Fix164). JD14 pages for a cancelled class are still blocked. The Training Report list is unchanged.
+
 ## Fix168 — Non-HRDCorp classes hidden from the JD14 list
 
 **Date:** 2026-10-13

@@ -43,16 +43,11 @@
       </tr></thead>
       <tbody>
         {% for s in sessions %}
-        {% set cancelled = s.status == 'Cancelled' or not s.hrdcorp_claimable %}
-        {% set not_required_why = 'Class cancelled' if s.status == 'Cancelled' else 'Not HRDCorp claimable' %}
-        <tr {% if cancelled %}class="row-cancelled" title="{{ not_required_why }}, no JD14 needed"{% else %}onclick="window.location='{{ url_for('jd14.edit', session_id=s.id) }}'" style="cursor:pointer"{% endif %}>
+        <tr onclick="window.location='{{ url_for('jd14.edit', session_id=s.id) }}'" style="cursor:pointer">
           <td class="fw-semibold">{{ s.course_title }}</td>
           <td class="text-nowrap">{{ s.start_date|fmtdaterange(s.end_date) }}</td>
           <td>
-            {% if cancelled %}
-            <span class="badge bg-light text-muted border"><i class="bi bi-slash-circle me-1"></i>Not required</span>
-            <div class="small text-muted mt-1">{{ not_required_why }}</div>
-            {% elif s.signed_at %}
+            {% if s.signed_at %}
             <span class="badge bg-success">Signed {{ s.signed_at|fmtdate }}</span>
             {% elif s.jd14_forms_id %}
             <span class="badge bg-warning text-dark">Drafted, not signed</span>
@@ -62,7 +57,7 @@
             {# Sent -> Awaiting Return -> Received tracker - see jd14.py's
                jd14_stage() docstring; shown once our half is signed, i.e.
                the pipeline has actually started. #}
-            {% if not cancelled and s.jd14_stage and s.jd14_stage != 'not_signed' %}
+            {% if s.jd14_stage and s.jd14_stage != 'not_signed' %}
             <div class="d-flex align-items-center gap-1 mt-1">
               <span class="badge small {{ 'bg-success' if s.jd14_stage in ('awaiting_return', 'received') else 'bg-light text-muted border' }}">Sent</span>
               <i class="bi bi-arrow-right text-muted small"></i>
@@ -73,11 +68,7 @@
             {% endif %}
           </td>
           <td class="text-end">
-            {% if cancelled %}
-            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Open</button>
-            {% else %}
             <a href="{{ url_for('jd14.edit', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Open</a>
-            {% endif %}
           </td>
         </tr>
         {% endfor %}
