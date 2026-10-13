@@ -34,7 +34,7 @@ bp = Blueprint("jd14", __name__, url_prefix="/jd14")
 @bp.before_request
 def _block_cancelled_class():
     from .sessions import block_cancelled_class
-    return block_cancelled_class("jd14.index", "JD14 form")
+    return block_cancelled_class("jd14.index", "JD14 form", require_hrdcorp=True)
 
 
 def _session_or_none(session_id):
@@ -227,15 +227,16 @@ def index():
     if direction not in ("asc", "desc"):
         direction = "desc"
 
-    # Fix132: a class that isn't HRDCorp claimable has no JD14 to do, so it's
-    # left off this list unless it already has JD14 paperwork.
+    # Fix167: a class that isn't HRDCorp claimable (or was cancelled) stays on
+    # the list, greyed out as "Not required" - see jd14/index.html.
     sql = """SELECT cs.id, cs.start_date, cs.end_date, cs.status, cs.jd14_file, c.title AS course_title,
-                    co.name AS client_name, jf.signed_at, jf.sent_at, jf.id AS jd14_forms_id
+                    co.name AS client_name, jf.signed_at, jf.sent_at, jf.id AS jd14_forms_id,
+                    COALESCE(cs.hrdcorp_claimable, 1) AS hrdcorp_claimable
              FROM course_sessions cs
              JOIN courses c ON c.id = cs.course_id
              LEFT JOIN companies co ON co.id = cs.client_company_id
              LEFT JOIN jd14_forms jf ON jf.session_id = cs.id
-             WHERE (COALESCE(cs.hrdcorp_claimable, 1) = 1 OR cs.jd14_file IS NOT NULL OR jf.id IS NOT NULL)"""
+             WHERE 1 = 1"""
     args = []
     if q:
         sql += " AND (c.title LIKE ? OR co.name LIKE ? OR cs.venue LIKE ?)"

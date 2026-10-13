@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix167 — JD14 "Not required" for non-HRDCorp classes
+
+**Date:** 2026-10-13
+
+- JD14 list: a class with "HRDCorp claimable" off now shows "Not required / Not HRDCorp claimable",
+  greyed out and not clickable (same as a cancelled class). Before, these were hidden from the list
+  unless they already had JD14 paperwork.
+- Class page: if a non-HRDCorp class has old JD14 paperwork, its JD14 button is disabled and reads
+  "JD14 Not Required, Not HRDCorp Claimable".
+- Opening any JD14 page for a non-HRDCorp class sends you back to the list with a note. Turning
+  "HRDCorp claimable" back on makes it work again (nothing is deleted).
+
 ## Fix166 — Training report cover doesn't show the batch
 
 **Date:** 2026-10-13

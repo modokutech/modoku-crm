@@ -548,19 +548,27 @@ def _venue_text(session_row, fallback):
     return "Virtual" if session_row["training_mode"] == "Virtual" else fallback
 
 
-def block_cancelled_class(list_endpoint, what):
+def block_cancelled_class(list_endpoint, what, require_hrdcorp=False):
     """Fix164: before_request guard for the Training Report and JD14 pages -
     a cancelled class never ran, so there's no report or JD14 to work on.
-    Any page for one sends you back to the module's list with a note
-    (returns None, i.e. carry on, for everything else)."""
+    Fix167: with require_hrdcorp (JD14), a class that isn't HRDCorp
+    claimable is blocked too - JD14 is the HRDCorp claim form. Any page for
+    one sends you back to the module's list with a note (returns None, i.e.
+    carry on, for everything else)."""
     session_id = (request.view_args or {}).get("session_id")
     if not session_id:
         return None
-    row = db.query("SELECT status FROM course_sessions WHERE id = ?", (session_id,), one=True)
-    if row is None or row["status"] != "Cancelled":
+    row = db.query("SELECT status, hrdcorp_claimable FROM course_sessions WHERE id = ?", (session_id,), one=True)
+    if row is None:
         return None
-    flash(f"This class was cancelled, so there's no {what} for it.", "warning")
-    return redirect(url_for(list_endpoint))
+    if row["status"] == "Cancelled":
+        flash(f"This class was cancelled, so there's no {what} for it.", "warning")
+        return redirect(url_for(list_endpoint))
+    if require_hrdcorp and row["hrdcorp_claimable"] == 0:
+        flash(f"This class isn't HRDCorp claimable, so there's no {what} for it. Turn on "
+              "\"HRDCorp claimable\" on the class if that's wrong.", "warning")
+        return redirect(url_for(list_endpoint))
+    return None
 
 
 def _list_sort():
