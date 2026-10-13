@@ -514,7 +514,8 @@ def upload_signed_copy(session_id):
                    "WHERE id = ?", (session_id,))
         activity.log("upload", "session", session_id, "Uploaded the client's signed JD14 copy")
         warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_id), stored_name), "jd14")
-        _notify_document_uploaded(session_id, "JD14 Form", ai_warning=warning)
+        _notify_document_uploaded(session_id, "JD14 Form", ai_warning=warning,
+                                  link_endpoint="jd14.edit", where="JD14 Forms")
         flash("Signed JD14 copy saved.", "success")
         if warning:
             flash(warning, "warning")

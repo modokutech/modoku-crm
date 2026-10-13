@@ -370,7 +370,8 @@ def _t3_form_pdf_filename(session_row):
     return f"T3_Attendance_Form_{title_slug}_{date_slug}.pdf"
 
 
-def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
+def _notify_document_uploaded(session_id, doc_label, ai_warning=None, link_endpoint="sessions.view",
+                              where="Classes"):
     """Emails the admin-configured notification addresses (Settings) that a
     document is ready on a class, and (Fix138) shows it in-app to every
     admin and the class owner. Best-effort — a notification failure (or
@@ -380,7 +381,11 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
     ai_warning: an optional AI sanity-check warning (see doc_sanity.py) to
     fold into this same email — used for uploads that come in through a
     public, unauthenticated link (e.g. jd14_return.py), where there's no
-    logged-in staff session to flash a warning to directly."""
+    logged-in staff session to flash a warning to directly.
+
+    link_endpoint / where (Fix170): the page the in-app notification opens
+    and the module the email points to - a JD14 upload goes straight to that
+    class's JD14 form ("jd14.edit", "JD14 Forms") instead of the class page."""
     try:
         session_row = db.query(
             """SELECT cs.start_date, cs.end_date, cs.owner_user_id, c.title AS course_title FROM course_sessions cs
@@ -396,7 +401,7 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
         in_app_title = f"{doc_label} uploaded - {session_row['course_title']}"
         in_app_body = f"Class: {session_row['course_title']} ({date_range})" + (
             f"\nNote (AI sanity-check): {ai_warning}" if ai_warning else "")
-        class_link = url_for("sessions.view", session_id=session_id)
+        class_link = url_for(link_endpoint, session_id=session_id)
         notifications.notify_admins("document_uploaded", in_app_title, body=in_app_body, link=class_link)
         owner = session_row["owner_user_id"]
         if owner and not db.query("SELECT 1 FROM users WHERE id = ? AND role = 'admin' AND active = 1",
@@ -406,7 +411,7 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None):
             f"{doc_label} has just been uploaded for:\n\n"
             f"Class: {session_row['course_title']}\n"
             f"Date: {date_range}\n\n"
-            f"View it in Modoku Hub under Classes."
+            f"View it in Modoku Hub under {where}."
         )
         if ai_warning:
             body += f"\n\nNote (AI sanity-check): {ai_warning}"
@@ -1843,7 +1848,7 @@ def upload_jd14(session_id):
         return redirect(url_for("sessions.view", session_id=session_id))
     stored_name = _handle_jd14_upload(session_id)
     if stored_name:
-        _notify_document_uploaded(session_id, "JD14 Form")
+        _notify_document_uploaded(session_id, "JD14 Form", link_endpoint="jd14.edit", where="JD14 Forms")
         _auto_send_jd14_return_link(session_row)
         warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_id), stored_name), "jd14")
         if warning:

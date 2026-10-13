@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix170 — "JD14 Form uploaded" notification opens the JD14 form
+
+**Date:** 2026-10-13
+
+- Clicking a "JD14 Form uploaded" notification now opens that class's JD14 form, not the class page.
+  Covers all three ways a JD14 comes in: the client's return link, the JD14 module's signed-copy
+  upload, and the class page upload. The notification email says "under JD14 Forms".
+- JD14 notifications already in inboxes are repointed on boot. Other upload notifications (T3, report)
+  still open the class page.
+
 ## Fix169 — Cancelled classes hidden from the JD14 list
 
 **Date:** 2026-10-13

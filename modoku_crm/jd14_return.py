@@ -59,6 +59,7 @@ def submit(token):
         (session_row["id"],),
     )
     ai_warning = doc_sanity.check_document(os.path.join(_attendance_dir(session_row["id"]), stored_name), "jd14")
-    _notify_document_uploaded(session_row["id"], "JD14 Form", ai_warning=ai_warning)
+    _notify_document_uploaded(session_row["id"], "JD14 Form", ai_warning=ai_warning,
+                              link_endpoint="jd14.edit", where="JD14 Forms")
 
     return render_template("jd14_return/success.html", s=session_row)

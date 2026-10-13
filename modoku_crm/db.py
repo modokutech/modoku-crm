@@ -1274,6 +1274,13 @@ def _apply_light_migrations(db):
                "WHERE type = 'evaluation_report_overdue' AND title LIKE 'Evaluation report still missing - %'")
     db.commit()
 
+    # Fix170: "JD14 Form uploaded" notifications open the class's JD14 form,
+    # not the class page - repoint ones already in inboxes. Safe to re-run.
+    db.execute("UPDATE notifications SET link = '/jd14' || link "
+               "WHERE type = 'document_uploaded' AND title LIKE 'JD14 Form uploaded - %' "
+               "AND link LIKE '/sessions/%'")
+    db.commit()
+
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
     # any existing nonzero others_fee into one item (using its remarks text
