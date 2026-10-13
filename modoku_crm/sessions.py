@@ -548,6 +548,21 @@ def _venue_text(session_row, fallback):
     return "Virtual" if session_row["training_mode"] == "Virtual" else fallback
 
 
+def block_cancelled_class(list_endpoint, what):
+    """Fix164: before_request guard for the Training Report and JD14 pages -
+    a cancelled class never ran, so there's no report or JD14 to work on.
+    Any page for one sends you back to the module's list with a note
+    (returns None, i.e. carry on, for everything else)."""
+    session_id = (request.view_args or {}).get("session_id")
+    if not session_id:
+        return None
+    row = db.query("SELECT status FROM course_sessions WHERE id = ?", (session_id,), one=True)
+    if row is None or row["status"] != "Cancelled":
+        return None
+    flash(f"This class was cancelled, so there's no {what} for it.", "warning")
+    return redirect(url_for(list_endpoint))
+
+
 def _list_sort():
     """The class list's sort column + direction from the query string.
     Fix162: by date, the default is newest first; other columns start A-Z."""

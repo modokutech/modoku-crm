@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix164 — Cancelled classes: Training Report and JD14 marked "Not required"
+
+**Date:** 2026-10-13
+
+- Training Report and JD14 lists: a cancelled class shows "Not required / Class cancelled", its row is
+  greyed out and can't be clicked, and its Open button is disabled.
+- Class page: for a cancelled class the JD14 and View Training Report buttons are disabled and read
+  "... Not Required, Class Cancelled".
+- Server side too: any Training Report / Full Report / JD14 page or action for a cancelled class sends you
+  back to the list with a note. If the class is set back from Cancelled, everything works again (nothing
+  is deleted).
+
 ## Fix163 — Virtual classes: no Venue / Room Setup
 
 **Date:** 2026-10-13

@@ -47,6 +47,12 @@ from .auth import login_required
 
 bp = Blueprint("full_reports", __name__, url_prefix="/training-report")
 
+
+@bp.before_request
+def _block_cancelled_class():
+    from .sessions import block_cancelled_class
+    return block_cancelled_class("training_reports.index", "training report")
+
 DRAFT_SECTIONS = ("foreword", "objective", "key_findings", "conclusion")
 SECTION_LABELS = {"foreword": "Foreword", "objective": "Objective",
                   "key_findings": "Key Findings", "conclusion": "Conclusion"}

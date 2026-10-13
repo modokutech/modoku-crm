@@ -31,6 +31,12 @@ from .sessions import (_attendance_dir, _handle_jd14_upload, _notify_document_up
 bp = Blueprint("jd14", __name__, url_prefix="/jd14")
 
 
+@bp.before_request
+def _block_cancelled_class():
+    from .sessions import block_cancelled_class
+    return block_cancelled_class("jd14.index", "JD14 form")
+
+
 def _session_or_none(session_id):
     return db.query(
         """SELECT cs.*, c.title AS course_title, co.name AS company_name, co.address AS company_address,

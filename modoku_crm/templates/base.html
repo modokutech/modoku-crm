@@ -15,6 +15,10 @@
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16.png') }}">
   <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
   <style>
+    /* Fix164: a cancelled class's row in the Training Report / JD14 lists -
+       greyed out and not clickable. */
+    tr.row-cancelled > td { opacity: .5; }
+    .table-hover > tbody > tr.row-cancelled:hover > * { --bs-table-bg-state: transparent; }
     /* Command palette (press "/" anywhere, or click Search pages… in the
        sidebar), jumps straight to any page in the sidebar nav without
        hunting through the (now fairly long) list of tabs by eye. */

@@ -325,7 +325,11 @@
         </button>
       </form>
       {% endif %}
-      {% if s.evaluation_form_id %}
+      {% if s.evaluation_form_id and s.status == 'Cancelled' %}
+      <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" disabled>
+        <i class="bi bi-slash-circle me-1"></i>Training Report Not Required, Class Cancelled
+      </button>
+      {% elif s.evaluation_form_id %}
       <a href="{{ url_for('training_reports.view', session_id=s.id) }}" class="btn btn-sm btn-outline-secondary w-100 mt-2">
         <i class="bi bi-clipboard-data me-1"></i>View Training Report
       </a>
@@ -344,10 +348,16 @@
              'awaiting_return': ('btn-outline-warning', 'bi-hourglass-split', 'JD14 Sent, Awaiting Client&#39;s Signed Copy'),
              'received': ('btn-success', 'bi-check2-circle', 'JD14 Complete, Signed Copy Received'),
            }[jd14_status] %}
+        {% if s.status == 'Cancelled' %}
+        <button type="button" class="btn btn-sm btn-outline-secondary w-100" disabled>
+          <i class="bi bi-slash-circle me-1"></i>JD14 Not Required, Class Cancelled
+        </button>
+        {% else %}
         <a href="{{ url_for('jd14.edit', session_id=s.id) }}" class="btn btn-sm {{ jd14_btn[0] }} w-100">
           <i class="bi {{ jd14_btn[1] }} me-1"></i>{{ jd14_btn[2]|safe }}
         </a>
-        {% if jd14_status == 'awaiting_return' and jd14_form.sent_at %}
+        {% endif %}
+        {% if s.status != 'Cancelled' and jd14_status == 'awaiting_return' and jd14_form.sent_at %}
         <p class="small text-muted mt-2 mb-0">Emailed to {{ jd14_form.sent_to }} on {{ jd14_form.sent_at|fmtdate }}.</p>
         {% elif jd14_status == 'received' %}
         <p class="small text-muted mt-2 mb-0">{% if s.jd14_received_at %}{{ 'Client returned it' if s.jd14_received_via == 'client_upload' else 'Received' }} on {{ s.jd14_received_at|fmtdate }}. {% endif %}View it in the JD14 module.</p>

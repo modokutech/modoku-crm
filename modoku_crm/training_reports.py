@@ -65,6 +65,12 @@ from .auth import login_required
 
 bp = Blueprint("training_reports", __name__, url_prefix="/training-report")
 
+
+@bp.before_request
+def _block_cancelled_class():
+    from .sessions import block_cancelled_class
+    return block_cancelled_class("training_reports.index", "training report")
+
 # Bounds on what gets sent to Claude for the open-text summary — a class
 # with an unusually large number of responses still produces one bounded
 # request rather than an unbounded one.
@@ -523,7 +529,7 @@ def index():
     rows = db.query(
         """SELECT cs.id, c.title AS course_title, t.name AS trainer_name, cs.start_date, cs.end_date,
                   cs.evaluation_form_link, tr.response_count, tr.generated_at,
-                  cs.evaluation_sent_at, cs.evaluation_sent_to
+                  cs.evaluation_sent_at, cs.evaluation_sent_to, cs.status
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN trainers t ON t.id = cs.trainer_id
