@@ -680,9 +680,7 @@ def build_full_report_pdf(ctx):
     dict (see _build_content_html for the exact keys expected)."""
     from pypdf import PdfReader, PdfWriter
 
-    # Fix165: a batch shows on the cover's date line, e.g. "Batch 2 · 23 & 24 Oct 2026".
-    cover_date = f"Batch {ctx['batch_no']}  ·  {ctx['date_range']}" if ctx.get("batch_no") else ctx["date_range"]
-    cover_pdf = _build_cover_pdf(ctx["course_title"], cover_date, ctx["client_name"])
+    cover_pdf = _build_cover_pdf(ctx["course_title"], ctx["date_range"], ctx["client_name"])
     # Margins sized to leave enough blank room for the logo+footer overlay
     # stamped onto every content page below (see _build_page_overlay_pdf
     # for why it's a post-process stamp rather than a wkhtmltopdf

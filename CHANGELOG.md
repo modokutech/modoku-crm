@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix166 — Training report cover doesn't show the batch
+
+**Date:** 2026-10-13
+
+- The PDF cover is back to just the dates (no "Batch 2 ·"). The batch still shows in the Program row
+  ("<course> (Batch 2)") and in the write-up.
+
 ## Fix165 — Training report: rephrase options, varied wording per client, batches
 
 **Date:** 2026-10-13
