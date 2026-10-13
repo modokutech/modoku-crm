@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix161 — Training report reminder: new wording, clears itself once sent
+
+**Date:** 2026-10-13
+
+- The 21-day reminder now reads "Training report not sent yet - <course>" ("...its training report hasn't
+  been sent or uploaded yet.") instead of "Evaluation report still missing". Reminders already in inboxes
+  are reworded on boot.
+- The reminder is removed automatically once the class has a report (Approve & Send in the Training Report
+  module, or a manual upload on the class page). Before, it stopped new reminders but left the old one in
+  the inbox.
+- Dashboard "Needs Your Attention" section renamed to "Training reports not sent"; the notifications page
+  subtitle says "training reports due".
+
 ## Fix160 — Scan mode no longer crops off writing outside the table
 
 **Date:** 2026-10-12

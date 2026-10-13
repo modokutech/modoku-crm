@@ -1264,6 +1264,14 @@ def _apply_light_migrations(db):
                "WHERE trainer_responsibilities LIKE '%exercise files(if any)%'")
     db.commit()
 
+    # Fix161: the overdue-report reminder now says "Training report", not
+    # "Evaluation report" - reword ones already in inboxes. Safe to re-run.
+    db.execute("UPDATE notifications SET "
+               "title = REPLACE(title, 'Evaluation report still missing - ', 'Training report not sent yet - '), "
+               "body = 'This class was completed over 21 days ago and its training report hasn''t been sent or uploaded yet.' "
+               "WHERE type = 'evaluation_report_overdue' AND title LIKE 'Evaluation report still missing - %'")
+    db.commit()
+
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
     # any existing nonzero others_fee into one item (using its remarks text

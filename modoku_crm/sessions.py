@@ -668,10 +668,20 @@ EVALUATION_REPORT_REMINDER_AFTER_DAYS = 21
 
 def _notify_overdue_evaluation_reports():
     """Once a class has been Completed for over
-    EVALUATION_REPORT_REMINDER_AFTER_DAYS days with no evaluation report
-    uploaded yet, nudge its creator/owner with a Notification. Never sends
-    anything by itself — sending the report to the client is always a
-    separate, manual click (see send_evaluation_email)."""
+    EVALUATION_REPORT_REMINDER_AFTER_DAYS days with no training report
+    saved on it yet (Approve & Send in the Training Report module, or a
+    manual upload on the class page - both fill evaluation_report_file),
+    nudge its creator/owner with a Notification. Never sends anything by
+    itself — sending the report to the client is always a separate, manual
+    click (see send_evaluation_email).
+
+    Fix161: also removes the reminder again once that class has a report,
+    so it doesn't linger in the inbox after the report's been sent."""
+    db.execute(
+        """DELETE FROM notifications WHERE type = 'evaluation_report_overdue' AND dedupe_key IN (
+               SELECT 'session:' || id || ':eval_report_overdue' FROM course_sessions
+               WHERE evaluation_report_file IS NOT NULL AND evaluation_report_file != '')"""
+    )
     cutoff = (date.today() - timedelta(days=EVALUATION_REPORT_REMINDER_AFTER_DAYS)).isoformat()
     overdue_rows = db.query(
         """SELECT cs.id, cs.owner_user_id, c.title AS course_title
@@ -683,9 +693,9 @@ def _notify_overdue_evaluation_reports():
     for row in overdue_rows:
         notifications.notify(
             row["owner_user_id"], "evaluation_report_overdue",
-            f"Evaluation report still missing - {row['course_title']}",
+            f"Training report not sent yet - {row['course_title']}",
             body=f"This class was completed over {EVALUATION_REPORT_REMINDER_AFTER_DAYS} days ago and its "
-                 "evaluation report hasn't been uploaded yet.",
+                 "training report hasn't been sent or uploaded yet.",
             link=url_for("sessions.view", session_id=row["id"]),
             dedupe_key=f"session:{row['id']}:eval_report_overdue",
         )

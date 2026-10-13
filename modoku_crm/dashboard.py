@@ -148,10 +148,10 @@ def _attention_items():
     ][:5]
     if eval_rows:
         sections.append({
-            "label": "Evaluation reports overdue", "icon": "bi-patch-check", "tone": "warning",
+            "label": "Training reports not sent", "icon": "bi-patch-check", "tone": "warning",
             "entries": [{
                 "text": (f"{row['course_title']}, completed {_days_between(row['done_date'], today_iso)} "
-                         f"day(s) ago, report still missing"),
+                         f"day(s) ago, training report not sent yet"),
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in eval_rows],
         })
