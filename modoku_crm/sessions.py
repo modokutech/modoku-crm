@@ -531,6 +531,18 @@ SORTABLE_COLUMNS = {
 }
 
 
+def _list_sort():
+    """The class list's sort column + direction from the query string.
+    Fix162: by date, the default is newest first; other columns start A-Z."""
+    sort = request.args.get("sort", "date")
+    if sort not in SORTABLE_COLUMNS:
+        sort = "date"
+    direction = request.args.get("dir") or ("desc" if sort == "date" else "asc")
+    if direction not in ("asc", "desc"):
+        direction = "asc"
+    return sort, direction
+
+
 def _attendance_dir(session_id):
     path = os.path.join(current_app.config["UPLOAD_FOLDER"], "sessions", str(session_id))
     os.makedirs(path, exist_ok=True)
@@ -788,12 +800,7 @@ def _sync_session_statuses():
 @bp.route("/")
 @login_required
 def index():
-    sort = request.args.get("sort", "date")
-    direction = request.args.get("dir", "asc")
-    if sort not in SORTABLE_COLUMNS:
-        sort = "date"
-    if direction not in ("asc", "desc"):
-        direction = "asc"
+    sort, direction = _list_sort()
 
     sessions = db.query(
         f"""SELECT cs.*, c.title AS course_title, c.code AS course_code, c.hrdf_claimable,
@@ -843,12 +850,7 @@ def index():
 @bp.route("/export")
 @admin_required
 def export():
-    sort = request.args.get("sort", "date")
-    direction = request.args.get("dir", "asc")
-    if sort not in SORTABLE_COLUMNS:
-        sort = "date"
-    if direction not in ("asc", "desc"):
-        direction = "asc"
+    sort, direction = _list_sort()
     sessions_rows = db.query(
         f"""SELECT cs.*, c.title AS course_title, t.name AS trainer_name, co.name AS client_name,
                   (SELECT COUNT(*) FROM enrollments e WHERE e.session_id = cs.id) AS enrolled_count

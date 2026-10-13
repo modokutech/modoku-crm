@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix162 — Classes list newest first by default
+
+**Date:** 2026-10-13
+
+- The Classes list (and its CSV export) now opens sorted by date, latest first. Clicking the Date header
+  still flips it to oldest first; other columns still start A-Z.
+
 ## Fix161 — Training report reminder: new wording, clears itself once sent
 
 **Date:** 2026-10-13
