@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">{{ s.course_title }}</h4>
-    <small class="text-muted">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %} · {{ s.venue or 'No venue set' }}</small>
+    <small class="text-muted">{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %} · {{ s.venue or ('Virtual' if s.training_mode == 'Virtual' else 'No venue set') }}</small>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('enrollments.new', session_id=s.id) }}" class="btn btn-success btn-sm">+ Enroll Participant</a>
@@ -62,7 +62,7 @@
       <table class="table table-sm table-borderless mb-0">
         <tr><td class="text-muted">Date</td><td>{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}</td></tr>
         <tr><td class="text-muted">Time</td><td>{{ s.training_time or '-' }}</td></tr>
-        <tr><td class="text-muted">Venue</td><td>{{ s.venue or '-' }}</td></tr>
+        <tr><td class="text-muted">Venue</td><td>{{ s.venue or ('Virtual' if s.training_mode == 'Virtual' else '-') }}</td></tr>
         <tr><td class="text-muted">Client</td><td>{{ s.client_name or '-' }}</td></tr>
         <tr><td class="text-muted">Trainer(s)</td><td>{% if assigned_trainers %}{{ assigned_trainers|map(attribute='name')|join(', ') }}{% else %}{{ s.trainer_name or '-' }}{% endif %}</td></tr>
         <tr><td class="text-muted">Type</td><td>{{ s.training_type or '-' }}</td></tr>

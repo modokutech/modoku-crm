@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix163 — Virtual classes: no Venue / Room Setup
+
+**Date:** 2026-10-13
+
+- Add/Edit Class: choosing Training mode "Virtual" hides Venue and Room Setup (Hybrid keeps them). They
+  come back with their values if you switch back before saving.
+- Saving a Virtual class clears Venue and Room Setup, so an old venue isn't kept and printed in emails.
+- Where a virtual class's venue is shown (class page header and details, T3 emails, PO cancellation email)
+  it now reads "Virtual" instead of "No venue set" / "To be confirmed".
+
 ## Fix162 — Classes list newest first by default
 
 **Date:** 2026-10-13

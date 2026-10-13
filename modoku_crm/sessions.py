@@ -241,7 +241,7 @@ def _default_t3_email_body(session_row, t3_url):
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
         f"Time: {session_row['training_time'] or 'To be confirmed'}\n"
-        f"Venue: {session_row['venue'] or 'To be confirmed'}\n"
+        f"Venue: {_venue_text(session_row, 'To be confirmed')}\n"
         f"{meeting_link_line}\n"
         "Should you have any questions, please feel free to contact us.\n\n"
         "Cheers!"
@@ -357,7 +357,7 @@ def _default_t3_form_email_body(session_row):
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
         f"Time: {session_row['training_time'] or 'To be confirmed'}\n"
-        f"Venue: {session_row['venue'] or 'To be confirmed'}\n"
+        f"Venue: {_venue_text(session_row, 'To be confirmed')}\n"
         f"{meeting_link_line}\n"
         "Should you have any questions, please feel free to contact us.\n\n"
         "Cheers!"
@@ -529,6 +529,23 @@ SORTABLE_COLUMNS = {
     "trainer": "t.name",
     "status": "cs.status",
 }
+
+
+def _physical_field(name):
+    """Venue / Room Setup from the class form - Fix163: always blank for a
+    fully Virtual class, so an old venue typed before switching mode isn't
+    kept (and then printed in emails)."""
+    if request.form.get("training_mode") == "Virtual":
+        return None
+    return request.form.get(name) or None
+
+
+def _venue_text(session_row, fallback):
+    """What to print as a class's venue: the venue, else "Virtual" for a
+    virtual class, else `fallback`."""
+    if session_row["venue"]:
+        return session_row["venue"]
+    return "Virtual" if session_row["training_mode"] == "Virtual" else fallback
 
 
 def _list_sort():
@@ -916,7 +933,7 @@ def new():
                     trainer_ids[0] if trainer_ids else None,
                     request.form.get("client_company_id") or None,
                     request.form.get("pic_lead_id") or None,
-                    request.form.get("venue") or None,
+                    _physical_field("venue"),
                     start_date,
                     request.form.get("end_date") or None,
                     training_time,
@@ -932,7 +949,7 @@ def new():
                     laptop_rental_qty,
                     has_exam,
                     exam_participants,
-                    request.form.get("room_setup") or None,
+                    _physical_field("room_setup"),
                     g.user["id"],
                     1 if request.form.get("hrdcorp_claimable") else 0,
                 ),
@@ -1361,7 +1378,7 @@ def edit(session_id):
                     trainer_ids[0] if trainer_ids else None,
                     request.form.get("client_company_id") or None,
                     request.form.get("pic_lead_id") or None,
-                    request.form.get("venue") or None,
+                    _physical_field("venue"),
                     start_date,
                     request.form.get("end_date") or None,
                     training_time,
@@ -1381,7 +1398,7 @@ def edit(session_id):
                     laptop_rental_qty,
                     has_exam,
                     exam_participants,
-                    request.form.get("room_setup") or None,
+                    _physical_field("room_setup"),
                     1 if request.form.get("hrdcorp_claimable") else 0,
                     session_id,
                 ),
@@ -2086,7 +2103,7 @@ def _po_cancellation_email(session_row, po):
         "is cancelled with it:\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {dates}\n"
-        f"Venue: {session_row['venue'] or '-'}\n\n"
+        f"Venue: {_venue_text(session_row, '-')}\n\n"
         "Please release these dates. We apologise for any inconvenience caused.\n\n"
         "Should you have any questions, please feel free to contact us.\n\n"
         "Cheers!"

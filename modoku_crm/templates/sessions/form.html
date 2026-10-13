@@ -92,7 +92,7 @@
         </select>
       </div>
 
-      <div class="col-md-6">
+      <div class="col-md-6" id="venue_field">
         <label class="form-label">Venue</label>
         <input type="text" name="venue" class="form-control" value="{{ (session.venue or '') if session else '' }}" placeholder="e.g. Modoku Training Centre, KL">
       </div>
@@ -100,7 +100,7 @@
         <label class="form-label">Meeting link</label>
         <input type="url" name="meeting_link" class="form-control" value="{{ (session.meeting_link or '') if session else '' }}" placeholder="e.g. https://zoom.us/j/...">
       </div>
-      <div class="col-md-6">
+      <div class="col-md-6" id="room_setup_field">
         <label class="form-label">Room Setup</label>
         <select name="room_setup" class="form-select">
           <option value="">Not specified</option>
@@ -224,6 +224,13 @@ function toggleMeetingLink() {
   const mode = document.getElementById('training_mode').value;
   const field = document.getElementById('meeting_link_field');
   field.style.display = (mode === 'Virtual' || mode === 'Hybrid') ? '' : 'none';
+  // Fix163: a fully virtual class has no venue or room - hide them (and
+  // disable, so a leftover value isn't saved with the class).
+  ['venue_field', 'room_setup_field'].forEach(function (id) {
+    const wrap = document.getElementById(id);
+    wrap.style.display = mode === 'Virtual' ? 'none' : '';
+    wrap.querySelectorAll('input, select').forEach(function (el) { el.disabled = mode === 'Virtual'; });
+  });
 }
 document.getElementById('training_mode').addEventListener('change', toggleMeetingLink);
 toggleMeetingLink();
