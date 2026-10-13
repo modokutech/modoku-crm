@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix168 — Non-HRDCorp classes hidden from the JD14 list
+
+**Date:** 2026-10-13
+
+- The JD14 list leaves out classes with "HRDCorp claimable" off entirely (instead of showing them greyed
+  out, Fix167). Cancelled classes still show as "Not required". JD14 pages for a non-HRDCorp class are
+  still blocked.
+
 ## Fix167 — JD14 "Not required" for non-HRDCorp classes
 
 **Date:** 2026-10-13
