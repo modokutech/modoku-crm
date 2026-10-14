@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix174 — Training Costs: SST charged after the HRDCorp fee
+
+**Date:** 2026-10-14
+
+- HRDCorp pays the claim out net of its 4% fee and SST is paid on what's received, so with both ticked
+  SST is now 8% of (revenue - HRDCorp fee), not 8% of the full revenue: 4% + 7.68% = 11.68% off, not
+  12%. E.g. RM 10,500: HRDCorp fee RM 420.00, SST 8% of RM 10,080.00 = RM 806.40, total RM 1,226.40.
+- SST alone (non-HRDCorp class) is still 8% of the full revenue.
+- The summary lists each deduction on its own line (HRDCorp fee, SST with its base, total), and the
+  Taxes & Fees card shows the effective rate (11.68%). Totals are worked out on each page load, so
+  saved classes show the corrected figures without re-saving.
+
 ## Fix173 — Training Costs: Total Expenses card
 
 **Date:** 2026-10-14
