@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix177 — QC: login code recovers from an unexpected email error
+
+**Date:** 2026-10-14
+
+- Pre-deploy QC of Fix159-176. One edge case fixed: if sending the login code failed with an unexpected
+  error (not the handled "email not set up / send failed" cases), the code was still recorded as sent,
+  so clicks in the next 60 seconds would reuse a code nobody received. Now it's cleared, and the next
+  click sends a fresh one.
+
 ## Fix176 — Public pages: busy buttons, upload progress, clear "received" screen
 
 **Date:** 2026-10-14

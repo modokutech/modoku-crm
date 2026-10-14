@@ -176,6 +176,11 @@ def _start_password_step(user, cooldown_seconds=OTP_REUSE_SECONDS, next_url=None
         _finish_login(user)
         flash("Signed in. (Email verification was skipped because outgoing email isn't configured yet.)", "warning")
         return None
+    except Exception:
+        # Any other failure: forget the claimed code, so the next click sends
+        # a fresh one instead of reusing a code that was never emailed.
+        _clear_login_otp(user["id"])
+        raise
 
     _set_pending_otp(user["id"], _hash_otp(code), _utc_iso(datetime.utcnow()), next_url)
     return redirect(url_for("auth.verify"))
