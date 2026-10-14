@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix173 — Training Costs: Total Expenses card
+
+**Date:** 2026-10-14
+
+- New "Total Expenses" card (Total Cost + Taxes & Fees, sub-line "Cost + taxes & fees"), between Taxes &
+  Fees and Net Profit, so Revenue - Total Expenses = Net Profit. Updates live as you type.
+- Five cards now share one row on a laptop/desktop (two per row on smaller screens); amounts sized to fit.
+- Fixed: the Net Profit % card lost its "%" sign once you started typing.
+
 ## Fix172 — "No PO issued yet" wording
 
 **Date:** 2026-10-14

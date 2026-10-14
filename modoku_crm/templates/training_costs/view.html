@@ -8,14 +8,21 @@
   </div>
 </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-md-3">
+{# Fix173: five cards - Total Expenses (cost + taxes & fees) added between
+   the deductions and Net Profit, so Revenue - Total Expenses = Net Profit reads
+   left to right. Values a touch smaller so five fit on one row. #}
+<style>
+  .costs-stats .stat-card { padding: 1.3rem 1.2rem; }
+  .costs-stats .stat-value { font-size: clamp(1.2rem, 1.45vw, 1.9rem); white-space: nowrap; }
+</style>
+<div class="row g-3 mb-3 row-cols-1 row-cols-sm-2 row-cols-xl-5 costs-stats">
+  <div class="col">
     <div class="stat-card" style="background:#0c45a6;">
       <div class="small text-white-50">Total Cost</div>
       <div class="stat-value" id="stat_total_costing">RM {{ computed.total_costing|fmtmoney }}</div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col">
     <div class="stat-card" style="background:#0891b2;">
       <div class="small text-white-50">Total Taxes &amp; Fees</div>
       <div class="stat-value" id="stat_total_deductions">RM {{ computed.total_deductions|fmtmoney }}</div>
@@ -24,13 +31,20 @@
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col">
+    <div class="stat-card" style="background:#334155;">
+      <div class="small text-white-50">Total Expenses</div>
+      <div class="stat-value" id="stat_total_expenses">RM {{ (computed.total_costing + computed.total_deductions)|fmtmoney }}</div>
+      <div class="small text-white-50">Cost + taxes &amp; fees</div>
+    </div>
+  </div>
+  <div class="col">
     <div class="stat-card stat-card-dark-text" style="background:#fbaf17;">
       <div class="small">Net Profit</div>
       <div class="stat-value" id="stat_net_profit">RM {{ computed.net_profit|fmtmoney }}</div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col">
     <div class="stat-card" style="background:#7622D7;">
       <div class="small text-white-50">Net Profit %</div>
       <div class="stat-value" id="stat_net_profit_pct">{{ computed.net_profit_pct }}%</div>
@@ -238,7 +252,7 @@
   }
   function setPct(id, val) {
     var el = document.getElementById(id);
-    if (el) { el.textContent = fmt(val); }
+    if (el) { el.textContent = fmt(val) + '%'; }
   }
   // The deductions line already prints its own "− RM " prefix in the markup,
   // so this one sets the bare number.
@@ -314,6 +328,7 @@
     setPreview('preview_exam', exam);
 
     setRM('stat_total_costing', totalCosting);
+    setRM('stat_total_expenses', totalCosting + totalDeductions);
     setRM('stat_net_profit', netProfit);
     setPct('stat_net_profit_pct', netProfitPct);
     setRM('summary_total_costing', totalCosting);
