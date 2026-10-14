@@ -143,7 +143,8 @@ def submit(token):
             sanity_warnings.append((file_storage.filename, warning))
 
     if saved:
-        flash(f"Uploaded {saved} document(s), thank you!", "success")
+        # Fix176: the form page then shows a clear "received" screen instead
+        # of a small flash above the same empty upload box.
         # Every submission (the first one, and any later change/addition)
         # tells the office — by email and in the notifications inbox — so
         # nobody has to keep checking the class page to notice new
@@ -197,4 +198,6 @@ def submit(token):
         )
     elif not files or not files[0].filename:
         flash("Choose at least one file first.", "danger")
+    if saved:
+        return redirect(url_for("trainer_invoice.form", token=token, uploaded=saved))
     return redirect(url_for("trainer_invoice.form", token=token))

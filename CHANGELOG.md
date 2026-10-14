@@ -10,6 +10,22 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix176 — Public pages: busy buttons, upload progress, clear "received" screen
+
+**Date:** 2026-10-14
+
+- Every public page (trainer / client / participant / vendor links, plus login) now uses
+  `static/js/public-submit.js`: the first click turns the button into a spinner and further clicks are
+  ignored. Confirm/Reject style buttons still send which one was clicked; a cancelled "Remove this file?"
+  or a missing signature leaves the button usable.
+- Uploads (attendance photos, JD14, signed quotation, trainer/vendor invoices, claims, T3 CSV) show a
+  progress screen: "Uploading 2 files... 41% · 1.1 of 2.7 MB", then "Upload complete, finishing up",
+  then the result page. A failed upload says so plainly (connection lost, too large) and lets them retry.
+- Trainer and vendor invoice pages: after uploading, a big green "Thank you, your invoice has been
+  received... You're all done" panel replaces the small message above the same empty upload box. Adding
+  more files is tucked under "Need to add another file?".
+- The login pages' own copy of the button script (Fix175) moved into the shared file.
+
 ## Fix175 — Login: no duplicate OTP emails from repeated clicks
 
 **Date:** 2026-10-14
