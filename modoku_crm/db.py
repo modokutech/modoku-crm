@@ -986,6 +986,8 @@ _COLUMN_MIGRATIONS = [
     ("full_training_reports", "key_findings_text", "TEXT"),  # Fix90
     ("full_training_reports", "batch_no", "INTEGER"),  # Fix165
     ("full_training_reports", "compare_session_id", "INTEGER"),  # Fix165
+    ("users", "login_otp_hash", "TEXT"),  # Fix175
+    ("users", "login_otp_sent_at", "TEXT"),  # Fix175
     ("leads", "role", "TEXT"),
     ("enrollments", "ic_no", "TEXT"),
     ("enrollments", "gender", "TEXT"),

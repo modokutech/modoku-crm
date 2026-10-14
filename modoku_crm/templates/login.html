@@ -11,7 +11,7 @@
       <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
       <h4 class="login-title mb-0">Modoku Hub</h4>
     </div>
-    <form method="post">
+    <form method="post" class="js-submit-once">
       {{ csrf_field()|safe }}
       <div class="mb-3">
         <label class="form-label">Email</label>
@@ -21,8 +21,26 @@
         <label class="form-label">Password</label>
         <input type="password" name="password" class="form-control" required>
       </div>
-      <button type="submit" class="btn btn-success w-100">Log in</button>
+      <button type="submit" class="btn btn-success w-100" data-busy-text="Signing in…">Log in</button>
     </form>
   </div>
 </div>
+{# Fix175: a click shows "working" straight away and can't be repeated, so a
+   slow page doesn't tempt a second click (= a second login code email). #}
+<script>
+document.querySelectorAll('form.js-submit-once').forEach(function (form) {
+  form.addEventListener('submit', function (e) {
+    if (form.dataset.sent) { e.preventDefault(); return; }
+    form.dataset.sent = '1';
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+        + (btn.dataset.busyText || 'Please wait…');
+    }
+  });
+});
+// Coming back with the browser's Back button: make the buttons usable again.
+window.addEventListener('pageshow', function (e) { if (e.persisted) { window.location.reload(); } });
+</script>
 {% endblock %}

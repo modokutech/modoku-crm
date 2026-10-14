@@ -99,14 +99,62 @@ def _finish_login(user, remember_next=True):
     activity.log("login", "user", user["id"], f"{user['name']} logged in")
 
 
-def _start_password_step(user):
+# Fix175: a second login click within this window reuses the code already
+# emailed instead of sending another (and making the earlier email's code
+# useless). "Resend code" has its own, shorter window.
+OTP_REUSE_SECONDS = 60
+OTP_RESEND_COOLDOWN_SECONDS = 30
+
+
+def _utc_iso(dt):
+    return dt.isoformat(timespec="seconds")
+
+
+def _claim_otp_send(user_id, code_hash, cooldown_seconds):
+    """Atomically records a new login code for the user unless one was sent
+    within cooldown_seconds. True = this request owns the new code and must
+    email it; False = a recent code exists, reuse it. One UPDATE, so two
+    clicks landing at the same moment can't both win (SQLite serialises
+    writes)."""
+    now = datetime.utcnow()
+    conn = db.get_db()
+    cur = conn.execute(
+        "UPDATE users SET login_otp_hash = ?, login_otp_sent_at = ? WHERE id = ? "
+        "AND (login_otp_sent_at IS NULL OR login_otp_hash IS NULL OR login_otp_sent_at < ?)",
+        (code_hash, _utc_iso(now), user_id, _utc_iso(now - timedelta(seconds=cooldown_seconds))),
+    )
+    conn.commit()
+    return cur.rowcount == 1
+
+
+def _clear_login_otp(user_id):
+    db.execute("UPDATE users SET login_otp_hash = NULL, login_otp_sent_at = NULL WHERE id = ?", (user_id,))
+
+
+def _set_pending_otp(user_id, code_hash, sent_at_iso, next_url):
+    session["otp_pending_user_id"] = user_id
+    session["otp_hash"] = code_hash
+    session["otp_expires_at"] = _utc_iso(datetime.fromisoformat(sent_at_iso) + timedelta(minutes=OTP_TTL_MINUTES))
+    session["otp_attempts"] = 0
+    session["otp_next_url"] = next_url
+
+
+def _start_password_step(user, cooldown_seconds=OTP_REUSE_SECONDS, next_url=None):
     """Called right after a correct email+password — resets the account's
-    failed-attempt counter and decides whether an email OTP step is needed."""
+    failed-attempt counter and decides whether an email OTP step is needed.
+    Fix175: if a code went out within cooldown_seconds (a double-click on Log
+    in), no new email is sent; this request just picks up that same code."""
     db.execute(
         "UPDATE users SET failed_login_count = 0, locked_until = NULL WHERE id = ?",
         (user["id"],),
     )
+    next_url = next_url or _safe_redirect_target(request.args.get("next")) or url_for("dashboard.index")
     code = "".join(secrets.choice("0123456789") for _ in range(OTP_LENGTH))
+    if not _claim_otp_send(user["id"], _hash_otp(code), cooldown_seconds):
+        row = db.query("SELECT login_otp_hash, login_otp_sent_at FROM users WHERE id = ?", (user["id"],), one=True)
+        _set_pending_otp(user["id"], row["login_otp_hash"], row["login_otp_sent_at"], next_url)
+        session["otp_reused"] = True
+        return redirect(url_for("auth.verify"))
     try:
         send_email(
             user["email"],
@@ -124,15 +172,12 @@ def _start_password_step(user):
         # the app over it, just skip straight to a normal login and let an
         # admin know via the flash message so it gets fixed.
         current_app.logger.warning("Skipping login OTP for user %s, email not available", user["id"])
+        _clear_login_otp(user["id"])
         _finish_login(user)
         flash("Signed in. (Email verification was skipped because outgoing email isn't configured yet.)", "warning")
         return None
 
-    session["otp_pending_user_id"] = user["id"]
-    session["otp_hash"] = _hash_otp(code)
-    session["otp_expires_at"] = (datetime.utcnow() + timedelta(minutes=OTP_TTL_MINUTES)).isoformat()
-    session["otp_attempts"] = 0
-    session["otp_next_url"] = _safe_redirect_target(request.args.get("next")) or url_for("dashboard.index")
+    _set_pending_otp(user["id"], _hash_otp(code), _utc_iso(datetime.utcnow()), next_url)
     return redirect(url_for("auth.verify"))
 
 
@@ -217,9 +262,12 @@ def verify():
                 session.clear()
                 flash("This account is no longer active.", "danger")
                 return redirect(url_for("auth.login"))
+            _clear_login_otp(user["id"])  # next login gets a fresh code
             _finish_login(user)
             return redirect(next_url)
 
+    if session.pop("otp_reused", False):
+        flash("We'd already emailed you a code a moment ago, so no new one was sent. Use that code.", "info")
     return render_template("login_verify.html")
 
 
@@ -233,13 +281,16 @@ def resend_code():
         session.clear()
         return redirect(url_for("auth.login"))
     next_url = session.get("otp_next_url")
-    resp = _start_password_step(user)
+    resp = _start_password_step(user, cooldown_seconds=OTP_RESEND_COOLDOWN_SECONDS, next_url=next_url)
     if resp is None:
         # Email wasn't available and _start_password_step already logged the
         # user in directly.
         return redirect(next_url or url_for("dashboard.index"))
-    session["otp_next_url"] = next_url or url_for("dashboard.index")
-    flash("A new code has been sent.", "success")
+    if session.pop("otp_reused", False):
+        flash(f"A code was sent less than {OTP_RESEND_COOLDOWN_SECONDS} seconds ago. Check your inbox "
+              "(and spam folder) before asking for another.", "info")
+    else:
+        flash("A new code has been sent. Use the newest email.", "success")
     return redirect(url_for("auth.verify"))
 
 

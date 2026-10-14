@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix175 — Login: no duplicate OTP emails from repeated clicks
+
+**Date:** 2026-10-14
+
+- Log in / Verify / Resend code buttons switch to a spinner ("Signing in…", "Verifying…", "Sending…") on
+  the first click and ignore further clicks.
+- Server side: if a login code was emailed in the last 60 seconds, another Log in click reuses that same
+  code instead of sending a new email (the page says so). Before, every click sent a new code and only the
+  last one worked, so the code from an earlier email could be rejected. The check is one atomic database
+  update, so simultaneous clicks can't both send.
+- Resend code is held back for 30 seconds after the last code ("Check your inbox and spam folder").
+- The stored code is cleared after a successful login, so the next login always gets a fresh one.
+- New columns `users.login_otp_hash` and `users.login_otp_sent_at` (added automatically on boot).
+
 ## Fix174 — Training Costs: SST charged after the HRDCorp fee
 
 **Date:** 2026-10-14
