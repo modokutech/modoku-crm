@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix172 — "No PO issued yet" wording
+
+**Date:** 2026-10-14
+
+- Class page Purchase Orders row: "None yet" now reads "No PO issued yet".
+
 ## Fix171 — Class page links to its POs
 
 **Date:** 2026-10-14
