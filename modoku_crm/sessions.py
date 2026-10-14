@@ -1119,6 +1119,7 @@ def view(session_id):
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
                             jd14_status=jd14_status, jd14_form=jd14_row, t3_link_sent=t3_link_sent,
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
+                            class_pos=_class_pos(session_id),
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
                             trainer_qr_url=url_for("t3_public.sign_in_qr", token=t3_token, _external=True),
@@ -2091,6 +2092,18 @@ def download_evaluation_poster(session_id):
         flash("No evaluation poster generated yet.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
     return send_from_directory(_attendance_dir(session_id), session_row["evaluation_qr_poster_file"], as_attachment=False)
+
+
+def _class_pos(session_id):
+    """Fix171: every trainer and vendor PO raised for this class (cancelled
+    ones too, listed last), for the "Purchase Orders" row on the class page."""
+    pos = [dict(r, kind="trainer") for r in db.query(
+        """SELECT po.id, po.po_no, po.status, t.name AS party_name FROM purchase_orders po
+           JOIN trainers t ON t.id = po.trainer_id WHERE po.session_id = ? ORDER BY po.id""", (session_id,))]
+    pos += [dict(r, kind="vendor") for r in db.query(
+        """SELECT vpo.id, vpo.po_no, vpo.status, v.name AS party_name FROM vendor_purchase_orders vpo
+           JOIN vendors v ON v.id = vpo.vendor_id WHERE vpo.session_id = ? ORDER BY vpo.id""", (session_id,))]
+    return sorted(pos, key=lambda p: (p["status"] == "Cancelled", p["kind"] != "trainer"))
 
 
 def _open_pos_for_session(session_id):

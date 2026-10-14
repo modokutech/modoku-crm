@@ -88,6 +88,21 @@
           </div>
         </td></tr>
         {% endif %}
+        {# Fix171: quick links to this class's POs (trainer first, vendors after, cancelled last). #}
+        {% if modules.purchase_orders %}
+        <tr><td class="text-muted">Purchase Orders</td><td>
+          {% for po in class_pos %}
+          <div class="small {{ 'mt-1' if not loop.first }}{{ ' text-muted' if po.status == 'Cancelled' }}">
+            <a href="{{ url_for('purchase_orders.view' if po.kind == 'trainer' else 'vendor_purchase_orders.view', po_id=po.id) }}"
+               class="fw-semibold{{ ' text-decoration-line-through text-muted' if po.status == 'Cancelled' }}">{{ po.po_no }}</a>
+            <span class="badge {{ {'Draft': 'bg-secondary', 'Sent': 'bg-primary', 'Confirmed': 'bg-success', 'Cancelled': 'bg-light text-muted border'}.get(po.status, 'bg-secondary') }} ms-1">{{ po.status }}</span>
+            <div class="text-muted">{{ po.party_name }}{{ ' (vendor)' if po.kind == 'vendor' }}</div>
+          </div>
+          {% else %}
+          <span class="text-muted">None yet</span>
+          {% endfor %}
+        </td></tr>
+        {% endif %}
         <tr><td class="text-muted">HRDCorp Claimable</td><td>{{ 'Yes' if s.hrdcorp_claimable else 'No' }}</td></tr>
         <tr><td class="text-muted">Laptop Rental</td><td>{% if s.requires_laptop_rental %}Yes{% if s.laptop_rental_qty %} ({{ s.laptop_rental_qty }} unit{{ 's' if s.laptop_rental_qty|int != 1 }}){% endif %}{% else %}No{% endif %}</td></tr>
         {% if s.has_exam %}

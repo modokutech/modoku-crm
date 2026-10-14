@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix171 — Class page links to its POs
+
+**Date:** 2026-10-14
+
+- The class details card has a "Purchase Orders" row listing every PO raised for the class: PO number
+  (click to open), status badge and who it's issued to. Trainer POs first, vendor POs after (marked
+  "vendor"), cancelled ones last and struck through. "None yet" when there are none.
+
 ## Fix170 — "JD14 Form uploaded" notification opens the JD14 form
 
 **Date:** 2026-10-13
