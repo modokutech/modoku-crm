@@ -154,7 +154,8 @@ def _ensure_confirm_token(po_id):
 
 def _default_po_email_body(po, confirm_url=None):
     dates = fmtdaterange(po["start_date"], po["end_date"])
-    venue = po["venue"] or "To be confirmed"
+    # Fix178: a Virtual class has no venue (Fix163 clears it) - say so.
+    venue = po["venue"] or ("Virtual" if po["training_mode"] == "Virtual" else "To be confirmed")
     meeting_link_line = ""
     if po["training_mode"] in ("Virtual", "Hybrid") and po["meeting_link"]:
         meeting_link_line = f"Meeting Link: {po['meeting_link']}\n"

@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix178 — PO email: "Venue: Virtual" for virtual classes
+
+**Date:** 2026-10-14
+
+- The PO email to the trainer already includes the Meeting Link for Virtual/Hybrid classes. Since Fix163
+  clears a Virtual class's venue, the email said "Venue: To be confirmed"; it now says "Venue: Virtual".
+
 ## Fix177 — QC: login code recovers from an unexpected email error
 
 **Date:** 2026-10-14
