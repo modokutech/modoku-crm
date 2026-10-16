@@ -130,6 +130,9 @@
       {% endif %}
       {% if modules.invoices %}
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='invoices' }}" href="{{ url_for('invoices.index') }}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
+      {% if g.user.role == 'admin' %}
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='sst' }}" href="{{ url_for('sst.index') }}"><i class="bi bi-bank me-2"></i>SST</a></li>
+      {% endif %}
       {% endif %}
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='claims' }}" href="{{ url_for('claims.index') }}"><i class="bi bi-cash-coin me-2"></i>Claims</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='payment_receipts' }}" href="{{ url_for('payment_receipts.index') }}"><i class="bi bi-wallet2 me-2"></i>Payment Receipts</a></li>

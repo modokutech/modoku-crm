@@ -1,0 +1,8 @@
+{% macro status_badge(p) -%}
+  {%- if p.status == 'paid' -%}<span class="badge bg-success"><i class="bi bi-check2 me-1"></i>Paid {{ p.ret.paid_on|fmtdate }}</span>
+  {%- elif p.status == 'open' -%}<span class="badge bg-primary">Open · {{ p.days_left }} day{{ 's' if p.days_left != 1 }} left</span>
+  {%- elif p.status == 'due' -%}<span class="badge bg-warning text-dark">To pay · due {{ p.due|string|fmtdate }}</span>
+  {%- elif p.status == 'overdue' -%}<span class="badge bg-danger">Overdue · was due {{ p.due|string|fmtdate }}</span>
+  {%- else -%}<span class="badge bg-light text-muted border" title="Due before the SST module started tracking">Before tracking</span>
+  {%- endif -%}
+{%- endmacro %}

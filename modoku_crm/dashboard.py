@@ -1,6 +1,6 @@
 from datetime import date
 
-from flask import Blueprint, render_template, url_for
+from flask import g, Blueprint, render_template, url_for
 
 from . import db, fmtmoney
 from . import sessions as _sessions
@@ -155,6 +155,13 @@ def _attention_items():
                 "link": url_for("sessions.view", session_id=row["id"]),
             } for row in eval_rows],
         })
+
+    # Fix186: SST return due / overdue, and payments missing a date (admins only).
+    if g.user and g.user["role"] == "admin":
+        from . import sst
+        sst_entries = sst.attention_entries()
+        if sst_entries:
+            sections.append({"label": "SST", "icon": "bi-bank", "tone": "danger", "entries": sst_entries})
 
     return sections
 

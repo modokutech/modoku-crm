@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "sst/_status.html" import status_badge %}
+{% block title %}SST{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">SST</h4>
+    <small class="text-muted">Service tax from money received, by two-month period (Jan–Feb, Mar–Apr, …). Each return is due by the last day of the following month.</small>
+  </div>
+</div>
+
+{% for p in action %}
+<div class="alert {{ 'alert-danger' if p.status == 'overdue' else 'alert-warning' }} d-flex flex-wrap align-items-center justify-content-between gap-2">
+  <div>
+    <i class="bi bi-bank me-1"></i>
+    <strong>{{ p.label }}: RM {{ p.sst|fmtmoney }}</strong>
+    {% if p.status == 'overdue' %}was due {{ p.due|string|fmtdate }}{% else %}to pay by <strong>{{ p.due|string|fmtdate }}</strong> ({{ p.days_to_due }} day{{ 's' if p.days_to_due != 1 }} left){% endif %}.
+  </div>
+  <a href="{{ url_for('sst.period', key=p.key) }}" class="btn btn-sm {{ 'btn-danger' if p.status == 'overdue' else 'btn-warning' }}">View &amp; mark as paid</a>
+</div>
+{% endfor %}
+
+{% if undated %}
+<div class="alert alert-info">
+  <div class="fw-semibold mb-1"><i class="bi bi-calendar-x me-1"></i>{{ undated|length }} payment{{ 's' if undated|length != 1 }} need{{ 's' if undated|length == 1 }} a date</div>
+  <div class="small mb-2">Without the date it was received, a payment can't be placed in an SST period. Open the invoice and fill it in under Payments Received.</div>
+  <ul class="small mb-0">
+    {% for r in undated %}
+    <li><a href="{{ url_for('invoices.view', invoice_id=r.invoice_id, _anchor='payments') }}">{{ r.invoice_no }}</a> · {{ r.client }} · RM {{ r.amount|fmtmoney }}{% if r.note %} ({{ r.note }}){% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  {% if current %}
+  <div class="col-lg-7">
+    <a href="{{ url_for('sst.period', key=current.key) }}" class="text-decoration-none">
+      <div class="stat-card h-100" style="background:#0c45a6;">
+        <div class="small text-white-50">Current period · {{ current.label }}</div>
+        <div class="stat-value">RM {{ current.sst|fmtmoney }}</div>
+        <div class="small text-white-50">SST so far from {{ current.count }} payment{{ 's' if current.count != 1 }} · {{ current.days_left }} day{{ 's' if current.days_left != 1 }} left in the period · due {{ current.due|string|fmtdate }}</div>
+      </div>
+    </a>
+  </div>
+  {% endif %}
+  <div class="col-lg-5">
+    <div class="card p-3 h-100">
+      <h6 class="mb-1">Coming up</h6>
+      {% if upcoming %}
+      <p class="small text-muted mb-2">Invoices with SST not fully paid yet. Their SST counts in the period the money comes in.</p>
+      <ul class="list-unstyled small mb-0">
+        {% for u in upcoming[:6] %}
+        <li class="d-flex justify-content-between"><a href="{{ url_for('invoices.view', invoice_id=u.invoice_id) }}">{{ u.invoice_no }} · {{ u.client }}</a><span class="text-muted">SST RM {{ u.sst|fmtmoney }}</span></li>
+        {% endfor %}
+        {% if upcoming|length > 6 %}<li class="text-muted">and {{ upcoming|length - 6 }} more</li>{% endif %}
+      </ul>
+      <div class="small mt-2 fw-semibold">Total SST still to come in: RM {{ upcoming|sum(attribute='sst')|fmtmoney }}</div>
+      {% else %}
+      <p class="small text-muted mb-0">No unpaid invoices with SST.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Period</th><th class="text-end">Payments</th><th class="text-end">Value excl. SST</th><th class="text-end">SST</th><th>Due</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for p in periods %}
+        <tr onclick="window.location='{{ url_for('sst.period', key=p.key) }}'" style="cursor:pointer">
+          <td class="fw-semibold">{{ p.label }}</td>
+          <td class="text-end">{{ p.count }}</td>
+          <td class="text-end">RM {{ p.taxable|fmtmoney }}</td>
+          <td class="text-end fw-semibold">RM {{ p.sst|fmtmoney }}</td>
+          <td class="text-nowrap">{{ p.due|string|fmtdate }}</td>
+          <td>{{ status_badge(p) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

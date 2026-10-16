@@ -10,6 +10,26 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix186 — New SST module
+
+**Date:** 2026-10-17
+
+- New admin-only **SST** page (sidebar, under Invoices): SST worked out from money actually received
+  (invoice payments, Fix185), by two-month period Jan–Feb, Mar–Apr, ... Each return is due by the last
+  day of the following month.
+  - Current period card (SST so far, days left, due date), "Coming up" (unpaid invoices with SST), a
+    banner when a return is due/overdue, a "needs a date" list, and a table of all periods with status
+    (Open / To pay / Overdue / Paid).
+  - Period page: every payment received (invoice, client, amount, value excl. SST, SST), totals,
+    Download Excel, and **Mark as paid to Customs** (amount, date, reference, optional receipt; undoable).
+- Reminders to all admins (in-app) and the Settings notification emails: when a period closes (with the
+  amount), 7 days before the due date, on the due date, and if overdue. Each is sent once and they stop
+  once the period is marked paid. Periods due before the module went live (`sst_tracking_since`) are
+  shown but not chased.
+- Dashboard "Needs Your Attention" shows SST due/overdue and payments missing a date (admins).
+- Cancelled invoices and invoices without SST are left out.
+- New table `sst_returns` (created automatically on boot).
+
 ## Fix185 — Invoice payments (date received, partial payments)
 
 **Date:** 2026-10-17

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "sst/_status.html" import status_badge %}
+{% block title %}SST {{ p.label }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">SST · {{ p.label }}</h4>
+    <small class="text-muted">{{ p.start|string|fmtdate }} – {{ p.end|string|fmtdate }} · return and payment due by {{ p.due|string|fmtdate }}</small>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    {{ status_badge(p) }}
+    <a href="{{ url_for('sst.export', key=p.key) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel me-1"></i>Download Excel</a>
+    <a href="{{ url_for('sst.index') }}" class="btn btn-sm btn-outline-secondary">All periods</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="stat-card" style="background:#0c45a6;"><div class="small text-white-50">SST to pay</div><div class="stat-value">RM {{ p.sst|fmtmoney }}</div><div class="small text-white-50">{{ 'So far, period still open' if p.status == 'open' else 'For this period' }}</div></div></div>
+  <div class="col-md-4"><div class="stat-card" style="background:#334155;"><div class="small text-white-50">Value of services (excl. SST)</div><div class="stat-value">RM {{ p.taxable|fmtmoney }}</div><div class="small text-white-50">Received in this period</div></div></div>
+  <div class="col-md-4"><div class="stat-card" style="background:#0891b2;"><div class="small text-white-50">Payments received</div><div class="stat-value">{{ p.count }}</div><div class="small text-white-50">across {{ p.invoices }} invoice{{ 's' if p.invoices != 1 }}</div></div></div>
+</div>
+
+{% if undated %}
+<div class="alert alert-info small"><i class="bi bi-calendar-x me-1"></i>{% if undated|length == 1 %}1 payment across all invoices still needs a date and isn't in any period yet.{% else %}{{ undated|length }} payments across all invoices still need a date and aren't in any period yet.{% endif %} <a href="{{ url_for('sst.index') }}">See the list</a>.</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card p-3">
+      <h6>Payments received in {{ p.label }}</h6>
+      {% if p.payments %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr class="small text-muted"><th class="fw-normal">Received</th><th class="fw-normal">Invoice</th><th class="fw-normal">Client</th><th class="fw-normal text-end">Amount</th><th class="fw-normal text-end">Excl. SST</th><th class="fw-normal text-end">SST</th></tr></thead>
+          <tbody>
+            {% for r in p.payments %}
+            <tr>
+              <td class="text-nowrap">{{ r.paid_on|fmtdate }}</td>
+              <td><a href="{{ url_for('invoices.view', invoice_id=r.invoice_id, _anchor='payments') }}">{{ r.invoice_no }}</a>{% if r.note %}<div class="small text-muted">{{ r.note }}</div>{% endif %}</td>
+              <td>{{ r.client }}</td>
+              <td class="text-end text-nowrap">RM {{ r.amount|fmtmoney }}</td>
+              <td class="text-end text-nowrap">RM {{ r.taxable|fmtmoney }}</td>
+              <td class="text-end text-nowrap fw-semibold">RM {{ r.sst|fmtmoney }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot><tr class="fw-bold"><td colspan="3">Total</td><td class="text-end text-nowrap">RM {{ p.payments|sum(attribute='amount')|fmtmoney }}</td><td class="text-end text-nowrap">RM {{ p.taxable|fmtmoney }}</td><td class="text-end text-nowrap">RM {{ p.sst|fmtmoney }}</td></tr></tfoot>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted small mb-0">No payments with SST were received in this period{{ ' yet' if p.status == 'open' }}. {% if p.status != 'open' %}A nil return is still due to Customs.{% endif %}</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    {% if p.ret %}
+    <div class="card p-3 border-success">
+      <h6 class="text-success"><i class="bi bi-check-circle me-1"></i>Paid to Customs</h6>
+      <table class="table table-sm table-borderless small mb-2">
+        <tr><td class="text-muted">Amount</td><td>RM {{ p.ret.amount_paid|fmtmoney }}
+          {% if (p.ret.amount_paid - p.sst)|abs > 0.01 %}<div class="text-warning">Differs from the RM {{ p.sst|fmtmoney }} worked out here</div>{% endif %}</td></tr>
+        <tr><td class="text-muted">Paid on</td><td>{{ p.ret.paid_on|fmtdate }}</td></tr>
+        {% if p.ret.reference %}<tr><td class="text-muted">Reference</td><td>{{ p.ret.reference }}</td></tr>{% endif %}
+        {% if p.ret.receipt_file %}<tr><td class="text-muted">Receipt</td><td><a href="{{ url_for('sst.receipt', key=p.key) }}" target="_blank">View</a></td></tr>{% endif %}
+        {% if p.ret.notes %}<tr><td class="text-muted">Notes</td><td>{{ p.ret.notes }}</td></tr>{% endif %}
+      </table>
+      <form method="post" action="{{ url_for('sst.mark_unpaid', key=p.key) }}" onsubmit="return confirm('Undo marking this period as paid?');">
+        {{ csrf_field()|safe }}<button class="btn btn-link btn-sm p-0 text-danger">Undo</button>
+      </form>
+    </div>
+    {% elif p.status == 'open' %}
+    <div class="card p-3">
+      <h6>Period still open</h6>
+      <p class="small text-muted mb-0">This period ends on {{ p.end|string|fmtdate }}. The total may still change as payments come in; you'll be reminded when it's time to pay.</p>
+    </div>
+    {% else %}
+    <div class="card p-3">
+      <h6>Mark as paid to Customs</h6>
+      <form method="post" action="{{ url_for('sst.mark_paid', key=p.key) }}" enctype="multipart/form-data">
+        {{ csrf_field()|safe }}
+        <div class="mb-2"><label class="form-label small mb-0">Amount paid (RM)</label>
+          <input type="text" name="amount" class="form-control form-control-sm" value="{{ '%.2f'|format(p.sst) }}" required></div>
+        <div class="mb-2"><label class="form-label small mb-0">Date paid</label>
+          <input type="date" name="paid_on" class="form-control form-control-sm" value="{{ today }}" max="{{ today }}" required></div>
+        <div class="mb-2"><label class="form-label small mb-0">Reference <span class="text-muted">(optional)</span></label>
+          <input type="text" name="reference" class="form-control form-control-sm" placeholder="e.g. payment / return no."></div>
+        <div class="mb-2"><label class="form-label small mb-0">Receipt <span class="text-muted">(optional)</span></label>
+          <input type="file" name="receipt" class="form-control form-control-sm"></div>
+        <div class="mb-2"><input type="text" name="notes" class="form-control form-control-sm" placeholder="Notes (optional)"></div>
+        <button class="btn btn-success btn-sm w-100"><i class="bi bi-check2 me-1"></i>Mark as paid</button>
+      </form>
+      <p class="small text-muted mt-2 mb-0">Stops the reminders for {{ p.label }}.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
