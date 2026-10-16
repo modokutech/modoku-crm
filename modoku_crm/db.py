@@ -1139,6 +1139,7 @@ _COLUMN_MIGRATIONS = [
     # sheet's figures don't silently change when this is deployed.
     ("training_costs", "deduct_hrdcorp_fee", "INTEGER NOT NULL DEFAULT 0"),
     ("training_costs", "deduct_sst", "INTEGER NOT NULL DEFAULT 0"),
+    ("training_costs", "sst_mode", "TEXT NOT NULL DEFAULT 'none'"),  # Fix184: none / on_top / included
     # MyKad (IC) number for the JD14 form's Part 3(a) Training Provider
     # declaration block — a staff member fills this in on their own Profile
     # once, and it's reused whenever they sign a JD14 form (jd14.py).
@@ -1299,6 +1300,12 @@ def _apply_light_migrations(db):
     db.execute("UPDATE notifications SET link = '/jd14' || link "
                "WHERE type = 'document_uploaded' AND title LIKE 'JD14 Form uploaded - %' "
                "AND link LIKE '/sessions/%'")
+    db.commit()
+
+    # Fix184: the old "8% SST charged to client" tick becomes sst_mode
+    # 'on_top'. Saving keeps deduct_sst in step (1 only for 'on_top'), so
+    # this only ever catches rows from before the change. Safe to re-run.
+    db.execute("UPDATE training_costs SET sst_mode = 'on_top' WHERE deduct_sst = 1 AND sst_mode = 'none'")
     db.commit()
 
     # Training Costs' old single "Others Fee" field was replaced by a

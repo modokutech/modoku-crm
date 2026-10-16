@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix184 — Training Costs: SST on top vs absorbed
+
+**Date:** 2026-10-16
+
+- The SST tick is now a three-way choice: **No SST**, **On top (client pays)**, **Absorbed (in fee)**.
+  - On top: Training Revenue is the fee before SST; the client pays the 8% extra, shown for reference
+    only (RM 1,800 on RM 22,500), no effect on profit.
+  - Absorbed: SST is inside the course fee and due on the invoiced amount, so it's 8/108 of the fee
+    (RM 1,666.67 on RM 22,500) and comes off profit, alongside the HRDCorp fee if ticked.
+- The card is back to "Taxes & Fees" (HRDCorp fee + any absorbed SST), with a "+ SST RM ... paid by
+  client" line when SST is on top.
+- New column `training_costs.sst_mode` (added automatically on boot). Classes that had the old SST tick
+  become "On top"; `deduct_sst` is kept in step for older reports.
+
 ## Fix183 — Training Costs: "8% SST charged to client" tick back
 
 **Date:** 2026-10-16

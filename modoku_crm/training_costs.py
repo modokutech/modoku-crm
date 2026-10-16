@@ -42,11 +42,18 @@ _FIELDS = [
     ("trainer_fee_per_day", float, 0), ("trainer_allowance_per_day", float, 0),
     ("bus_air_fee", float, 0), ("venue_fee", float, 0), ("hotel_fee", float, 0),
     ("training_revenue", float, 0),
-    ("deduct_hrdcorp_fee", bool, 0), ("deduct_sst", bool, 0),
+    ("deduct_hrdcorp_fee", bool, 0), ("sst_mode", str, "none"),
 ]
 
-# Taken off Training Revenue when ticked on the costing sheet. Both together
-# come off the gross revenue additively (4 + 8 = 12%), not compounded.
+# Fix184: how SST is handled for this class.
+SST_MODES = {
+    "none": "No SST",
+    "on_top": "On top (client pays)",
+    "included": "Absorbed (in fee)",
+}
+
+# HRDCorp's fee, taken off Training Revenue when ticked; SST rate (see
+# _compute for when it's a cost).
 HRDCORP_FEE_RATE = 0.04
 SST_RATE = 0.08
 
@@ -82,24 +89,35 @@ def _compute(costs, training_days, custom_items_total=0):
                       + total_courseware + total_manual + total_book + total_certificate + total_exam
                       + custom_items_total + total_trainer_fee + total_trainer_allowance
                       + c["bus_air_fee"] + c["venue_fee"] + c["hotel_fee"])
-    # Revenue is what the client is billed before SST (the quotation /
-    # invoice sub-total). Fix181: SST is charged to the client ON TOP of
-    # that and paid to Customs on the invoiced amount, so it isn't a cost to
-    # the business - it's shown for reference (8% of the revenue) but not
-    # deducted. Only HRDCorp's 4% fee comes off what's kept.
+    # Fix184: SST depends on how this class was priced (sst_mode):
+    #  - on_top:   Training Revenue is the fee before SST; the client pays 8% on
+    #              top, which we pass to Customs. Shown for reference only.
+    #  - included: we absorb SST inside the course fee. SST is due on the
+    #              invoiced amount, so the fee is sub-total + 8%: SST is 8/108
+    #              of it (RM 1,666.67 on RM 22,500) and comes off what's kept.
+    # HRDCorp's 4% fee is on the Training Revenue either way.
     revenue = c["training_revenue"]
+    sst_mode = c.get("sst_mode") or "none"
     hrdcorp_fee_amount = revenue * HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
-    sst_amount = revenue * SST_RATE if c.get("deduct_sst") else 0
-    total_deductions = hrdcorp_fee_amount
+    if sst_mode == "on_top":
+        sst_amount = revenue * SST_RATE
+    elif sst_mode == "included":
+        sst_amount = revenue * SST_RATE / (1 + SST_RATE)
+    else:
+        sst_amount = 0
+    sst_absorbed = sst_amount if sst_mode == "included" else 0
+    total_deductions = hrdcorp_fee_amount + sst_absorbed
     net_revenue = revenue - total_deductions
     # Margin is against the revenue actually retained, not the billed figure —
     # measuring profit against money that was never kept would overstate it.
     net_profit = net_revenue - total_costing
     net_profit_pct = round((net_profit / net_revenue * 100), 1) if net_revenue else 0
 
-    deduction_rate = HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
+    deduction_rate = (total_deductions / revenue) if revenue else 0
     return {
         "deduction_rate_pct": f"{round(deduction_rate * 100, 2):g}",
+        "sst_mode": sst_mode,
+        "sst_absorbed": sst_absorbed,
         "hrdcorp_fee_amount": hrdcorp_fee_amount,
         "sst_amount": sst_amount,
         "total_deductions": total_deductions,
@@ -140,8 +158,11 @@ def view(session_id):
                     values[name] = type_(raw) if raw not in (None, "") else default
                 except ValueError:
                     values[name] = default
+        if values["sst_mode"] not in SST_MODES:
+            values["sst_mode"] = "none"
+        values["deduct_sst"] = 1 if values["sst_mode"] == "on_top" else 0  # legacy column kept in step
         existing = db.query("SELECT id FROM training_costs WHERE session_id = ?", (session_id,), one=True)
-        columns = [name for name, _t, _d in _FIELDS]
+        columns = [name for name, _t, _d in _FIELDS] + ["deduct_sst"]
         if existing:
             set_clause = ", ".join(f"{c}=?" for c in columns)
             db.execute(
@@ -189,7 +210,8 @@ def view(session_id):
 
     return render_template("training_costs/view.html", s=session_row, costs=costs, computed=computed,
                             training_days=training_days, cert_types=CERT_TYPES, exam_types=EXAM_TYPES,
-                            items=items, hrdcorp_fee_rate=HRDCORP_FEE_RATE, sst_rate=SST_RATE)
+                            items=items, hrdcorp_fee_rate=HRDCORP_FEE_RATE, sst_rate=SST_RATE,
+                            sst_modes=SST_MODES)
 
 
 @bp.route("/<int:session_id>/reset", methods=("POST",))

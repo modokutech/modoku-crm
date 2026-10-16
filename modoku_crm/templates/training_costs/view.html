@@ -24,19 +24,22 @@
   </div>
   <div class="col">
     <div class="stat-card" style="background:#0891b2;">
-      <div class="small text-white-50">HRDCorp Fee</div>
+      <div class="small text-white-50">Taxes &amp; Fees</div>
       <div class="stat-value" id="stat_total_deductions">RM {{ computed.total_deductions|fmtmoney }}</div>
       <div class="small text-white-50" id="stat_deduction_note">
-        {% if computed.total_deductions %}4% of revenue{% else %}None applied{% endif %}
+        {%- set parts = [] -%}
+        {%- if computed.hrdcorp_fee_amount %}{% set _ = parts.append('HRDCorp fee') %}{% endif -%}
+        {%- if computed.sst_absorbed %}{% set _ = parts.append('SST absorbed') %}{% endif -%}
+        {{ parts|join(' + ') if parts else 'None applied' }}
       </div>
-      <div class="small text-white-50 {{ 'd-none' if not computed.sst_amount }}" id="stat_sst_note">+ SST RM <span id="stat_sst_amount">{{ computed.sst_amount|fmtmoney }}</span> paid by client</div>
+      <div class="small text-white-50 {{ 'd-none' if computed.sst_mode != 'on_top' }}" id="stat_sst_note">+ SST RM <span id="stat_sst_amount">{{ computed.sst_amount|fmtmoney }}</span> paid by client</div>
     </div>
   </div>
   <div class="col">
     <div class="stat-card" style="background:#334155;">
       <div class="small text-white-50">Total Expenses</div>
       <div class="stat-value" id="stat_total_expenses">RM {{ (computed.total_costing + computed.total_deductions)|fmtmoney }}</div>
-      <div class="small text-white-50">Cost + HRDCorp fee</div>
+      <div class="small text-white-50">Cost + taxes &amp; fees</div>
     </div>
   </div>
   <div class="col">
@@ -188,28 +191,30 @@
                  {{ 'checked' if costs.deduct_hrdcorp_fee }}>
           <label class="form-check-label" for="deduct_hrdcorp_fee">4% HRDCorp Fees</label>
         </div>
-        <div class="form-check">
-          <input type="checkbox" class="form-check-input" id="deduct_sst" name="deduct_sst"
-                 {{ 'checked' if costs.deduct_sst }}>
-          <label class="form-check-label" for="deduct_sst">8% SST charged to client</label>
+        <div class="mt-2 mb-1 small fw-semibold">SST</div>
+        <div class="btn-group btn-group-sm w-100 mb-1" role="group" aria-label="SST">
+          {% for key, label in sst_modes.items() %}
+          <input type="radio" class="btn-check" name="sst_mode" id="sst_mode_{{ key }}" value="{{ key }}"
+                 {{ 'checked' if (costs.sst_mode or 'none') == key }}>
+          <label class="btn btn-outline-primary w-100 text-nowrap" for="sst_mode_{{ key }}">{{ label }}</label>
+          {% endfor %}
         </div>
-        <small class="text-muted">Tick whichever this class carries. HRDCorp's 4% fee comes off the Training
-          Revenue before profit is worked out. SST is added on top of the invoice and paid by the client (we pay it
-          to Customs on the invoiced amount), so it's shown for reference only and doesn't reduce profit. Enter
-          Training Revenue before SST (the quotation / invoice sub-total).</small>
+        <small class="text-muted">Enter Training Revenue as the course fee on the quotation / invoice, before
+          any SST added on top. <strong>On top:</strong> the client pays the 8% extra, so it doesn't touch profit.
+          <strong>Absorbed:</strong> SST is inside the course fee (8/108 of it, e.g. RM 1,666.67 on RM 22,500),
+          so it comes off profit. HRDCorp's 4% fee is on the Training Revenue.</small>
       </div>
       <div class="row g-2 align-items-center mb-2">
         <div class="col-6">Training Revenue</div>
         <div class="col-6"><input type="number" step="0.01" min="0" id="training_revenue" name="training_revenue" class="form-control form-control-sm" value="{{ costs.training_revenue }}"></div>
       </div>
-      {# Fix174: each deduction on its own line, so the SST base is visible. #}
       <div class="row g-2 align-items-center mb-1 {{ 'd-none' if not costs.deduct_hrdcorp_fee }}" id="hrdcorp_row">
         <div class="col-7 text-muted">Less HRDCorp fee (4%)</div>
         <div class="col-5 text-end text-muted">&minus; RM <span id="summary_hrdcorp_fee">{{ computed.hrdcorp_fee_amount|fmtmoney }}</span></div>
       </div>
-      <div class="row g-2 align-items-center mb-1 {{ 'd-none' if not costs.deduct_sst }}" id="sst_row">
-        <div class="col-7 text-muted small">SST 8%, charged to client on top (paid to Customs, not a cost)</div>
-        <div class="col-5 text-end text-muted small">RM <span id="summary_sst">{{ computed.sst_amount|fmtmoney }}</span></div>
+      <div class="row g-2 align-items-center mb-1 {{ 'd-none' if computed.sst_mode == 'none' }}" id="sst_row">
+        <div class="col-7 text-muted" id="sst_row_label">{% if computed.sst_mode == 'included' %}Less SST absorbed (8/108 of fee){% else %}<span class="small">SST 8%, client pays on top (not a cost)</span>{% endif %}</div>
+        <div class="col-5 text-end text-muted"><span id="sst_row_sign">{{ '− ' if computed.sst_mode == 'included' }}</span>RM <span id="summary_sst">{{ computed.sst_amount|fmtmoney }}</span></div>
       </div>
       <div class="row g-2 align-items-center mb-3 {{ 'd-none' if not computed.total_deductions }}" id="net_revenue_row">
         <div class="col-6">Net Revenue</div>
@@ -298,29 +303,38 @@
     var totalCosting = lunch + tea + meeting + laptop + courseware + manual + book + cert + exam
       + customTotal + trainerFee + trainerAllowance + busAir + venue + hotel;
 
-    // Mirrors _compute() in training_costs.py (Fix181): only HRDCorp's 4% fee
-    // comes off the revenue. SST is charged to the client on top, so it's
-    // shown for reference (8% of the revenue) but never deducted. The margin
-    // is measured against what's actually retained.
+    // Mirrors _compute() in training_costs.py (Fix184): HRDCorp's 4% fee is
+    // on the revenue; SST "on top" is the client's (reference only), SST
+    // "absorbed" is 8/108 of the fee and comes off. The margin is measured
+    // against what's actually retained.
     var hrdcorpTicked = document.getElementById('deduct_hrdcorp_fee').checked;
-    var sstTicked = document.getElementById('deduct_sst').checked;
+    var sstMode = (document.querySelector('input[name="sst_mode"]:checked') || {}).value || 'none';
+    var sstRate = {{ sst_rate }};
     var hrdcorpFee = hrdcorpTicked ? revenue * {{ hrdcorp_fee_rate }} : 0;
-    var sstAmount = sstTicked ? revenue * {{ sst_rate }} : 0;
-    var totalDeductions = hrdcorpFee;
+    var sstAmount = sstMode === 'on_top' ? revenue * sstRate
+      : (sstMode === 'included' ? revenue * sstRate / (1 + sstRate) : 0);
+    var sstAbsorbed = sstMode === 'included' ? sstAmount : 0;
+    var totalDeductions = hrdcorpFee + sstAbsorbed;
     var netRevenue = revenue - totalDeductions;
     var netProfit = netRevenue - totalCosting;
     var netProfitPct = netRevenue ? (netProfit / netRevenue * 100) : 0;
 
     document.getElementById('hrdcorp_row').classList.toggle('d-none', !hrdcorpTicked);
-    document.getElementById('sst_row').classList.toggle('d-none', !sstTicked);
-    document.getElementById('net_revenue_row').classList.toggle('d-none', !hrdcorpTicked);
+    document.getElementById('sst_row').classList.toggle('d-none', sstMode === 'none');
+    document.getElementById('sst_row_label').innerHTML = sstMode === 'included'
+      ? 'Less SST absorbed (8/108 of fee)'
+      : '<span class="small">SST 8%, client pays on top (not a cost)</span>';
+    document.getElementById('sst_row_sign').textContent = sstMode === 'included' ? '− ' : '';
+    document.getElementById('net_revenue_row').classList.toggle('d-none', totalDeductions === 0);
     setPlain('summary_hrdcorp_fee', hrdcorpFee);
     setPlain('summary_sst', sstAmount);
     setRM('summary_net_revenue', netRevenue);
     setRM('stat_total_deductions', totalDeductions);
-    var note = document.getElementById('stat_deduction_note');
-    if (note) { note.textContent = hrdcorpTicked ? '4% of revenue' : 'None applied'; }
-    document.getElementById('stat_sst_note').classList.toggle('d-none', !sstTicked);
+    var parts = [];
+    if (hrdcorpFee) parts.push('HRDCorp fee');
+    if (sstAbsorbed) parts.push('SST absorbed');
+    document.getElementById('stat_deduction_note').textContent = parts.length ? parts.join(' + ') : 'None applied';
+    document.getElementById('stat_sst_note').classList.toggle('d-none', sstMode !== 'on_top');
     setPlain('stat_sst_amount', sstAmount);
 
     setPreview('preview_lunch', lunch);
