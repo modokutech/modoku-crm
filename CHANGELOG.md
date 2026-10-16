@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix182 — Training Costs: SST checkbox removed
+
+**Date:** 2026-10-16
+
+- The "8% SST charged to client" tick and its reference lines are gone: Training Revenue is entered
+  before SST (the quotation / invoice sub-total) and SST is the client's, so it doesn't belong on this
+  page. Only the 4% HRDCorp fee tick remains. The old `deduct_sst` column is kept but ignored.
+
 ## Fix181 — Training Costs: SST no longer deducted (paid by client); "%%" fixed
 
 **Date:** 2026-10-16

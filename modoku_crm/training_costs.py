@@ -83,13 +83,13 @@ def _compute(costs, training_days, custom_items_total=0):
                       + custom_items_total + total_trainer_fee + total_trainer_allowance
                       + c["bus_air_fee"] + c["venue_fee"] + c["hotel_fee"])
     # Revenue is what the client is billed before SST (the quotation /
-    # invoice sub-total). Fix181: SST is charged to the client ON TOP of
+    # invoice sub-total). Fix181/182: SST is charged to the client ON TOP of
     # that and paid to Customs on the invoiced amount, so it isn't a cost to
-    # the business - it's shown for reference (8% of the revenue) but not
-    # deducted. Only HRDCorp's 4% fee comes off what's kept.
+    # the business and isn't on this page (the old deduct_sst column is kept
+    # but ignored). Only HRDCorp's 4% fee comes off what's kept.
     revenue = c["training_revenue"]
     hrdcorp_fee_amount = revenue * HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
-    sst_amount = revenue * SST_RATE if c.get("deduct_sst") else 0
+    sst_amount = 0
     total_deductions = hrdcorp_fee_amount
     net_revenue = revenue - total_deductions
     # Margin is against the revenue actually retained, not the billed figure —
