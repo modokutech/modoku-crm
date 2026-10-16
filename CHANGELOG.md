@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix180 — QR Posters list grouped by class
+
+**Date:** 2026-10-16
+
+- The QR Posters list is now one row per class, newest class first (by class date, not by when the
+  poster was made), with Pre-Assessment Test and Post-Assessment Test side by side. A missing one shows
+  "+ Create" (pre-filled with the class and test). Cancelled classes show a badge and no Create button;
+  posters whose class was deleted are listed at the end.
+
 ## Fix179 — New QR Posters module (Pre/Post-Assessment Test)
 
 **Date:** 2026-10-16

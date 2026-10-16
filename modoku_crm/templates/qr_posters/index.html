@@ -4,29 +4,45 @@
 <div class="page-header">
   <div>
     <h4 class="mb-0">QR Posters</h4>
-    <small class="text-muted">Pre/Post-Assessment Test QR posters for participants to scan with their phones.</small>
+    <small class="text-muted">Pre/Post-Assessment Test QR posters, grouped by class (newest class first).</small>
   </div>
   <a href="{{ url_for('qr_posters.new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>New QR Poster</a>
 </div>
 
+{% macro poster_cell(g, kind) %}
+  {% for p in g[kind] %}
+  <a href="{{ url_for('qr_posters.view', poster_id=p.id) }}" class="d-inline-flex align-items-center gap-2 text-decoration-none me-2 mb-1">
+    <img src="{{ url_for('qr_posters.poster_image', poster_id=p.id) }}?v={{ p.poster_file }}" alt="" style="width:44px;border-radius:6px" loading="lazy">
+    <span class="small">Open</span>
+  </a>
+  {% else %}
+    {% if g.session_id and not g.cancelled %}
+    <a href="{{ url_for('qr_posters.new', session_id=g.session_id, kind=kind) }}" class="btn btn-sm btn-outline-success">+ Create</a>
+    {% else %}
+    <span class="text-muted small">-</span>
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
 <div class="card p-3">
-  {% if posters %}
+  {% if groups %}
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead><tr><th style="width:72px"></th><th>Poster</th><th>Class</th><th>Created</th><th></th></tr></thead>
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Class</th><th style="width:22%">{{ kinds.pre }}</th><th style="width:22%">{{ kinds.post }}</th></tr></thead>
       <tbody>
-        {% for p in posters %}
-        <tr onclick="window.location='{{ url_for('qr_posters.view', poster_id=p.id) }}'" style="cursor:pointer">
-          <td><img src="{{ url_for('qr_posters.poster_image', poster_id=p.id) }}" alt="" style="width:56px;border-radius:6px" loading="lazy"></td>
+        {% for g in groups %}
+        <tr>
           <td>
-            <span class="badge {{ 'bg-primary' if p.kind == 'pre' else 'bg-success' }}">{{ p.heading }}</span>
+            {% if g.session_id %}
+            <a href="{{ url_for('sessions.view', session_id=g.session_id) }}" class="fw-semibold text-reset">{{ g.course_title }}</a>
+            {% else %}
+            <span class="fw-semibold">{{ g.course_title }}</span> <span class="small text-muted">(class removed)</span>
+            {% endif %}
+            <div class="small text-muted">{{ g.date_text }}{% if g.client_name %} · {{ g.client_name }}{% endif %}
+              {% if g.cancelled %}<span class="badge bg-light text-muted border ms-1">Class cancelled</span>{% endif %}</div>
           </td>
-          <td>
-            <div class="fw-semibold">{{ p.course_title }}</div>
-            <div class="small text-muted">{{ p.date_text }}</div>
-          </td>
-          <td class="small text-muted text-nowrap">{{ p.created_at|fmtdatetime }}{% if p.created_by_name %}<div>{{ p.created_by_name }}</div>{% endif %}</td>
-          <td class="text-end"><a href="{{ url_for('qr_posters.view', poster_id=p.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Open</a></td>
+          <td>{{ poster_cell(g, 'pre') }}</td>
+          <td>{{ poster_cell(g, 'post') }}</td>
         </tr>
         {% endfor %}
       </tbody>

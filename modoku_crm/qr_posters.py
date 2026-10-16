@@ -125,14 +125,27 @@ def _download_name(row, ext):
 @bp.route("/")
 @login_required
 def index():
+    """Grouped by class (newest class first): one row per class with its Pre
+    and Post posters side by side, so a missing Post-Test poster stands out.
+    Posters whose class was deleted are grouped at the end."""
     rows = db.query(
-        """SELECT qp.*, cs.start_date, u.name AS created_by_name
+        """SELECT qp.*, cs.start_date, cs.status AS class_status, co.name AS client_name
            FROM qr_posters qp
            LEFT JOIN course_sessions cs ON cs.id = qp.session_id
-           LEFT JOIN users u ON u.id = qp.created_by
-           ORDER BY qp.id DESC"""
+           LEFT JOIN companies co ON co.id = cs.client_company_id
+           ORDER BY qp.id"""
     )
-    return render_template("qr_posters/index.html", posters=rows)
+    groups = {}
+    for r in rows:
+        key = r["session_id"] or f"orphan-{r['course_title']}-{r['date_text']}"
+        g_ = groups.setdefault(key, {
+            "session_id": r["session_id"], "course_title": r["course_title"], "date_text": r["date_text"],
+            "start_date": r["start_date"] or "", "client_name": r["client_name"],
+            "cancelled": r["class_status"] == "Cancelled", "pre": [], "post": [],
+        })
+        g_[r["kind"] if r["kind"] in KINDS else "pre"].append(r)
+    ordered = sorted(groups.values(), key=lambda x: (x["session_id"] is not None, x["start_date"]), reverse=True)
+    return render_template("qr_posters/index.html", groups=ordered, kinds=KINDS)
 
 
 @bp.route("/new", methods=("GET", "POST"))
