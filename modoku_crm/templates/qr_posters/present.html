@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ p.heading }} - {{ p.course_title }}</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f172a; }
+    body { display: flex; align-items: center; justify-content: center; }
+    img { max-width: 100vw; max-height: 100vh; object-fit: contain; display: block; }
+    .hint { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; color: #94a3b8;
+            font: 13px system-ui, sans-serif; transition: opacity .6s; }
+  </style>
+</head>
+<body>
+  <img src="{{ url_for('qr_posters.poster_image', poster_id=p.id) }}?v={{ p.poster_file }}" alt="{{ p.heading }}">
+  <div class="hint" id="hint">Press F11 (or click) for full screen · Esc to leave</div>
+  <script>
+    document.body.addEventListener('click', function () {
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement) document.documentElement.requestFullscreen();
+    });
+    setTimeout(function () { document.getElementById('hint').style.opacity = 0; }, 4000);
+  </script>
+</body>
+</html>

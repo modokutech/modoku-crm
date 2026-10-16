@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ p.heading }} QR Poster{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ p.heading }}</h4>
+    <small class="text-muted">{{ p.course_title }} · {{ p.date_text }}</small>
+  </div>
+  <div class="d-flex gap-2">
+    {% if p.session_id %}<a href="{{ url_for('sessions.view', session_id=p.session_id) }}" class="btn btn-outline-secondary btn-sm">Back to Class</a>{% endif %}
+    <a href="{{ url_for('qr_posters.index') }}" class="btn btn-outline-secondary btn-sm">All QR Posters</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <img src="{{ url_for('qr_posters.poster_image', poster_id=p.id) }}?v={{ p.poster_file }}" alt="{{ p.heading }} poster"
+         class="img-fluid shadow-sm" style="border-radius:12px">
+  </div>
+  <div class="col-lg-7">
+    <div class="card p-3 mb-3">
+      <h6>Use it</h6>
+      <div class="d-grid gap-2">
+        <a href="{{ url_for('qr_posters.present', poster_id=p.id) }}" target="_blank" class="btn btn-primary">
+          <i class="bi bi-display me-1"></i>Show Full Screen (projector)</a>
+        <a href="{{ url_for('qr_posters.poster_image', poster_id=p.id, download=1) }}" class="btn btn-outline-success">
+          <i class="bi bi-download me-1"></i>Download Poster (JPG)</a>
+        <a href="{{ url_for('qr_posters.qr_image', poster_id=p.id, download=1) }}" class="btn btn-outline-secondary">
+          <i class="bi bi-qr-code me-1"></i>Download QR Code Only (PNG)</a>
+      </div>
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Details</h6>
+      <table class="table table-sm table-borderless mb-0 small">
+        <tr><td class="text-muted" style="width:110px">Test</td><td>{{ p.heading }}</td></tr>
+        <tr><td class="text-muted">Class</td><td>{% if p.session_id %}<a href="{{ url_for('sessions.view', session_id=p.session_id) }}">{{ p.course_title }}</a>{% else %}{{ p.course_title }} <span class="text-muted">(class removed)</span>{% endif %}</td></tr>
+        <tr><td class="text-muted">Date</td><td>{{ p.date_text or '-' }}</td></tr>
+        <tr><td class="text-muted">Link</td><td class="text-break"><a href="{{ p.link }}" target="_blank" rel="noopener">{{ p.link }}</a></td></tr>
+        <tr><td class="text-muted">Created</td><td>{{ p.created_at|fmtdatetime }}{% if p.created_by_name %} by {{ p.created_by_name }}{% endif %}</td></tr>
+      </table>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('qr_posters.edit', poster_id=p.id) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil me-1"></i>Edit (link, class or test)</a>
+      <form method="post" action="{{ url_for('qr_posters.delete', poster_id=p.id) }}" onsubmit="return confirm('Delete this QR poster?');">
+        {{ csrf_field()|safe }}
+        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash me-1"></i>Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

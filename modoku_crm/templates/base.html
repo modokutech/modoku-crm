@@ -120,6 +120,7 @@
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='cert_admin' }}" href="{{ url_for('cert_admin.index') }}"><i class="bi bi-patch-check me-2"></i>Certificates</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='jd14' }}" href="{{ url_for('jd14.index') }}"><i class="bi bi-file-earmark-check me-2"></i>JD14 Forms</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='training_reports' }}" href="{{ url_for('training_reports.index') }}"><i class="bi bi-clipboard-data me-2"></i>Training Report</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='qr_posters' }}" href="{{ url_for('qr_posters.index') }}"><i class="bi bi-qr-code me-2"></i>QR Posters</a></li>
       {% if modules.purchase_orders %}
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='purchase_orders' }}" href="{{ url_for('purchase_orders.index') }}"><i class="bi bi-file-earmark-text me-2"></i>Purchase Orders</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='vendor_purchase_orders' }}" href="{{ url_for('vendor_purchase_orders.index') }}"><i class="bi bi-file-earmark-text me-2"></i>Vendor POs</a></li>

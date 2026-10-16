@@ -896,6 +896,24 @@ CREATE TABLE IF NOT EXISTS training_reports (
 -- set, by design (a document a client already received is never silently
 -- replaced by clicking a button again; a real correction goes through the
 -- manual-upload fallback instead).
+-- Fix179: QR Posters module (qr_posters.py) - branded QR posters for
+-- Pre/Post-Assessment Test forms or any other link, optionally tied to a
+-- class (session_id is kept loose: deleting a class just unlinks its posters).
+CREATE TABLE IF NOT EXISTS qr_posters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL,
+    kind TEXT NOT NULL DEFAULT 'pre',      -- pre, post, custom
+    heading TEXT NOT NULL,
+    course_title TEXT,
+    date_text TEXT,
+    link TEXT NOT NULL,
+    poster_file TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_qr_posters_session ON qr_posters(session_id);
+
 CREATE TABLE IF NOT EXISTS full_training_reports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL UNIQUE REFERENCES course_sessions(id) ON DELETE CASCADE,

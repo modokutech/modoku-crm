@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if poster_row else 'New' }} QR Poster{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ 'Edit QR Poster' if poster_row else 'New QR Poster' }}</h4>
+    <small class="text-muted">The course title and date on the poster come from the class.</small>
+  </div>
+  <a href="{{ url_for('qr_posters.view', poster_id=poster_row.id) if poster_row else url_for('qr_posters.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+</div>
+
+<form method="post" class="card p-4" style="max-width:720px">
+  {{ csrf_field()|safe }}
+  <div class="mb-3">
+    <label class="form-label fw-semibold">1. Class</label>
+    <select name="session_id" class="form-select" required id="qp_class">
+      <option value="">Choose a class…</option>
+      {% for c in classes %}
+      <option value="{{ c.id }}" data-title="{{ c.course_title }}" data-date="{{ c.date_text }}"
+              {{ 'selected' if values.session_id == c.id }}>{{ c.course_title }}, {{ c.date_text }}{% if c.client_name %} ({{ c.client_name }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">2. Test</label>
+    <div class="d-flex gap-2">
+      {% for key, label in kinds.items() %}
+      <input type="radio" class="btn-check" name="kind" id="kind_{{ key }}" value="{{ key }}" {{ 'checked' if values.kind == key }}>
+      <label class="btn btn-outline-primary flex-fill" for="kind_{{ key }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">3. Google Form link</label>
+    <input type="url" name="link" class="form-control" required placeholder="https://forms.gle/..." value="{{ values.link or '' }}">
+    <small class="text-muted">Use the form's "Send" link (forms.gle) - shorter links make QR codes that scan more easily.</small>
+  </div>
+
+  <div class="alert alert-light border small mb-3" id="qp_preview" {% if not values.session_id %}style="display:none"{% endif %}>
+    <div class="text-muted mb-1">On the poster:</div>
+    <div class="fw-semibold" id="qp_heading"></div>
+    <div id="qp_title"></div>
+    <div class="text-muted" id="qp_date"></div>
+  </div>
+
+  <div>
+    <button class="btn btn-success" type="submit"><i class="bi bi-qr-code me-1"></i>{{ 'Update Poster' if poster_row else 'Generate Poster' }}</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  var sel = document.getElementById('qp_class');
+  var labels = {{ kinds|tojson }};
+  function refresh() {
+    var opt = sel.options[sel.selectedIndex];
+    var kind = (document.querySelector('input[name="kind"]:checked') || {}).value;
+    var box = document.getElementById('qp_preview');
+    if (!opt || !opt.value) { box.style.display = 'none'; return; }
+    box.style.display = '';
+    document.getElementById('qp_heading').textContent = labels[kind] || '';
+    document.getElementById('qp_title').textContent = opt.dataset.title;
+    document.getElementById('qp_date').textContent = opt.dataset.date;
+  }
+  sel.addEventListener('change', refresh);
+  document.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', refresh); });
+  refresh();
+})();
+</script>
+{% endblock %}

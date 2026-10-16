@@ -10,6 +10,22 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix179 — New QR Posters module (Pre/Post-Assessment Test)
+
+**Date:** 2026-10-16
+
+- New sidebar module **QR Posters** (TMS): choose the class, pick Pre-Assessment Test or Post-Assessment
+  Test, paste the Google Form link, Generate. The poster uses the Training Evaluation poster's look
+  (heading, QR code, course title and dates from the class) plus a "Scan the QR code with your phone
+  camera" line. Square QR modules (the most reliable for phone cameras), Modoku logo in the centre.
+- Each poster: Show Full Screen (for the projector), Download Poster (JPG), Download QR Code Only (PNG),
+  Edit (link/class/test, re-generates), Delete.
+- After generating, the QR is read back automatically and a warning shows if it doesn't open the link.
+- Class page: new "Assessment QR Posters" card listing the class's posters, with + Pre-Test / + Post-Test.
+- New table `qr_posters` (created automatically on boot). Posters are stored in uploads/qr_posters/.
+- `poster.generate_evaluation_poster` now shares the new `generate_qr_poster` layout code; the
+  evaluation poster itself looks the same as before.
+
 ## Fix178 — PO email: "Venue: Virtual" for virtual classes
 
 **Date:** 2026-10-14

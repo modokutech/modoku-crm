@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}QR Posters{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">QR Posters</h4>
+    <small class="text-muted">Pre/Post-Assessment Test QR posters for participants to scan with their phones.</small>
+  </div>
+  <a href="{{ url_for('qr_posters.new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>New QR Poster</a>
+</div>
+
+<div class="card p-3">
+  {% if posters %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th style="width:72px"></th><th>Poster</th><th>Class</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        {% for p in posters %}
+        <tr onclick="window.location='{{ url_for('qr_posters.view', poster_id=p.id) }}'" style="cursor:pointer">
+          <td><img src="{{ url_for('qr_posters.poster_image', poster_id=p.id) }}" alt="" style="width:56px;border-radius:6px" loading="lazy"></td>
+          <td>
+            <span class="badge {{ 'bg-primary' if p.kind == 'pre' else 'bg-success' }}">{{ p.heading }}</span>
+          </td>
+          <td>
+            <div class="fw-semibold">{{ p.course_title }}</div>
+            <div class="small text-muted">{{ p.date_text }}</div>
+          </td>
+          <td class="small text-muted text-nowrap">{{ p.created_at|fmtdatetime }}{% if p.created_by_name %}<div>{{ p.created_by_name }}</div>{% endif %}</td>
+          <td class="text-end"><a href="{{ url_for('qr_posters.view', poster_id=p.id) }}" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation()">Open</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted mb-0">No QR posters yet. Click "New QR Poster": choose the class, pick Pre or Post, paste the Google Form link.</p>
+  {% endif %}
+</div>
+{% endblock %}

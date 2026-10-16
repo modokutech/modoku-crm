@@ -350,6 +350,26 @@
       </a>
       {% endif %}
     </div>
+    {# Fix179: Pre/Post-Assessment Test QR posters (QR Posters module). #}
+    {% if s.status != 'Cancelled' or qr_posters %}
+    <div class="card p-3 mt-3">
+      <h6>Assessment QR Posters</h6>
+      {% for qp in qr_posters %}
+      <p class="small mb-1">
+        <i class="bi bi-qr-code text-success me-1"></i>
+        <a href="{{ url_for('qr_posters.view', poster_id=qp.id) }}">{{ qp.heading }}</a>
+      </p>
+      {% else %}
+      <p class="small text-muted mb-2">QR posters for this class's Pre/Post-Assessment Test forms.</p>
+      {% endfor %}
+      {% if s.status != 'Cancelled' %}
+      <div class="d-flex gap-2 mt-2">
+        <a href="{{ url_for('qr_posters.new', session_id=s.id, kind='pre') }}" class="btn btn-sm btn-outline-success flex-fill text-nowrap" title="New Pre-Assessment Test QR poster">+ Pre-Test</a>
+        <a href="{{ url_for('qr_posters.new', session_id=s.id, kind='post') }}" class="btn btn-sm btn-outline-success flex-fill text-nowrap" title="New Post-Assessment Test QR poster">+ Post-Test</a>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
     {# Fix132: JD14 is the HRDCorp SBL-Khas claim form, so only for a claimable class (or one that already has JD14 paperwork). #}
     {% if s.hrdcorp_claimable or s.jd14_file or s.jd14_sent_at %}
         <div class="card p-3 mt-3">

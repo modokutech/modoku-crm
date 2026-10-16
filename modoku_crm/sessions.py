@@ -1120,6 +1120,7 @@ def view(session_id):
                             jd14_status=jd14_status, jd14_form=jd14_row, t3_link_sent=t3_link_sent,
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             class_pos=_class_pos(session_id),
+                            qr_posters=qr_posters_module.posters_for_session(session_id),
                             mail_configured=mailer.is_configured(), assigned_trainers=assigned_trainers,
                             attendance_returns=attendance_returns, t3_url=t3_url,
                             trainer_qr_url=url_for("t3_public.sign_in_qr", token=t3_token, _external=True),
@@ -2092,6 +2093,17 @@ def download_evaluation_poster(session_id):
         flash("No evaluation poster generated yet.", "danger")
         return redirect(url_for("sessions.view", session_id=session_id))
     return send_from_directory(_attendance_dir(session_id), session_row["evaluation_qr_poster_file"], as_attachment=False)
+
+
+class _LazyQrPosters:
+    """qr_posters imports banner/poster only; imported lazily anyway to keep
+    this module's import order simple."""
+    def posters_for_session(self, session_id):
+        from .qr_posters import posters_for_session
+        return posters_for_session(session_id)
+
+
+qr_posters_module = _LazyQrPosters()
 
 
 def _class_pos(session_id):

@@ -125,6 +125,27 @@ def _fill_resize(img, target_w, target_h):
 
 def generate_evaluation_poster(course_title, date_text, form_link, logo_path=None):
     """Returns JPEG bytes for the Training Evaluation QR poster."""
+    return generate_qr_poster("Training Evaluation", course_title, date_text, form_link,
+                              logo_path=logo_path, square_qr=False)
+
+
+def _fit_font(draw, text, path, size, max_width, min_size=40):
+    """The largest font (from `size` down) that fits `text` on one line."""
+    while size > min_size:
+        font = _font(path, size)
+        if draw.textlength(text, font=font) <= max_width:
+            return font
+        size -= 4
+    return _font(path, min_size)
+
+
+def generate_qr_poster(heading, course_title, date_text, link, logo_path=None, square_qr=True, instruction=None):
+    """Returns JPEG bytes for a QR poster in the Training Evaluation poster's
+    layout: heading at the top, the QR code in a white box, course title and
+    date underneath. Fix179: shared by the QR Posters module (Pre/Post-
+    Assessment Test etc.), which uses square_qr=True - the classic square
+    modules phone cameras read most reliably - and an optional one-line
+    `instruction` under the heading."""
     W, H = 1200, 1500
     try:
         canvas = _fill_resize(Image.open(BG_IMAGE_PATH).convert("RGB"), W, H)
@@ -132,20 +153,33 @@ def generate_evaluation_poster(course_title, date_text, form_link, logo_path=Non
         canvas = Image.new("RGB", (W, H), BG_COLOR)
     draw = ImageDraw.Draw(canvas)
 
-    title_font = _font(FONT_BOLD, 72)
     course_font = _font(FONT_BOLD, 46)
     date_font = _font(FONT_MEDIUM, 30)
 
-    # Title
-    title = "Training Evaluation"
-    tw = draw.textlength(title, font=title_font)
-    draw.text(((W - tw) / 2, 90), title, font=title_font, fill=TITLE_COLOR)
+    # Heading (shrinks to fit one line, for longer custom headings)
+    title_font = _fit_font(draw, heading, FONT_BOLD, 72, W - 120)
+    tw = draw.textlength(heading, font=title_font)
+    draw.text(((W - tw) / 2, 90 if not instruction else 70), heading, font=title_font, fill=TITLE_COLOR)
+    if instruction:
+        ins_font = _font(FONT_REGULAR, 28)
+        iw = draw.textlength(instruction, font=ins_font)
+        draw.text(((W - iw) / 2, 172), instruction, font=ins_font, fill=DATE_COLOR)
 
     # QR box
     box_size = 900
     box_x = (W - box_size) // 2
     box_y = 250
-    qr_img = _draw_qr(form_link, box_size, logo_path=logo_path)
+    if square_qr:
+        import io
+        qr_img = Image.open(io.BytesIO(qr_png(link, box_size=box_size, logo_path=logo_path))).convert("RGB")
+        if qr_img.size != (box_size, box_size):
+            # qr_png sizes in whole pixels per module; centre it on a white box of exactly box_size.
+            box = Image.new("RGB", (box_size, box_size), (255, 255, 255))
+            qr_img.thumbnail((box_size, box_size), Image.NEAREST)
+            box.paste(qr_img, ((box_size - qr_img.width) // 2, (box_size - qr_img.height) // 2))
+            qr_img = box
+    else:
+        qr_img = _draw_qr(link, box_size, logo_path=logo_path)
     canvas.paste(qr_img, (box_x, box_y))
 
     # Course title + date below the box
@@ -165,6 +199,27 @@ def generate_evaluation_poster(course_title, date_text, form_link, logo_path=Non
     buf = BytesIO()
     canvas.save(buf, format="JPEG", quality=92)
     return buf.getvalue()
+
+
+def qr_scans_to(jpeg_or_png_bytes, expected):
+    """Fix179: True if a QR in the image decodes to `expected` (OpenCV's
+    detector, as a stand-in for a phone camera). None when OpenCV isn't
+    installed, so callers can skip the check rather than warn wrongly."""
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        return None
+    img = cv2.imdecode(np.frombuffer(jpeg_or_png_bytes, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return False
+    detector = cv2.QRCodeDetector()
+    for scale in (1.0, 0.5):
+        probe = img if scale == 1.0 else cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        data, _, _ = detector.detectAndDecode(probe)
+        if data:
+            return data == expected
+    return False
 
 
 def qr_png(value, box_size=900, logo_path=None):
