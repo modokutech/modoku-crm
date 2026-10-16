@@ -24,18 +24,19 @@
   </div>
   <div class="col">
     <div class="stat-card" style="background:#0891b2;">
-      <div class="small text-white-50">Total Taxes &amp; Fees</div>
+      <div class="small text-white-50">HRDCorp Fee</div>
       <div class="stat-value" id="stat_total_deductions">RM {{ computed.total_deductions|fmtmoney }}</div>
       <div class="small text-white-50" id="stat_deduction_note">
-        {% if computed.total_deductions %}{{ computed.deduction_rate_pct }}% of revenue{% else %}None applied{% endif %}
+        {% if computed.total_deductions %}4% of revenue{% else %}None applied{% endif %}
       </div>
+      <div class="small text-white-50 {{ 'd-none' if not computed.sst_amount }}" id="stat_sst_note">+ SST RM <span id="stat_sst_amount">{{ computed.sst_amount|fmtmoney }}</span> paid by client</div>
     </div>
   </div>
   <div class="col">
     <div class="stat-card" style="background:#334155;">
       <div class="small text-white-50">Total Expenses</div>
       <div class="stat-value" id="stat_total_expenses">RM {{ (computed.total_costing + computed.total_deductions)|fmtmoney }}</div>
-      <div class="small text-white-50">Cost + taxes &amp; fees</div>
+      <div class="small text-white-50">Cost + HRDCorp fee</div>
     </div>
   </div>
   <div class="col">
@@ -190,11 +191,12 @@
         <div class="form-check">
           <input type="checkbox" class="form-check-input" id="deduct_sst" name="deduct_sst"
                  {{ 'checked' if costs.deduct_sst }}>
-          <label class="form-check-label" for="deduct_sst">8% SST</label>
+          <label class="form-check-label" for="deduct_sst">8% SST charged to client</label>
         </div>
-        <small class="text-muted">Tick whichever this class carries. They come off the Training Revenue
-          below before profit is worked out. SST is charged on what's left after HRDCorp's 4% fee, so both
-          together take 11.68% off.</small>
+        <small class="text-muted">Tick whichever this class carries. HRDCorp's 4% fee comes off the Training
+          Revenue before profit is worked out. SST is added on top of the invoice and paid by the client (we pay it
+          to Customs on the invoiced amount), so it's shown for reference only and doesn't reduce profit. Enter
+          Training Revenue before SST (the quotation / invoice sub-total).</small>
       </div>
       <div class="row g-2 align-items-center mb-2">
         <div class="col-6">Training Revenue</div>
@@ -206,12 +208,8 @@
         <div class="col-5 text-end text-muted">&minus; RM <span id="summary_hrdcorp_fee">{{ computed.hrdcorp_fee_amount|fmtmoney }}</span></div>
       </div>
       <div class="row g-2 align-items-center mb-1 {{ 'd-none' if not costs.deduct_sst }}" id="sst_row">
-        <div class="col-7 text-muted">Less SST (8% of RM <span id="summary_sst_base">{{ computed.sst_base|fmtmoney }}</span>)</div>
-        <div class="col-5 text-end text-muted">&minus; RM <span id="summary_sst">{{ computed.sst_amount|fmtmoney }}</span></div>
-      </div>
-      <div class="row g-2 align-items-center mb-1 {{ 'd-none' if not (costs.deduct_hrdcorp_fee and costs.deduct_sst) }}" id="deductions_row">
-        <div class="col-7 text-muted">Total taxes &amp; fees (<span id="summary_deduction_pct">{{ computed.deduction_rate_pct }}</span>%)</div>
-        <div class="col-5 text-end text-muted">&minus; RM <span id="summary_total_deductions">{{ computed.total_deductions|fmtmoney }}</span></div>
+        <div class="col-7 text-muted small">SST 8%, charged to client on top (paid to Customs, not a cost)</div>
+        <div class="col-5 text-end text-muted small">RM <span id="summary_sst">{{ computed.sst_amount|fmtmoney }}</span></div>
       </div>
       <div class="row g-2 align-items-center mb-3 {{ 'd-none' if not computed.total_deductions }}" id="net_revenue_row">
         <div class="col-6">Net Revenue</div>
@@ -224,7 +222,7 @@
       </div>
       <div class="row g-2 align-items-center">
         <div class="col-6 fw-bold">Net Profit / %</div>
-        <div class="col-6 text-end fw-bold"><span id="summary_net_profit">RM {{ computed.net_profit|fmtmoney }}</span> &nbsp; (<span id="summary_net_profit_pct">{{ computed.net_profit_pct }}</span>%)</div>
+        <div class="col-6 text-end fw-bold"><span id="summary_net_profit">RM {{ computed.net_profit|fmtmoney }}</span> &nbsp; (<span id="summary_net_profit_pct">{{ computed.net_profit_pct }}%</span>)</div>
       </div>
     </div>
   </div>
@@ -300,41 +298,30 @@
     var totalCosting = lunch + tea + meeting + laptop + courseware + manual + book + cert + exam
       + customTotal + trainerFee + trainerAllowance + busAir + venue + hotel;
 
-    // Deductions mirror _compute() in training_costs.py exactly (Fix174): the
-    // HRDCorp fee comes off the gross, and SST is charged on what's left after
-    // it (8% of the gross when HRDCorp isn't ticked). The margin is measured
-    // against what's actually retained rather than what was billed.
+    // Mirrors _compute() in training_costs.py (Fix181): only HRDCorp's 4% fee
+    // comes off the revenue. SST is charged to the client on top, so it's
+    // shown for reference (8% of the revenue) but never deducted. The margin
+    // is measured against what's actually retained.
     var hrdcorpTicked = document.getElementById('deduct_hrdcorp_fee').checked;
     var sstTicked = document.getElementById('deduct_sst').checked;
     var hrdcorpFee = hrdcorpTicked ? revenue * {{ hrdcorp_fee_rate }} : 0;
-    var sstBase = revenue - hrdcorpFee;
-    var sstAmount = sstTicked ? sstBase * {{ sst_rate }} : 0;
-    var totalDeductions = hrdcorpFee + sstAmount;
-    var deductionRate = (hrdcorpTicked ? {{ hrdcorp_fee_rate }} : 0)
-      + (sstTicked ? {{ sst_rate }} * (1 - (hrdcorpTicked ? {{ hrdcorp_fee_rate }} : 0)) : 0);
+    var sstAmount = sstTicked ? revenue * {{ sst_rate }} : 0;
+    var totalDeductions = hrdcorpFee;
     var netRevenue = revenue - totalDeductions;
     var netProfit = netRevenue - totalCosting;
     var netProfitPct = netRevenue ? (netProfit / netRevenue * 100) : 0;
 
-    var showDeductions = deductionRate > 0;
-    var ratePct = (Math.round(deductionRate * 10000) / 100).toString();
     document.getElementById('hrdcorp_row').classList.toggle('d-none', !hrdcorpTicked);
     document.getElementById('sst_row').classList.toggle('d-none', !sstTicked);
-    document.getElementById('deductions_row').classList.toggle('d-none', !(hrdcorpTicked && sstTicked));
-    document.getElementById('net_revenue_row').classList.toggle('d-none', !showDeductions);
-    document.getElementById('summary_deduction_pct').textContent = ratePct;
+    document.getElementById('net_revenue_row').classList.toggle('d-none', !hrdcorpTicked);
     setPlain('summary_hrdcorp_fee', hrdcorpFee);
-    setPlain('summary_sst_base', sstBase);
     setPlain('summary_sst', sstAmount);
-    setPlain('summary_total_deductions', totalDeductions);
     setRM('summary_net_revenue', netRevenue);
     setRM('stat_total_deductions', totalDeductions);
     var note = document.getElementById('stat_deduction_note');
-    if (note) {
-      note.textContent = showDeductions
-        ? ratePct + '% of revenue'
-        : 'None applied';
-    }
+    if (note) { note.textContent = hrdcorpTicked ? '4% of revenue' : 'None applied'; }
+    document.getElementById('stat_sst_note').classList.toggle('d-none', !sstTicked);
+    setPlain('stat_sst_amount', sstAmount);
 
     setPreview('preview_lunch', lunch);
     setPreview('preview_tea_break', tea);

@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix181 — Training Costs: SST no longer deducted (paid by client); "%%" fixed
+
+**Date:** 2026-10-16
+
+- SST is charged to the client on top of the invoice and paid to Customs on the invoiced amount, so it's
+  not a cost. The "8% SST charged to client" tick now only shows SST for reference (8% of the Training
+  Revenue, e.g. RM 1,800 on RM 22,500) and no longer reduces profit. This replaces Fix174 (SST after the
+  HRDCorp fee) and the earlier SST deduction.
+- HRDCorp's 4% fee is the only deduction. The card is now "HRDCorp Fee" (with a "+ SST RM ... paid by
+  client" line when SST is ticked); Total Expenses = cost + HRDCorp fee.
+- Enter Training Revenue before SST (the quotation / invoice sub-total).
+- Fixed the doubled "%%" in the Net Profit / % line.
+
 ## Fix180 — QR Posters list grouped by class
 
 **Date:** 2026-10-16

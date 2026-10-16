@@ -82,32 +82,26 @@ def _compute(costs, training_days, custom_items_total=0):
                       + total_courseware + total_manual + total_book + total_certificate + total_exam
                       + custom_items_total + total_trainer_fee + total_trainer_allowance
                       + c["bus_air_fee"] + c["venue_fee"] + c["hotel_fee"])
-    # Revenue is what the client is billed; what the business actually keeps
-    # is that less HRDCorp's fee and/or SST, whichever the deal carries.
-    # Fix174: HRDCorp pays the claim out net of its 4% fee, and SST is paid on
-    # what's actually received - so with both ticked, SST is 8% of the amount
-    # left after the HRDCorp fee (4% + 7.68% = 11.68%), not 8% of the gross.
-    # SST alone (no HRDCorp) is still 8% of the full revenue.
+    # Revenue is what the client is billed before SST (the quotation /
+    # invoice sub-total). Fix181: SST is charged to the client ON TOP of
+    # that and paid to Customs on the invoiced amount, so it isn't a cost to
+    # the business - it's shown for reference (8% of the revenue) but not
+    # deducted. Only HRDCorp's 4% fee comes off what's kept.
     revenue = c["training_revenue"]
     hrdcorp_fee_amount = revenue * HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
-    sst_base = revenue - hrdcorp_fee_amount
-    sst_amount = sst_base * SST_RATE if c.get("deduct_sst") else 0
-    total_deductions = hrdcorp_fee_amount + sst_amount
+    sst_amount = revenue * SST_RATE if c.get("deduct_sst") else 0
+    total_deductions = hrdcorp_fee_amount
     net_revenue = revenue - total_deductions
     # Margin is against the revenue actually retained, not the billed figure —
     # measuring profit against money that was never kept would overstate it.
     net_profit = net_revenue - total_costing
     net_profit_pct = round((net_profit / net_revenue * 100), 1) if net_revenue else 0
 
-    # Effective share of revenue taken off, e.g. 11.68 with both ticked.
-    deduction_rate = ((HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0)
-                      + (SST_RATE * (1 - (HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0))
-                         if c.get("deduct_sst") else 0))
+    deduction_rate = HRDCORP_FEE_RATE if c.get("deduct_hrdcorp_fee") else 0
     return {
         "deduction_rate_pct": f"{round(deduction_rate * 100, 2):g}",
         "hrdcorp_fee_amount": hrdcorp_fee_amount,
         "sst_amount": sst_amount,
-        "sst_base": sst_base,
         "total_deductions": total_deductions,
         "net_revenue": net_revenue,
         "net_profit": net_profit,
