@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix183 — Training Costs: "8% SST charged to client" tick back
+
+**Date:** 2026-10-16
+
+- Reverts Fix182: the "8% SST charged to client" tick is back as in Fix181 (shows SST for reference,
+  8% of the Training Revenue, without reducing profit). A class saved while the tick was missing has it
+  unticked; tick it again if needed.
+
 ## Fix182 — Training Costs: SST checkbox removed
 
 **Date:** 2026-10-16
