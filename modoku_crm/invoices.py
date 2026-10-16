@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
 from . import activity, db, fmtdate, fmtmoney, mailer, notifications, parse_money
+from . import invoice_payments as payments_mod
 from . import settings as settings_module
 from .auth import admin_required, login_required
 from .csvutil import csv_response
@@ -176,7 +177,9 @@ def _default_invoice_email_body(invoice, pic=None):
 
 def _filtered_invoices():
     status = request.args.get("status", "")
-    sql = """SELECT i.*, co.name AS company_name, u.name AS created_by_name FROM invoices i
+    sql = """SELECT i.*, co.name AS company_name, u.name AS created_by_name,
+                    (SELECT COALESCE(SUM(amount), 0) FROM invoice_payments ip WHERE ip.invoice_id = i.id) AS paid_total
+              FROM invoices i
               LEFT JOIN companies co ON co.id = i.company_id
               LEFT JOIN users u ON u.id = i.created_by WHERE 1=1"""
     args = []
@@ -371,6 +374,25 @@ def _with_attention(invoice):
     return d
 
 
+def _after_save(invoice_id, was_paid):
+    """Fix185: after New/Edit Invoice - keep the upfront payment row in step,
+    and if the form set the status to Paid, make the payments match: a newly
+    Paid invoice gets its balance recorded as received today (changeable in
+    Payments); a Paid invoice whose total went up drops back to Sent until
+    the difference is recorded."""
+    payments_mod.sync_upfront(invoice_id)
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    if invoice["status"] == "Paid" and not was_paid:
+        if payments_mod.record_balance(invoice, date.today().isoformat(),
+                                       user_id=g.user["id"] if g.user else None):
+            flash("Payment recorded as received today. Change the date under Payments if it came in on "
+                  "another day.", "info")
+    new_status = payments_mod.sync_status(invoice_id)
+    if new_status == "Sent" and was_paid:
+        flash("The total is now more than what's been received, so this invoice is back to Sent. Record "
+              "the extra payment under Payments.", "warning")
+
+
 @bp.route("/new", methods=("GET", "POST"))
 @login_required
 def new():
@@ -394,6 +416,7 @@ def new():
             (invoice_no, *fields.values(), g.user["id"]),
         )
         _save_items(invoice_id, items)
+        _after_save(invoice_id, was_paid=False)
         activity.log("create", "invoice", invoice_id, f"Created invoice {invoice_no}")
         flash("Invoice created.", "success")
         return redirect(url_for("invoices.view", invoice_id=invoice_id))
@@ -422,6 +445,7 @@ def edit(invoice_id):
             )
             db.execute("DELETE FROM invoice_items WHERE invoice_id = ?", (invoice_id,))
             _save_items(invoice_id, new_items)
+            _after_save(invoice_id, was_paid=invoice["status"] == "Paid")
             new_gross = round(fields["subtotal"] + fields["sst_amount"], 2)
             detail = ""
             if old_gross != new_gross:
@@ -466,6 +490,7 @@ def view(invoice_id):
     pic = _invoice_pic(invoice)
     invoice = _with_attention(invoice)
     return render_template("invoices/view.html", invoice=invoice, items=items, statuses=STATUSES,
+                            pay=payments_mod.summary(invoice), today=date.today().isoformat(),
                             mail_configured=mailer.is_configured(), pic=pic,
                             default_to_email=(pic["email"] if pic else None) or invoice["company_email"] or "",
                             pdf_filename=_invoice_pdf_filename(invoice, items),
@@ -556,14 +581,122 @@ def download(invoice_id):
 @bp.route("/<int:invoice_id>/status", methods=("POST",))
 @login_required
 def update_status(invoice_id):
+    """Fix185: Paid needs the date the money came in - the outstanding
+    balance is recorded as a payment on that date. Setting a Paid invoice
+    back to another status (except Cancelled) undoes that balance payment;
+    payments recorded by hand stay."""
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
     status = request.form.get("status")
-    if status in STATUSES:
-        db.execute("UPDATE invoices SET status = ? WHERE id = ?", (status, invoice_id))
-        invoice = db.query("SELECT invoice_no FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    if invoice is None or status not in STATUSES:
+        return redirect(url_for("invoices.view", invoice_id=invoice_id))
+    user_id = g.user["id"] if g.user else None
+    if status == "Paid" and invoice["status"] != "Paid":
+        paid_on = payments_mod.parse_date(request.form.get("paid_on"))
+        if not paid_on:
+            flash("Enter the date the payment was received (today or earlier).", "danger")
+            return redirect(url_for("invoices.view", invoice_id=invoice_id))
+        amount = payments_mod.record_balance(invoice, paid_on, user_id=user_id)
+        db.execute("UPDATE invoices SET status = 'Paid' WHERE id = ?", (invoice_id,))
         activity.log("update", "invoice", invoice_id,
-                      f"Marked invoice {invoice['invoice_no'] if invoice else invoice_id} as {status}")
-        flash(f"Invoice marked as {status}.", "success")
+                     f"Marked invoice {invoice['invoice_no']} as Paid (received {paid_on}"
+                     + (f", RM {amount:,.2f}" if amount else "") + ")")
+        flash("Invoice marked as Paid.", "success")
+        return redirect(url_for("invoices.view", invoice_id=invoice_id))
+
+    if invoice["status"] == "Paid" and status not in ("Paid", "Cancelled"):
+        db.execute("DELETE FROM invoice_payments WHERE invoice_id = ? AND kind = 'balance'", (invoice_id,))
+    db.execute("UPDATE invoices SET status = ? WHERE id = ?", (status, invoice_id))
+    activity.log("update", "invoice", invoice_id, f"Marked invoice {invoice['invoice_no']} as {status}")
+    if status != "Cancelled":
+        changed = payments_mod.sync_status(invoice_id)
+        if changed == "Paid":
+            flash("Payments already cover this invoice in full, so it stays Paid.", "info")
+            return redirect(url_for("invoices.view", invoice_id=invoice_id))
+    flash(f"Invoice marked as {status}.", "success")
     return redirect(url_for("invoices.view", invoice_id=invoice_id))
+
+
+def _payment_form_values(invoice, existing=None):
+    paid_on = payments_mod.parse_date(request.form.get("paid_on"))
+    note = " ".join(request.form.get("note", "").split())[:120] or None
+    if existing is not None and existing["kind"] == "upfront":
+        amount = existing["amount"]  # follows the invoice's upfront deduction (Edit Invoice)
+    else:
+        try:
+            amount = parse_money(request.form.get("amount"), default=None)
+        except ValueError:
+            amount = None
+    if not paid_on:
+        return None, "Enter the date the payment was received (today or earlier)."
+    if amount is None or amount <= 0:
+        return None, "Enter the amount received."
+    s = payments_mod.summary(invoice)
+    room = s["outstanding"] + (existing["amount"] if existing is not None else 0)
+    if amount - room > payments_mod.EPS:
+        return None, f"That's more than the RM {room:,.2f} outstanding on this invoice."
+    return {"paid_on": paid_on, "amount": round(amount, 2), "note": note}, None
+
+
+@bp.route("/<int:invoice_id>/payments", methods=("POST",))
+@login_required
+def add_payment(invoice_id):
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    if invoice is None:
+        return redirect(url_for("invoices.index"))
+    v, error = _payment_form_values(invoice)
+    if error:
+        flash(error, "danger")
+        return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
+    db.execute(
+        """INSERT INTO invoice_payments (invoice_id, kind, paid_on, amount, note, created_by)
+           VALUES (?, 'payment', ?, ?, ?, ?)""",
+        (invoice_id, v["paid_on"], v["amount"], v["note"], g.user["id"] if g.user else None),
+    )
+    activity.log("update", "invoice", invoice_id,
+                 f"Recorded payment of RM {v['amount']:,.2f} received {v['paid_on']} on {invoice['invoice_no']}")
+    changed = payments_mod.sync_status(invoice_id)
+    flash("Payment recorded." + (" Invoice is now fully paid." if changed == "Paid" else ""), "success")
+    return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
+
+
+@bp.route("/<int:invoice_id>/payments/<int:payment_id>", methods=("POST",))
+@login_required
+def edit_payment(invoice_id, payment_id):
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    payment = db.query("SELECT * FROM invoice_payments WHERE id = ? AND invoice_id = ?",
+                       (payment_id, invoice_id), one=True)
+    if invoice is None or payment is None:
+        return redirect(url_for("invoices.index"))
+    v, error = _payment_form_values(invoice, existing=payment)
+    if error:
+        flash(error, "danger")
+        return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
+    db.execute("UPDATE invoice_payments SET paid_on = ?, amount = ?, note = ? WHERE id = ?",
+               (v["paid_on"], v["amount"], v["note"] or payment["note"], payment_id))
+    activity.log("update", "invoice", invoice_id,
+                 f"Updated payment on {invoice['invoice_no']}: RM {v['amount']:,.2f} received {v['paid_on']}")
+    payments_mod.sync_status(invoice_id)
+    flash("Payment updated.", "success")
+    return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
+
+
+@bp.route("/<int:invoice_id>/payments/<int:payment_id>/delete", methods=("POST",))
+@login_required
+def delete_payment(invoice_id, payment_id):
+    invoice = db.query("SELECT * FROM invoices WHERE id = ?", (invoice_id,), one=True)
+    payment = db.query("SELECT * FROM invoice_payments WHERE id = ? AND invoice_id = ?",
+                       (payment_id, invoice_id), one=True)
+    if invoice is None or payment is None:
+        return redirect(url_for("invoices.index"))
+    if payment["kind"] == "upfront":
+        flash("The upfront payment follows the invoice's upfront deduction. Remove it with Edit Invoice.", "warning")
+        return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
+    db.execute("DELETE FROM invoice_payments WHERE id = ?", (payment_id,))
+    activity.log("update", "invoice", invoice_id,
+                 f"Removed payment of RM {payment['amount']:,.2f} from {invoice['invoice_no']}")
+    changed = payments_mod.sync_status(invoice_id)
+    flash("Payment removed." + (" Invoice is back to Sent." if changed == "Sent" else ""), "success")
+    return redirect(url_for("invoices.view", invoice_id=invoice_id, _anchor="payments"))
 
 
 @bp.route("/<int:invoice_id>/delete", methods=("POST",))

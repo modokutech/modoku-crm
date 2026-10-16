@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix185 — Invoice payments (date received, partial payments)
+
+**Date:** 2026-10-17
+
+- Each invoice has a **Payments Received** card: date received, amount, note, and each payment's share of
+  the invoice's SST. Record payment (pre-filled with the outstanding balance), edit or remove payments.
+  Progress bar and "Partly paid" badges (invoice page and list).
+- Marking an invoice **Paid** now asks for the date the money came in and records the balance on that
+  date. Setting a Paid invoice back to another status undoes that balance payment. An invoice turns Paid
+  by itself once its payments cover it, and back to Sent if a payment is removed.
+- The Fix114 upfront deduction is mirrored as an "upfront" payment whose date is filled in by hand.
+- One-time backfill of existing invoices: Paid ones get a payment dated from the activity log ("Marked as
+  Paid", KL time) where possible; upfront amounts and undatable ones show as "Needs date".
+- New table `invoice_payments` (created automatically on boot).
+
 ## Fix184 — Training Costs: SST on top vs absorbed
 
 **Date:** 2026-10-16

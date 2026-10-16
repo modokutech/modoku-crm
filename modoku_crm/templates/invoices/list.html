@@ -47,6 +47,8 @@
               {% elif i.status == 'Cancelled' %}bg-secondary
               {% elif i.status == 'Sent' %}bg-warning text-dark
               {% else %}bg-light text-dark{% endif %}">{{ i.status }}</span>
+            {# Fix185: some money in, not all. #}
+            {% if i.status not in ('Paid', 'Cancelled') and i.paid_total > 0.005 %}<span class="badge bg-info text-dark ms-1">Partly paid</span>{% endif %}
           </td>
         </tr>
       {% endfor %}

@@ -411,6 +411,35 @@ CREATE TABLE IF NOT EXISTS invoices (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Fix185: money received against an invoice (invoice_payments.py) - one
+-- row per payment, so a 30% upfront and the balance can land in different
+-- SST periods. paid_on NULL = date still to be filled in.
+CREATE TABLE IF NOT EXISTS invoice_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'payment',   -- upfront, balance, payment
+    paid_on TEXT,
+    amount REAL NOT NULL DEFAULT 0,
+    note TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_invoice_payments_invoice ON invoice_payments(invoice_id);
+
+-- Fix186: SST returns marked as paid to Customs (sst.py), one per two-month
+-- period (period_start 'YYYY-MM', the period's first month).
+CREATE TABLE IF NOT EXISTS sst_returns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period_start TEXT NOT NULL UNIQUE,
+    amount_paid REAL NOT NULL DEFAULT 0,
+    paid_on TEXT,
+    reference TEXT,
+    receipt_file TEXT,
+    notes TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS invoice_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
@@ -1306,6 +1335,43 @@ def _apply_light_migrations(db):
     # 'on_top'. Saving keeps deduct_sst in step (1 only for 'on_top'), so
     # this only ever catches rows from before the change. Safe to re-run.
     db.execute("UPDATE training_costs SET sst_mode = 'on_top' WHERE deduct_sst = 1 AND sst_mode = 'none'")
+    db.commit()
+
+    # Fix185: one-time - give existing invoices their payment rows. Every
+    # invoice with an upfront deduction gets an 'upfront' row (date to be
+    # filled in). Every Paid invoice gets a 'balance' row for the rest, dated
+    # from the activity log's "Marked invoice ... as Paid" entry (in KL time)
+    # when there is one, else left undated for the SST page's "needs a date"
+    # list. Guarded by a settings flag so it never re-creates rows that were
+    # later edited or deleted.
+    done = db.execute("SELECT value FROM settings WHERE key = 'fix185_payments_backfilled'").fetchone()
+    if done is None:
+        invoices = db.execute(
+            "SELECT id, status, subtotal, sst_amount, upfront_amount FROM invoices "
+            "WHERE id NOT IN (SELECT invoice_id FROM invoice_payments)"
+        ).fetchall()
+        for inv in invoices:
+            upfront = round(inv["upfront_amount"] or 0, 2)
+            if upfront > 0.005:
+                db.execute("INSERT INTO invoice_payments (invoice_id, kind, amount, note) "
+                           "VALUES (?, 'upfront', ?, 'Upfront payment')", (inv["id"], upfront))
+            if inv["status"] == "Paid":
+                balance = round((inv["subtotal"] or 0) + (inv["sst_amount"] or 0) - upfront, 2)
+                if balance > 0.005:
+                    log = db.execute(
+                        "SELECT date(created_at, '+8 hours') AS d FROM activity_log WHERE entity_type = 'invoice' "
+                        "AND entity_id = ? AND description LIKE '% as Paid' ORDER BY id DESC LIMIT 1",
+                        (inv["id"],),
+                    ).fetchone()
+                    db.execute("INSERT INTO invoice_payments (invoice_id, kind, paid_on, amount, note) "
+                               "VALUES (?, 'balance', ?, ?, 'Balance')",
+                               (inv["id"], log["d"] if log else None, balance))
+        db.execute("INSERT INTO settings (key, value) VALUES ('fix185_payments_backfilled', datetime('now'))")
+        db.commit()
+
+    # Fix186: the SST module only chases periods due from the day it went live
+    # (earlier ones were already handled outside it). Set once.
+    db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('sst_tracking_since', date('now', '+8 hours'))")
     db.commit()
 
     # Training Costs' old single "Others Fee" field was replaced by a
