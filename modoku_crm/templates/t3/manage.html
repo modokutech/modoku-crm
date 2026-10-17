@@ -52,7 +52,7 @@
     {% if remaining is not none and remaining <= 0 %}
     <div class="alert alert-warning small">
       <i class="bi bi-exclamation-triangle me-1"></i>This class's attendance list is full
-      ({{ participants|length }}/{{ s.capacity }} pax). Remove a participant below to add another.
+      ({{ participants|length }}/{{ s.capacity }} pax). Remove a participant from the Participants list to add another.
     </div>
     {% else %}
     <div class="card p-3 mb-3">

@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix188 — T3 full-list message wording
+
+**Date:** 2026-10-17
+
+- "Remove a participant below to add another" now reads "Remove a participant from the Participants list
+  to add another" (the list sits to the right on a wide screen, below on a phone).
+
 ## Fix187 — Dates without the repeated year; Pre & Post QR links in one form
 
 **Date:** 2026-10-17
