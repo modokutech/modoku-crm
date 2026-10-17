@@ -105,9 +105,9 @@ def _rooms(hotel_id, hotel=None):
 INCLUSIONS = [
     ("meeting_room", "Meeting room"),
     ("breakfast", "Breakfast"),
-    ("morning_tea", "Morning tea"),
+    ("morning_tea", "Morning break"),
     ("lunch", "Lunch"),
-    ("afternoon_tea", "Afternoon tea"),
+    ("afternoon_tea", "Afternoon break"),
     ("dinner", "Dinner"),
     ("projector", "Projector & screen"),
     ("pa_system", "PA system"),

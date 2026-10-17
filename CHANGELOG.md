@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix191 — Hotels: "Morning break" / "Afternoon break"
+
+**Date:** 2026-10-17
+
+- Package inclusion chips "Morning tea" and "Afternoon tea" renamed to "Morning break" and "Afternoon
+  break" (covers tea or coffee, as hotels word it). Label only; saved packages keep their ticks.
+
 ## Fix190 — Hotels: meeting packages, "++" pricing, quote date and file, compare hotels
 
 **Date:** 2026-10-17
