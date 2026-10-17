@@ -725,6 +725,21 @@ CREATE TABLE IF NOT EXISTS hotel_rooms (
     breakfast INTEGER NOT NULL DEFAULT 0
 );
 
+-- Fix190: a hotel's meeting packages - hotels quote in packages (meeting
+-- room + some meals), each a price per pax per day with what it includes.
+-- inclusions: comma list of keys from hotels.INCLUSIONS. plus_plus: the
+-- price is quoted "++" (service charge and SST on top).
+CREATE TABLE IF NOT EXISTS hotel_packages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    price REAL,
+    plus_plus INTEGER NOT NULL DEFAULT 0,
+    inclusions TEXT,
+    min_pax INTEGER,
+    notes TEXT
+);
+
 -- Vendor directory - non-training suppliers (photographers, caterers,
 -- printers, transport, etc.), separate from Trainers (who deliver training)
 -- and Hotels (venues). Freelancer vs Company just for staff's own record.
@@ -1248,6 +1263,11 @@ _COLUMN_MIGRATIONS = [
     ("trainers", "company_address", "TEXT"),
     ("purchase_orders", "bill_company", "TEXT"),
     ("purchase_orders", "bill_address", "TEXT"),
+    ("hotel_rooms", "plus_plus", "INTEGER NOT NULL DEFAULT 0"),  # Fix190
+    ("hotels", "plus_sst_rate", "REAL NOT NULL DEFAULT 8"),  # Fix190: SST % inside this hotel's "++"
+    ("hotels", "quoted_on", "TEXT"),  # Fix190
+    ("hotels", "quotation_file", "TEXT"),  # Fix190
+    ("hotels", "quotation_name", "TEXT"),  # Fix190
 ]
 
 
@@ -1384,6 +1404,23 @@ def _apply_light_migrations(db):
     # (earlier ones were already handled outside it). Set once.
     db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('sst_tracking_since', date('now', '+8 hours'))")
     db.commit()
+
+    # Fix190: the old fixed Full-day / Half-day / Others rates become meeting
+    # packages (the old columns are kept but no longer used). Inclusions are
+    # a typical guess, flagged in the package notes to be checked. Once.
+    done = db.execute("SELECT value FROM settings WHERE key = 'fix190_hotel_packages'").fetchone()
+    if done is None:
+        guess = "Moved from the old rate fields. Check the inclusions against the hotel's quote."
+        for h in db.execute("SELECT * FROM hotels").fetchall():
+            olds = [("Full-day Meeting Package", h["rate_full_day"], "meeting_room,morning_tea,lunch,afternoon_tea"),
+                    ("Half-day Meeting Package", h["rate_half_day"], "meeting_room,morning_tea,lunch"),
+                    (h["rate_others_label"] or "Other Package", h["rate_others_amount"], "")]
+            for name, price, inc in olds:
+                if price:
+                    db.execute("INSERT INTO hotel_packages (hotel_id, name, price, inclusions, min_pax, notes) "
+                               "VALUES (?, ?, ?, ?, ?, ?)", (h["id"], name, price, inc, h["minimum_pax"], guess))
+        db.execute("INSERT INTO settings (key, value) VALUES ('fix190_hotel_packages', datetime('now'))")
+        db.commit()
 
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate

@@ -10,6 +10,30 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix190 — Hotels: meeting packages, "++" pricing, quote date and file, compare hotels
+
+**Date:** 2026-10-17
+
+- **Meeting Packages** replace the fixed Full-day / Half-day / Others boxes. Each package has a name,
+  price per pax per day, a "++" tick, minimum pax, notes, and inclusion chips (Meeting room, Breakfast,
+  Morning tea, Lunch, Afternoon tea, Dinner, Projector & screen, PA system, Stationery, Mineral water).
+- Existing rates move into packages automatically on boot (once): Full-day gets Meeting room + Morning
+  tea + Lunch + Afternoon tea, Half-day gets Meeting room + Morning tea + Lunch, Others keeps its label
+  with no inclusions. Each moved package carries a note to check the inclusions. The old columns stay in
+  the table but are no longer used.
+- **"++"**: on packages and accommodation rates. Nett = price × 1.10 × (1 + SST), since SST is charged on
+  the price plus service charge (RM 150++ = RM 178.20 at 8%). SST rate per hotel: 8% (default) or 6%.
+- **Hotel's Quotation**: "Quoted on" date (flagged from 6 months old, also on the list) and an upload
+  of the hotel's quotation file (view, download, replace, remove).
+- **Compare hotels** on the Hotels list: pax, days, what the package must include, and optionally rooms
+  (nights, occupancy). Shows each hotel's cheapest matching package (charged for at least its minimum
+  pax), room cost, estimated total, cheapest first, with notes for a meeting room that's too small or a
+  stale quote. Hotels without a match say why.
+- Hotels list: "Packages from" (cheapest nett per pax/day) and "Quoted" columns replace the Full-day and
+  Half-day columns. CSV export lists the packages.
+- New table `hotel_packages`; new columns `hotels.plus_sst_rate`, `quoted_on`, `quotation_file`,
+  `quotation_name`, `hotel_rooms.plus_plus` (all automatic on boot).
+
 ## Fix189 — Hotels: Accommodation section; "Meeting Room / Hall"
 
 **Date:** 2026-10-17

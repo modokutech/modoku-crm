@@ -27,18 +27,50 @@
       </table>
     </div>
 
+    {# Fix190 #}
     <div class="card p-3 mt-3">
-      <h6>Rate per Day</h6>
+      <h6>Hotel's Quotation</h6>
       <table class="table table-sm table-borderless mb-0">
-        <tr><td class="text-muted" style="width:40%">Full-day Package</td><td>{{ 'RM ' ~ (hotel.rate_full_day|fmtmoney) if hotel.rate_full_day else '-' }}</td></tr>
-        <tr><td class="text-muted">Half-day Package</td><td>{{ 'RM ' ~ (hotel.rate_half_day|fmtmoney) if hotel.rate_half_day else '-' }}</td></tr>
-        <tr><td class="text-muted">{{ hotel.rate_others_label or 'Others' }}</td><td>{{ 'RM ' ~ (hotel.rate_others_amount|fmtmoney) if hotel.rate_others_amount else '-' }}</td></tr>
+        <tr><td class="text-muted" style="width:40%">Quoted on</td><td>
+          {% if hotel.quoted_on %}{{ hotel.quoted_on|fmtdate }}
+            <span class="badge {{ 'bg-warning text-dark' if age.stale else 'bg-light text-muted border' }} ms-1">{{ age.text }}</span>
+            {% if age.stale %}<div class="small text-warning-emphasis">Rates may have changed. Ask the hotel for a fresh quote.</div>{% endif %}
+          {% else %}<span class="text-muted">Not recorded</span>{% endif %}</td></tr>
+        <tr><td class="text-muted">Quotation file</td><td>
+          {% if hotel.quotation_file %}
+          <a href="{{ url_for('hotels.quotation', hotel_id=hotel.id) }}" target="_blank"><i class="bi bi-file-earmark-text me-1"></i>{{ hotel.quotation_name or 'View' }}</a>
+          <a href="{{ url_for('hotels.quotation', hotel_id=hotel.id, download=1) }}" class="ms-2 small" title="Download"><i class="bi bi-download"></i></a>
+          {% else %}<span class="text-muted">None uploaded</span>{% endif %}</td></tr>
+        <tr><td class="text-muted">"++" means</td><td>{{ service_pct }}% service charge + {{ hotel.plus_sst_rate|int }}% SST</td></tr>
         <tr><td class="text-muted">Minimum Pax</td><td>{{ hotel.minimum_pax or '-' }}</td></tr>
       </table>
       {% if hotel.notes %}<hr><p class="small mb-0">{{ hotel.notes }}</p>{% endif %}
     </div>
   </div>
   <div class="col-lg-6">
+    <div class="card p-3 mb-3">
+      <h6>Meeting Packages <span class="text-muted small fw-normal">per pax per day</span></h6>
+      {% for p in packages %}
+      <div class="{{ 'border-top pt-2 mt-2' if not loop.first }}">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div class="fw-semibold">{{ p.name }}</div>
+          <div class="text-end text-nowrap">
+            {% if p.price is not none %}
+            <span class="fw-semibold">RM {{ p.price|fmtmoney }}{{ '++' if p.plus_plus }}</span>
+            {% if p.plus_plus %}<div class="small text-success">≈ RM {{ '%.2f'|format(p.nett) }} nett</div>{% endif %}
+            {% else %}<span class="text-muted">No price</span>{% endif %}
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-1 mt-1">
+          {% for k in p.included %}<span class="badge rounded-pill text-bg-light border fw-normal"><i class="bi bi-check-lg text-success"></i> {{ inclusion_labels[k] }}</span>{% endfor %}
+          {% if not p.included %}<span class="small text-muted">Inclusions not ticked</span>{% endif %}
+        </div>
+        {% if p.min_pax or p.notes %}<div class="small text-muted mt-1">{% if p.min_pax %}Min. {{ p.min_pax }} pax{% endif %}{% if p.min_pax and p.notes %} · {% endif %}{{ p.notes or '' }}</div>{% endif %}
+      </div>
+      {% else %}
+      <p class="text-muted small mb-0">No meeting packages added yet.</p>
+      {% endfor %}
+    </div>
     <div class="card p-3">
       <h6>Meeting Rooms / Halls</h6>
       {% if capacities %}
@@ -63,7 +95,8 @@
         <tbody>
         {% for r in rooms %}
           <tr><td>{{ r.room_type }}</td><td>{{ r.occupancy or '-' }}</td>
-            <td class="text-end text-nowrap">{{ 'RM ' ~ (r.price|fmtmoney) if r.price is not none else '-' }}</td>
+            <td class="text-end text-nowrap">{{ 'RM ' ~ (r.price|fmtmoney) ~ ('++' if r.plus_plus else '') if r.price is not none else '-' }}
+              {% if r.plus_plus and r.nett is not none %}<div class="small text-success">≈ RM {{ '%.2f'|format(r.nett) }} nett</div>{% endif %}</td>
             <td class="text-center">{% if r.breakfast %}<i class="bi bi-check-lg text-success" title="Included"></i>{% else %}<span class="text-muted">-</span>{% endif %}</td></tr>
         {% endfor %}
         </tbody>

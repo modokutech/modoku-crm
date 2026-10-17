@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header"><h4 class="mb-0">{{ 'Edit Hotel' if hotel else 'New Hotel' }}</h4></div>
 <div class="card p-4" style="max-width:860px;">
-  <form method="post">
+  <form method="post" enctype="multipart/form-data">
     {{ csrf_field()|safe }}
     <h6 class="text-muted text-uppercase small mb-2">Hotel Info</h6>
     <div class="row g-3 mb-3">
@@ -41,24 +41,81 @@
       </div>
     </div>
 
-    <h6 class="text-muted text-uppercase small mb-2">Rate per Day</h6>
+    {# Fix190: the hotel's quote - date, file, and what its "++" means. #}
+    <h6 class="text-muted text-uppercase small mb-2">Hotel's Quotation</h6>
     <div class="row g-3 mb-3">
-      <div class="col-md-4">
-        <label class="form-label">Full-day Meeting Package (RM)</label>
-        <input type="number" step="0.01" min="0" name="rate_full_day" class="form-control" value="{{ (hotel.rate_full_day or '') if hotel else '' }}">
+      <div class="col-md-3">
+        <label class="form-label">Quoted on</label>
+        <input type="date" name="quoted_on" class="form-control" value="{{ (hotel.quoted_on or '') if hotel else '' }}">
       </div>
-      <div class="col-md-4">
-        <label class="form-label">Half-day Meeting Package (RM)</label>
-        <input type="number" step="0.01" min="0" name="rate_half_day" class="form-control" value="{{ (hotel.rate_half_day or '') if hotel else '' }}">
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Others (RM)</label>
-        <div class="d-flex gap-2">
-          <input type="text" name="rate_others_label" class="form-control" placeholder="Label, e.g. Overnight" value="{{ (hotel.rate_others_label or '') if hotel else '' }}">
-          <input type="number" step="0.01" min="0" name="rate_others_amount" class="form-control" placeholder="Amount" value="{{ (hotel.rate_others_amount or '') if hotel else '' }}">
+      <div class="col-md-5">
+        <label class="form-label">Quotation file <span class="text-muted small">(PDF or photo)</span></label>
+        <input type="file" name="quotation_file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+        {% if hotel and hotel.quotation_file %}
+        <div class="small mt-1 d-flex gap-3 align-items-center">
+          <a href="{{ url_for('hotels.quotation', hotel_id=hotel.id) }}" target="_blank"><i class="bi bi-file-earmark-text me-1"></i>{{ hotel.quotation_name or 'Current file' }}</a>
+          <label class="form-check-label text-danger"><input type="checkbox" class="form-check-input me-1" name="remove_quotation" value="1">Remove</label>
         </div>
+        <div class="small text-muted">Choosing a new file replaces this one.</div>
+        {% endif %}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">"++" means</label>
+        <div class="input-group">
+          <span class="input-group-text">{{ service_pct }}% service +</span>
+          {% set sst = (hotel.plus_sst_rate if hotel else 8)|int %}
+          <select name="plus_sst_rate" id="plus_sst_rate" class="form-select">
+            <option value="8" {{ 'selected' if sst != 6 }}>8% SST</option>
+            <option value="6" {{ 'selected' if sst == 6 }}>6% SST</option>
+          </select>
+        </div>
+        <div class="small text-muted mt-1">Check the hotel's quote. SST is charged on the price plus service charge.</div>
       </div>
     </div>
+
+    <h6 class="text-muted text-uppercase small mb-1">Meeting Packages</h6>
+    <p class="small text-muted mb-2">Price per pax per day. Tick what each package includes, so the compare tool can match hotels on what a class needs.</p>
+    <div id="pkg-list">
+      {% for p in (packages if packages else [None]) %}
+      <div class="pkg-row border rounded-3 p-3 mb-2">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-5">
+            <label class="form-label small mb-1">Package name</label>
+            <input type="text" name="pkg_name" class="form-control form-control-sm" value="{{ p.name if p else '' }}" placeholder="e.g. Full-day Meeting Package">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-1">Price / pax / day</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">RM</span>
+              <input type="number" step="0.01" min="0" name="pkg_price" class="form-control pkg-price" value="{{ ('%.2f'|format(p.price)).rstrip('0').rstrip('.') if p and p.price is not none else '' }}" placeholder="150">
+            </div>
+          </div>
+          <div class="col-md-2">
+            <label class="form-check-label small d-flex align-items-center gap-1 pb-1" title="Quoted ++ (service charge and SST on top)">
+              <input type="checkbox" class="form-check-input mt-0 plus-tick" {{ 'checked' if p and p.plus_plus }}> <b>++</b>
+            </label>
+            <input type="hidden" name="pkg_plus" value="{{ 1 if p and p.plus_plus else 0 }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small mb-1">Min. pax</label>
+            <input type="number" min="0" name="pkg_min_pax" class="form-control form-control-sm" value="{{ p.min_pax if p and p.min_pax else '' }}">
+          </div>
+        </div>
+        <div class="small text-success mt-1 nett-hint"></div>
+        <div class="d-flex flex-wrap gap-1 mt-2 inc-chips">
+          {% for key, label in inclusions %}
+          <label class="inc-chip {{ 'on' if p and key in p.included }}"><input type="checkbox" class="d-none inc" value="{{ key }}" {{ 'checked' if p and key in p.included }}>{{ label }}</label>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="pkg_inclusions" value="{{ p.included|join(',') if p else '' }}">
+        <div class="d-flex gap-2 mt-2">
+          <input type="text" name="pkg_notes" class="form-control form-control-sm" value="{{ (p.notes or '') if p else '' }}" placeholder="Hotel's notes, e.g. min. 20 pax, extra RM 15 for dinner">
+          <button type="button" class="btn btn-sm btn-outline-danger remove-pkg" title="Remove package">✕</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-pkg">+ Add package</button>
 
     <h6 class="text-muted text-uppercase small mb-2">Meeting Rooms / Halls (capacity)</h6>
     <div class="table-responsive">
@@ -90,7 +147,7 @@
     <h6 class="text-muted text-uppercase small mb-2">Accommodation</h6>
     <div class="table-responsive">
       <table class="table table-sm align-middle" id="acc-table">
-        <thead><tr><th style="width:36%">Room Type</th><th style="width:22%">Occupancy</th><th style="width:20%">Price / Night (RM)</th><th class="text-center">Breakfast incl.</th><th></th></tr></thead>
+        <thead><tr><th style="width:36%">Room Type</th><th style="width:22%">Occupancy</th><th style="width:20%">Price / Night (RM)</th><th class="text-center">++</th><th class="text-center">Breakfast incl.</th><th></th></tr></thead>
         <tbody>
           {% for r in (rooms if rooms else [None]) %}
           <tr>
@@ -98,7 +155,12 @@
             <td><select name="acc_occupancy" class="form-select form-select-sm">
               {% for o in occupancies %}<option value="{{ o }}" {{ 'selected' if r and r.occupancy == o }}>{{ o }}</option>{% endfor %}
             </select></td>
-            <td><input type="number" step="0.01" min="0" name="acc_price" class="form-control form-control-sm" value="{{ r.price if r and r.price is not none else '' }}" placeholder="e.g. 280"></td>
+            <td><input type="number" step="0.01" min="0" name="acc_price" class="form-control form-control-sm pkg-price" value="{{ ('%.2f'|format(r.price)).rstrip('0').rstrip('.') if r and r.price is not none else '' }}" placeholder="e.g. 280">
+              <div class="small text-success nett-hint"></div></td>
+            <td class="text-center">
+              <input type="checkbox" class="form-check-input plus-tick" {{ 'checked' if r and r.plus_plus }}>
+              <input type="hidden" name="acc_plus" value="{{ 1 if r and r.plus_plus else 0 }}">
+            </td>
             <td class="text-center">
               <input type="checkbox" class="form-check-input acc-bf" {{ 'checked' if r and r.breakfast }}>
               <input type="hidden" name="acc_breakfast" value="{{ 1 if r and r.breakfast else 0 }}">
@@ -123,6 +185,11 @@
   </form>
 </div>
 
+<style>
+.inc-chip { border: 1px solid #ced4da; border-radius: 999px; padding: 2px 10px; font-size: .8rem; cursor: pointer; user-select: none; color: #555; background: #fff; }
+.inc-chip.on { background: #198754; border-color: #198754; color: #fff; }
+.inc-chip.on::before { content: "\2713  "; }
+</style>
 <script>
 function blankRow(tableId) {
   const tbody = document.querySelector('#' + tableId + ' tbody');
@@ -131,6 +198,7 @@ function blankRow(tableId) {
   row.querySelectorAll('input[type=checkbox]').forEach(i => { i.checked = false; });
   row.querySelectorAll('input[type=hidden]').forEach(i => { i.value = '0'; });
   row.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+  row.querySelectorAll('.nett-hint').forEach(h => { h.textContent = ''; });
   return row;
 }
 [['add-row', 'capacity-table'], ['add-acc-row', 'acc-table']].forEach(function (pair) {
@@ -151,5 +219,61 @@ document.getElementById('acc-table').addEventListener('change', function (e) {
     e.target.nextElementSibling.value = e.target.checked ? '1' : '0';
   }
 });
+
+// Fix190: "++" ticks (packages and rooms) -> hidden 0/1, and the nett price under the price box.
+const SERVICE = {{ service_pct }};
+function fmt(n) { return n.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function scopeOf(el) { return el.closest('.pkg-row') || el.closest('tr'); }
+function refreshNett(scope) {
+  const price = parseFloat(scope.querySelector('.pkg-price').value);
+  const tick = scope.querySelector('.plus-tick');
+  const hint = scope.querySelector('.nett-hint');
+  if (!tick.checked || isNaN(price)) { hint.textContent = ''; return; }
+  const sst = parseFloat(document.getElementById('plus_sst_rate').value);
+  hint.textContent = '≈ RM ' + fmt(price * (1 + SERVICE / 100) * (1 + sst / 100)) + ' nett';
+}
+function refreshAll() { document.querySelectorAll('.pkg-row, #acc-table tbody tr').forEach(refreshNett); }
+document.addEventListener('change', function (e) {
+  if (e.target.classList.contains('plus-tick')) {
+    const scope = scopeOf(e.target);
+    scope.querySelector('input[name=pkg_plus], input[name=acc_plus]').value = e.target.checked ? '1' : '0';
+    refreshNett(scope);
+  }
+  if (e.target.classList.contains('inc')) {
+    const row = e.target.closest('.pkg-row');
+    e.target.parentElement.classList.toggle('on', e.target.checked);
+    row.querySelector('input[name=pkg_inclusions]').value =
+      Array.from(row.querySelectorAll('.inc:checked')).map(function (c) { return c.value; }).join(',');
+  }
+  if (e.target.id === 'plus_sst_rate') refreshAll();
+});
+document.addEventListener('input', function (e) {
+  if (e.target.classList.contains('pkg-price')) refreshNett(scopeOf(e.target));
+});
+
+// Packages: add / remove (the last one is cleared instead).
+function blankPkg() {
+  const row = document.querySelector('#pkg-list .pkg-row').cloneNode(true);
+  row.querySelectorAll('input[type=text], input[type=number]').forEach(i => { i.value = ''; });
+  row.querySelectorAll('input[type=checkbox]').forEach(i => { i.checked = false; });
+  row.querySelectorAll('.inc-chip').forEach(c => c.classList.remove('on'));
+  row.querySelector('input[name=pkg_plus]').value = '0';
+  row.querySelector('input[name=pkg_inclusions]').value = '';
+  row.querySelector('.nett-hint').textContent = '';
+  return row;
+}
+document.getElementById('add-pkg').addEventListener('click', function () {
+  const row = blankPkg();
+  document.getElementById('pkg-list').appendChild(row);
+  row.querySelector('input[name=pkg_name]').focus();
+});
+document.getElementById('pkg-list').addEventListener('click', function (e) {
+  const btn = e.target.closest('.remove-pkg');
+  if (!btn) return;
+  const row = btn.closest('.pkg-row');
+  if (document.querySelectorAll('#pkg-list .pkg-row').length > 1) row.remove();
+  else row.replaceWith(blankPkg());
+});
+refreshAll();
 </script>
 {% endblock %}

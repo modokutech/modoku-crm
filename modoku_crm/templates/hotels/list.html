@@ -1,10 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Hotels{% endblock %}
+{% block title %}Hotels<style>
+.inc-chip { border: 1px solid #ced4da; border-radius: 999px; padding: 2px 10px; font-size: .8rem; cursor: pointer; user-select: none; color: #555; background: #fff; }
+.inc-chip.on { background: #198754; border-color: #198754; color: #fff; }
+.inc-chip.on::before { content: "\2713  "; }
+</style>
+<script>
+document.querySelectorAll('#compare-form .inc-chip input').forEach(function (c) {
+  c.addEventListener('change', function () { c.parentElement.classList.toggle('on', c.checked); });
+});
+</script>
+{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
     <h4 class="mb-0">Hotels</h4>
-    <small class="text-muted">Venue directory, meeting package rates, minimum pax and room capacities.</small>
+    <small class="text-muted">Venue directory: meeting packages, room rates, capacities and each hotel's quote.</small>
   </div>
   <div class="d-flex gap-2">
     {% if g.user.role == 'admin' %}
@@ -30,21 +40,109 @@
   </form>
 </div>
 
+{# Fix190: compare hotels for a class - pax x days, what's needed, rooms. #}
+<div class="card p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center">
+    <h6 class="mb-0"><i class="bi bi-calculator me-1"></i>Compare hotels</h6>
+    {% if not params %}<button class="btn btn-sm btn-outline-success" type="button" data-bs-toggle="collapse" data-bs-target="#compare-form">Estimate a class</button>{% endif %}
+  </div>
+  <form method="get" id="compare-form" class="collapse {{ 'show' if params }} mt-3">
+    <input type="hidden" name="compare" value="1">
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+    {% set needs = params.needs if params else default_needs %}
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1">Pax</label>
+        <input type="number" min="1" name="pax" class="form-control form-control-sm" value="{{ params.pax if params else 25 }}">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1">Days</label>
+        <input type="number" min="1" name="days" class="form-control form-control-sm" value="{{ params.days if params else 2 }}">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label small mb-1 d-block">Rooms for participants</label>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" name="rooms" value="1" id="cmp-rooms" {{ 'checked' if params and params.rooms }}>Need rooms</label>
+          <div class="input-group input-group-sm" style="width:auto">
+            <input type="number" min="1" name="nights" class="form-control" style="width:70px" value="{{ params.nights if params else 1 }}">
+            <span class="input-group-text">night(s)</span>
+          </div>
+          <select name="occupancy" class="form-select form-select-sm" style="width:auto">
+            {% for o in occupancies %}<option value="{{ o }}" {{ 'selected' if (params.occupancy if params else 'Twin-sharing') == o }}>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <label class="form-label small mb-1 mt-2 d-block">The package must include</label>
+    <div class="d-flex flex-wrap gap-1">
+      {% for key, label in inclusions %}
+      <label class="inc-chip {{ 'on' if key in needs }}"><input type="checkbox" class="d-none" name="need" value="{{ key }}" {{ 'checked' if key in needs }}>{{ label }}</label>
+      {% endfor %}
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-success btn-sm" type="submit">Compare</button>
+      {% if params %}<a href="{{ url_for('hotels.index', q=q or None) }}" class="btn btn-outline-secondary btn-sm">Close</a>{% endif %}
+    </div>
+  </form>
+
+  {% if results is not none %}
+  <hr>
+  <div class="small text-muted mb-2">
+    {{ params.pax }} pax × {{ params.days }} day{{ 's' if params.days != 1 }}{% if params.rooms %}, {{ params.occupancy|lower }} rooms × {{ params.nights }} night{{ 's' if params.nights != 1 }}{% endif %}.
+    Uses each hotel's cheapest package that includes everything ticked. Prices are nett ("++" added). Estimates only, confirm with the hotel.
+  </div>
+  {% if results %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Hotel</th><th>Package</th><th class="text-end">Meeting</th>{% if params.rooms %}<th class="text-end">Rooms</th>{% endif %}<th class="text-end">Est. Total</th><th>Notes</th></tr></thead>
+      <tbody>
+      {% for r in results %}
+      <tr class="{{ 'table-success' if loop.first and r.total is not none }}{{ ' text-muted' if r.total is none }}">
+        <td class="fw-semibold"><a href="{{ url_for('hotels.view', hotel_id=r.hotel.id) }}" class="text-reset">{{ r.hotel.name }}</a>
+          {% if loop.first and r.total is not none %}<span class="badge bg-success ms-1">Cheapest</span>{% endif %}
+          {% if r.hotel.location %}<div class="small text-muted fw-normal">{{ r.hotel.location }}</div>{% endif %}</td>
+        <td class="small">
+          {% if r.package %}{{ r.package.name }}<br>
+            <span class="text-muted">RM {{ '%.2f'|format(r.package.nett) }}{{ ' nett' if r.package.plus_plus }} × {{ r.charged }} pax × {{ params.days }}</span>
+            {% if r.charged > params.pax %}<div class="text-warning-emphasis">Charged for min. {{ r.charged }} pax</div>{% endif %}
+          {% else %}<span class="text-danger">{{ r.missing }}</span>{% endif %}
+        </td>
+        <td class="text-end text-nowrap">{{ ('RM ' ~ (r.meeting_total|fmtmoney)) if r.meeting_total is not none else '-' }}</td>
+        {% if params.rooms %}
+        <td class="text-end small">
+          {% if r.room %}<span class="text-nowrap">RM {{ r.room_total|fmtmoney }}</span><br>
+            <span class="text-muted text-nowrap">{{ r.room_count }} × {{ r.room.room_type }} × {{ params.nights }}n</span>
+          {% else %}<span class="text-danger">{{ r.missing_rooms }}</span>{% endif %}
+        </td>
+        {% endif %}
+        <td class="text-end fw-semibold text-nowrap">{{ ('RM ' ~ (r.total|fmtmoney)) if r.total is not none else '-' }}</td>
+        <td class="small">{% for n in r.notes %}<div class="text-warning-emphasis"><i class="bi bi-exclamation-triangle me-1"></i>{{ n }}</div>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted small mb-0">No hotels to compare{% if q %} for "{{ q }}"{% endif %}.</p>
+  {% endif %}
+  {% endif %}
+</div>
+
 <div class="card p-3">
   {% if hotels %}
   <div class="table-responsive">
     <table class="table table-hover align-middle">
-      <thead><tr><th>Hotel</th><th>Location</th><th>Contact</th><th>Full-day Rate</th><th>Half-day Rate</th><th>Min. Pax</th><th>Largest Room</th></tr></thead>
+      <thead><tr><th>Hotel</th><th>Location</th><th>Contact</th><th>Packages from</th><th>Min. Pax</th><th>Largest Room</th><th>Quoted</th></tr></thead>
       <tbody>
       {% for h in hotels %}
         <tr onclick="window.location='{{ url_for('hotels.view', hotel_id=h.id) }}'" style="cursor:pointer">
           <td class="fw-semibold">{{ h.name }}</td>
           <td>{{ h.location or '-' }}</td>
           <td class="small">{{ h.contact_name or '' }}{% if h.contact_name and h.contact_phone %}<br>{% endif %}{{ h.contact_phone or '' }}</td>
-          <td>{{ 'RM ' ~ (h.rate_full_day|fmtmoney) if h.rate_full_day else '-' }}</td>
-          <td>{{ 'RM ' ~ (h.rate_half_day|fmtmoney) if h.rate_half_day else '-' }}</td>
+          <td>{% if h.from_price is not none %}RM {{ h.from_price|fmtmoney }} <span class="text-muted small">/pax/day ({{ h.package_count }} package{{ 's' if h.package_count != 1 }})</span>{% else %}-{% endif %}</td>
           <td>{{ h.minimum_pax or '-' }}</td>
           <td>{{ h.max_capacity or '-' }}{% if h.max_capacity %} pax{% endif %} <span class="text-muted small">({{ h.room_count }} room{{ 's' if h.room_count != 1 }})</span></td>
+          <td class="small">{% if h.age %}<span class="{{ 'badge bg-warning text-dark' if h.age.stale }}">{{ h.age.text }}</span>{% if h.quotation_file %} <i class="bi bi-paperclip text-muted" title="Quotation file attached"></i>{% endif %}{% else %}<span class="text-muted">-</span>{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -54,4 +152,14 @@
   <p class="text-muted mb-0">{% if q %}No hotels match "{{ q }}".{% else %}No hotels added yet.{% endif %}</p>
   {% endif %}
 </div>
+<style>
+.inc-chip { border: 1px solid #ced4da; border-radius: 999px; padding: 2px 10px; font-size: .8rem; cursor: pointer; user-select: none; color: #555; background: #fff; }
+.inc-chip.on { background: #198754; border-color: #198754; color: #fff; }
+.inc-chip.on::before { content: "\2713  "; }
+</style>
+<script>
+document.querySelectorAll('#compare-form .inc-chip input').forEach(function (c) {
+  c.addEventListener('change', function () { c.parentElement.classList.toggle('on', c.checked); });
+});
+</script>
 {% endblock %}
