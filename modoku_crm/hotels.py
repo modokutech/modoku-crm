@@ -49,6 +49,36 @@ def _save_capacities(hotel_id, form):
         )
 
 
+OCCUPANCIES = ["Single", "Twin-sharing", "Double", "Triple"]
+
+
+def _save_rooms(hotel_id, form):
+    """Fix189: the Accommodation rows - same delete-then-reinsert approach as
+    the meeting room capacities."""
+    db.execute("DELETE FROM hotel_rooms WHERE hotel_id = ?", (hotel_id,))
+    types = form.getlist("acc_room_type")
+    occs = form.getlist("acc_occupancy")
+    prices = form.getlist("acc_price")
+    breakfasts = form.getlist("acc_breakfast")  # one "0"/"1" per row (hidden input kept in step by JS)
+    for i, room_type in enumerate(types):
+        room_type = room_type.strip()
+        if not room_type:
+            continue
+        occ = occs[i] if i < len(occs) and occs[i] in OCCUPANCIES else None
+        raw = (prices[i] if i < len(prices) else "").replace(",", "").strip()
+        try:
+            price = float(raw) if raw else None
+        except ValueError:
+            price = None
+        breakfast = 1 if i < len(breakfasts) and breakfasts[i] == "1" else 0
+        db.execute("INSERT INTO hotel_rooms (hotel_id, room_type, occupancy, price, breakfast) VALUES (?,?,?,?,?)",
+                   (hotel_id, room_type, occ, price, breakfast))
+
+
+def _rooms(hotel_id):
+    return db.query("SELECT * FROM hotel_rooms WHERE hotel_id = ? ORDER BY id", (hotel_id,))
+
+
 def _filtered_hotels():
     q = request.args.get("q", "").strip()
     sql = """SELECT h.*, (SELECT COUNT(*) FROM hotel_capacities hc WHERE hc.hotel_id = h.id) AS room_count,
@@ -103,10 +133,11 @@ def new():
                 fields,
             )
             _save_capacities(hotel_id, request.form)
+            _save_rooms(hotel_id, request.form)
             activity.log("create", "hotel", hotel_id, f"Added hotel {fields[0]}")
             flash("Hotel added.", "success")
             return redirect(url_for("hotels.view", hotel_id=hotel_id))
-    return render_template("hotels/form.html", hotel=None, capacities=[])
+    return render_template("hotels/form.html", hotel=None, capacities=[], rooms=[], occupancies=OCCUPANCIES)
 
 
 @bp.route("/<int:hotel_id>")
@@ -119,7 +150,7 @@ def view(hotel_id):
     capacities = db.query(
         "SELECT * FROM hotel_capacities WHERE hotel_id = ? ORDER BY id", (hotel_id,)
     )
-    return render_template("hotels/view.html", hotel=hotel, capacities=capacities)
+    return render_template("hotels/view.html", hotel=hotel, capacities=capacities, rooms=_rooms(hotel_id))
 
 
 @bp.route("/<int:hotel_id>/edit", methods=("GET", "POST"))
@@ -142,13 +173,15 @@ def edit(hotel_id):
                 fields + (hotel_id,),
             )
             _save_capacities(hotel_id, request.form)
+            _save_rooms(hotel_id, request.form)
             activity.log("update", "hotel", hotel_id, f"Updated hotel {fields[0]}")
             flash("Hotel updated.", "success")
             return redirect(url_for("hotels.view", hotel_id=hotel_id))
     capacities = db.query(
         "SELECT * FROM hotel_capacities WHERE hotel_id = ? ORDER BY id", (hotel_id,)
     )
-    return render_template("hotels/form.html", hotel=hotel, capacities=capacities)
+    return render_template("hotels/form.html", hotel=hotel, capacities=capacities, rooms=_rooms(hotel_id),
+                           occupancies=OCCUPANCIES)
 
 
 @bp.route("/<int:hotel_id>/delete", methods=("POST",))

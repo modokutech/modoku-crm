@@ -60,10 +60,10 @@
       </div>
     </div>
 
-    <h6 class="text-muted text-uppercase small mb-2">Capacity (by room / hall)</h6>
+    <h6 class="text-muted text-uppercase small mb-2">Meeting Rooms / Halls (capacity)</h6>
     <div class="table-responsive">
       <table class="table table-sm" id="capacity-table">
-        <thead><tr><th style="width:60%">Room / Hall Name</th><th>Pax Capacity</th><th></th></tr></thead>
+        <thead><tr><th style="width:60%">Meeting Room / Hall Name</th><th>Pax Capacity</th><th></th></tr></thead>
         <tbody>
           {% if capacities %}
           {% for cap in capacities %}
@@ -83,7 +83,33 @@
         </tbody>
       </table>
     </div>
-    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add room</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-row">+ Add meeting room</button>
+
+
+    {# Fix189: accommodation rates by room type and occupancy. #}
+    <h6 class="text-muted text-uppercase small mb-2">Accommodation</h6>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" id="acc-table">
+        <thead><tr><th style="width:36%">Room Type</th><th style="width:22%">Occupancy</th><th style="width:20%">Price / Night (RM)</th><th class="text-center">Breakfast incl.</th><th></th></tr></thead>
+        <tbody>
+          {% for r in (rooms if rooms else [None]) %}
+          <tr>
+            <td><input type="text" name="acc_room_type" class="form-control form-control-sm" value="{{ r.room_type if r else '' }}" placeholder="e.g. Deluxe"></td>
+            <td><select name="acc_occupancy" class="form-select form-select-sm">
+              {% for o in occupancies %}<option value="{{ o }}" {{ 'selected' if r and r.occupancy == o }}>{{ o }}</option>{% endfor %}
+            </select></td>
+            <td><input type="number" step="0.01" min="0" name="acc_price" class="form-control form-control-sm" value="{{ r.price if r and r.price is not none else '' }}" placeholder="e.g. 280"></td>
+            <td class="text-center">
+              <input type="checkbox" class="form-check-input acc-bf" {{ 'checked' if r and r.breakfast }}>
+              <input type="hidden" name="acc_breakfast" value="{{ 1 if r and r.breakfast else 0 }}">
+            </td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="add-acc-row">+ Add room type</button>
 
     <div class="mb-3">
       <label class="form-label">Notes</label>
@@ -98,19 +124,31 @@
 </div>
 
 <script>
-function rowTemplate() {
-  const tbody = document.querySelector('#capacity-table tbody');
-  const first = tbody.querySelector('tr').cloneNode(true);
-  first.querySelectorAll('input').forEach(i => { i.value = ''; });
-  return first;
+function blankRow(tableId) {
+  const tbody = document.querySelector('#' + tableId + ' tbody');
+  const row = tbody.querySelector('tr').cloneNode(true);
+  row.querySelectorAll('input[type=text], input[type=number]').forEach(i => { i.value = ''; });
+  row.querySelectorAll('input[type=checkbox]').forEach(i => { i.checked = false; });
+  row.querySelectorAll('input[type=hidden]').forEach(i => { i.value = '0'; });
+  row.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+  return row;
 }
-document.getElementById('add-row').addEventListener('click', function () {
-  document.querySelector('#capacity-table tbody').appendChild(rowTemplate());
+[['add-row', 'capacity-table'], ['add-acc-row', 'acc-table']].forEach(function (pair) {
+  document.getElementById(pair[0]).addEventListener('click', function () {
+    document.querySelector('#' + pair[1] + ' tbody').appendChild(blankRow(pair[1]));
+  });
+  document.getElementById(pair[1]).addEventListener('click', function (e) {
+    const btn = e.target.closest('.remove-row');
+    if (!btn) return;
+    const rows = document.querySelectorAll('#' + pair[1] + ' tbody tr');
+    if (rows.length > 1) btn.closest('tr').remove();
+    else btn.closest('tr').replaceWith(blankRow(pair[1]));  // last row: just clear it
+  });
 });
-document.querySelector('#capacity-table').addEventListener('click', function (e) {
-  if (e.target.classList.contains('remove-row')) {
-    const rows = document.querySelectorAll('#capacity-table tbody tr');
-    if (rows.length > 1) e.target.closest('tr').remove();
+// Breakfast tick -> its hidden 0/1 (an unticked checkbox wouldn't be sent at all).
+document.getElementById('acc-table').addEventListener('change', function (e) {
+  if (e.target.classList.contains('acc-bf')) {
+    e.target.nextElementSibling.value = e.target.checked ? '1' : '0';
   }
 });
 </script>

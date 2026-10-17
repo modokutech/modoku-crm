@@ -714,6 +714,17 @@ CREATE TABLE IF NOT EXISTS hotel_capacities (
     pax_capacity INTEGER
 );
 
+-- Fix189: a hotel's accommodation rates, one row per room type/occupancy
+-- (e.g. "Deluxe - Twin-sharing - RM 280/night, breakfast included").
+CREATE TABLE IF NOT EXISTS hotel_rooms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hotel_id INTEGER NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
+    room_type TEXT NOT NULL,
+    occupancy TEXT,
+    price REAL,
+    breakfast INTEGER NOT NULL DEFAULT 0
+);
+
 -- Vendor directory - non-training suppliers (photographers, caterers,
 -- printers, transport, etc.), separate from Trainers (who deliver training)
 -- and Hotels (venues). Freelancer vs Company just for staff's own record.
