@@ -10,6 +10,20 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix187 — Dates without the repeated year; Pre & Post QR links in one form
+
+**Date:** 2026-10-17
+
+- Date ranges in the same year now show the year once: "30 November - 1 December 2026" (was
+  "30 November 2026 - 1 December 2026"). Applies to the training banner, the evaluation QR poster and the
+  QR Posters (they share one formatter). Ranges across years keep both years. Already-generated
+  banners/posters keep their old text until regenerated.
+- QR Posters: one form per class with a Pre-Assessment Test link box and a Post-Assessment Test link box;
+  fill in one or both and both posters are made in one go. The class's existing links are filled in when
+  it's picked; changing one updates that poster (no duplicates), an empty box is skipped. Edit on a
+  poster opens the same form. The class page card has one "Create Pre & Post Test Posters" /
+  "Add / Change Pre & Post Links" button.
+
 ## Fix186 — New SST module
 
 **Date:** 2026-10-17

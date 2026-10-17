@@ -363,10 +363,8 @@
       <p class="small text-muted mb-2">QR posters for this class's Pre/Post-Assessment Test forms.</p>
       {% endfor %}
       {% if s.status != 'Cancelled' %}
-      <div class="d-flex gap-2 mt-2">
-        <a href="{{ url_for('qr_posters.new', session_id=s.id, kind='pre') }}" class="btn btn-sm btn-outline-success flex-fill text-nowrap" title="New Pre-Assessment Test QR poster">+ Pre-Test</a>
-        <a href="{{ url_for('qr_posters.new', session_id=s.id, kind='post') }}" class="btn btn-sm btn-outline-success flex-fill text-nowrap" title="New Post-Assessment Test QR poster">+ Post-Test</a>
-      </div>
+      <a href="{{ url_for('qr_posters.new', session_id=s.id) }}" class="btn btn-sm btn-outline-success w-100 mt-2">
+        <i class="bi bi-qr-code me-1"></i>{{ 'Add / Change Pre &amp; Post Links'|safe if qr_posters else 'Create Pre &amp; Post Test Posters'|safe }}</a>
       {% endif %}
     </div>
     {% endif %}

@@ -136,6 +136,9 @@ def _fmt_date_range(start_date, end_date):
         return start.strftime("%-d %B %Y")
     if end.year == start.year and end.month == start.month:
         return f"{start.day} - {end.strftime('%-d %B %Y')}"
+    if end.year == start.year:
+        # Fix187: same year, so the year only once: "30 November - 1 December 2026".
+        return f"{start.strftime('%-d %B')} - {end.strftime('%-d %B %Y')}"
     return f"{start.strftime('%-d %B %Y')} - {end.strftime('%-d %B %Y')}"
 
 

@@ -1,7 +1,7 @@
 """QR Posters (Fix179): branded QR posters for links participants open on
 their phones during a class - mainly the Pre-Assessment Test and
-Post-Assessment Test Google Forms. Flow: choose the class, Pre or Post,
-paste the link, Generate.
+Post-Assessment Test Google Forms. Flow: choose the class, paste the Pre-Test
+and/or Post-Test link, Generate (Fix187: both in one go).
 
 Same look as the Training Evaluation poster (poster.generate_qr_poster):
 heading, QR code, course title and date. The Google Form itself is still made
@@ -71,33 +71,25 @@ def _class_choices():
     return [dict(r, date_text=banner._fmt_date_range(r["start_date"], r["end_date"])) for r in rows]
 
 
-def _form_values():
-    """Class + Pre/Post + link from the form; the course title and dates are
-    always taken from the class itself."""
-    kind = request.form.get("kind", "pre")
-    if kind not in KINDS:
-        kind = "pre"
-    try:
-        session_id = int(request.form.get("session_id") or 0) or None
-    except ValueError:
-        session_id = None
-    cls = next((c for c in _class_choices() if c["id"] == session_id), None) if session_id else None
-    return {
-        "kind": kind,
-        "heading": KINDS[kind],
-        "session_id": session_id,
-        "course_title": cls["course_title"] if cls else "",
-        "date_text": cls["date_text"] if cls else "",
-        "link": request.form.get("link", "").strip(),
-    }
+def _existing(session_id):
+    """This class's current Pre and Post posters (the newest of each)."""
+    out = {}
+    for r in db.query("SELECT * FROM qr_posters WHERE session_id = ? ORDER BY id", (session_id,)):
+        out[r["kind"]] = r
+    return out
 
 
-def _validate(v):
-    if not v["session_id"] or not v["course_title"]:
-        return "Choose the class first."
-    if not re.match(r"^https?://\S+$", v["link"]):
-        return "Paste the full Google Form link, starting with https:// (e.g. https://forms.gle/...)."
-    return None
+def _existing_links():
+    """{class_id: {"pre": link, "post": link}} - lets the form fill in the
+    links a class already has as soon as it's picked."""
+    out = {}
+    for r in db.query("SELECT session_id, kind, link FROM qr_posters WHERE session_id IS NOT NULL ORDER BY id"):
+        out.setdefault(r["session_id"], {})[r["kind"]] = r["link"]
+    return out
+
+
+def _link_ok(link):
+    return bool(re.match(r"^https?://\S+$", link or ""))
 
 
 def _build(v):
@@ -151,31 +143,89 @@ def index():
 @bp.route("/new", methods=("GET", "POST"))
 @login_required
 def new():
+    """Fix187: one form for a class's Pre-Assessment Test and Post-Assessment
+    Test links - fill in either or both. A test the class already has a
+    poster for is updated (re-generated) rather than duplicated; a blank
+    link leaves that test alone."""
+    classes = _class_choices()
     if request.method == "POST":
-        v = _form_values()
-        error = _validate(v)
+        try:
+            session_id = int(request.form.get("session_id") or 0) or None
+        except ValueError:
+            session_id = None
+        cls = next((c for c in classes if c["id"] == session_id), None)
+        links = {k: (request.form.get(f"link_{k}") or "").strip() for k in KINDS}
+        values = {"session_id": session_id, "links": links}
+        error = None
+        if cls is None:
+            error = "Choose the class first."
+        elif not any(links.values()):
+            error = "Paste at least one Google Form link (Pre-Test, Post-Test or both)."
+        else:
+            bad = [KINDS[k] for k, link in links.items() if link and not _link_ok(link)]
+            if bad:
+                error = (f"The {' and '.join(bad)} link should be the full link, starting with https:// "
+                         "(e.g. https://forms.gle/...).")
         if error:
             flash(error, "danger")
         else:
-            filename, scan_ok = _build(v)
-            poster_id = db.execute(
-                """INSERT INTO qr_posters (session_id, kind, heading, course_title, date_text, link, poster_file,
-                                           created_by)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (v["session_id"], v["kind"], v["heading"], v["course_title"], v["date_text"], v["link"],
-                 filename, g.user["id"] if g.user else None),
-            )
-            activity.log("create", "qr_poster", poster_id, f"Created QR poster: {v['heading']} - {v['course_title']}")
-            flash("QR poster ready.", "success")
-            _flash_scan(scan_ok)
-            return redirect(url_for("qr_posters.view", poster_id=poster_id))
-        values = v
+            existing = _existing(session_id)
+            done, scan_bad = [], False
+            for kind, link in links.items():
+                if not link:
+                    continue
+                v = {"kind": kind, "heading": KINDS[kind], "session_id": session_id,
+                     "course_title": cls["course_title"], "date_text": cls["date_text"], "link": link}
+                row = existing.get(kind)
+                if row is not None and row["link"] == link and row["course_title"] == v["course_title"] \
+                        and row["date_text"] == v["date_text"]:
+                    done.append((row["id"], "unchanged"))
+                    continue
+                filename, scan_ok = _build(v)
+                scan_bad = scan_bad or scan_ok is False
+                if row is None:
+                    poster_id = db.execute(
+                        """INSERT INTO qr_posters (session_id, kind, heading, course_title, date_text, link,
+                                                   poster_file, created_by)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (session_id, kind, v["heading"], v["course_title"], v["date_text"], link, filename,
+                         g.user["id"] if g.user else None),
+                    )
+                    activity.log("create", "qr_poster", poster_id, f"Created QR poster: {v['heading']} - {v['course_title']}")
+                    done.append((poster_id, "created"))
+                else:
+                    db.execute(
+                        """UPDATE qr_posters SET heading = ?, course_title = ?, date_text = ?, link = ?, poster_file = ?,
+                                  updated_at = datetime('now') WHERE id = ?""",
+                        (v["heading"], v["course_title"], v["date_text"], link, filename, row["id"]),
+                    )
+                    try:
+                        os.remove(os.path.join(_poster_dir(), row["poster_file"]))
+                    except (OSError, TypeError):
+                        pass
+                    activity.log("update", "qr_poster", row["id"], f"Updated QR poster: {v['heading']} - {v['course_title']}")
+                    done.append((row["id"], "updated"))
+            changed = [d for d in done if d[1] != "unchanged"]
+            if not changed:
+                flash("Nothing changed: those links are already on this class's posters.", "info")
+            else:
+                parts = []
+                for verb in ("created", "updated"):
+                    n = sum(1 for d in changed if d[1] == verb)
+                    if n:
+                        parts.append(f"{n} {verb}")
+                flash(f"QR poster{'s' if len(changed) > 1 else ''} ready ({', '.join(parts)}).", "success")
+            if scan_bad:
+                _flash_scan(False)
+            if len(done) == 1:
+                return redirect(url_for("qr_posters.view", poster_id=done[0][0]))
+            return redirect(url_for("qr_posters.index", _anchor=f"class-{session_id}"))
     else:
-        kind = request.args.get("kind", "pre")
-        values = {"kind": kind if kind in KINDS else "pre", "link": "",
-                  "session_id": request.args.get("session_id", type=int)}
-    return render_template("qr_posters/form.html", values=values, classes=_class_choices(), kinds=KINDS,
-                           poster_row=None)
+        session_id = request.args.get("session_id", type=int)
+        current = _existing_links().get(session_id, {}) if session_id else {}
+        values = {"session_id": session_id, "links": {k: current.get(k, "") for k in KINDS}}
+    return render_template("qr_posters/form.html", values=values, classes=classes, kinds=KINDS,
+                           existing_links=_existing_links(), focus=request.args.get("kind"))
 
 
 @bp.route("/<int:poster_id>")
@@ -184,38 +234,16 @@ def view(poster_id):
     return render_template("qr_posters/view.html", p=_get(poster_id), kinds=KINDS)
 
 
-@bp.route("/<int:poster_id>/edit", methods=("GET", "POST"))
+@bp.route("/<int:poster_id>/edit")
 @login_required
 def edit(poster_id):
+    """Editing goes through the class's Pre/Post form (both links in one place)."""
     row = _get(poster_id)
-    if request.method == "POST":
-        v = _form_values()
-        error = _validate(v)
-        if error:
-            flash(error, "danger")
-            values = v
-        else:
-            filename, scan_ok = _build(v)
-            old = row["poster_file"]
-            db.execute(
-                """UPDATE qr_posters SET session_id = ?, kind = ?, heading = ?, course_title = ?, date_text = ?,
-                          link = ?, poster_file = ?, updated_at = datetime('now') WHERE id = ?""",
-                (v["session_id"], v["kind"], v["heading"], v["course_title"], v["date_text"], v["link"],
-                 filename, poster_id),
-            )
-            if old and old != filename:
-                try:
-                    os.remove(os.path.join(_poster_dir(), old))
-                except OSError:
-                    pass
-            activity.log("update", "qr_poster", poster_id, f"Updated QR poster: {v['heading']} - {v['course_title']}")
-            flash("QR poster updated.", "success")
-            _flash_scan(scan_ok)
-            return redirect(url_for("qr_posters.view", poster_id=poster_id))
-    else:
-        values = dict(row)
-    return render_template("qr_posters/form.html", values=values, classes=_class_choices(), kinds=KINDS,
-                           poster_row=row)
+    if not row["session_id"]:
+        flash("This poster's class was deleted, so it can't be edited. Create a new poster for the right class.",
+              "warning")
+        return redirect(url_for("qr_posters.view", poster_id=poster_id))
+    return redirect(url_for("qr_posters.new", session_id=row["session_id"], kind=row["kind"]))
 
 
 @bp.route("/<int:poster_id>/delete", methods=("POST",))

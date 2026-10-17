@@ -6,7 +6,7 @@
     <h4 class="mb-0">QR Posters</h4>
     <small class="text-muted">Pre/Post-Assessment Test QR posters, grouped by class (newest class first).</small>
   </div>
-  <a href="{{ url_for('qr_posters.new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>New QR Poster</a>
+  <a href="{{ url_for('qr_posters.new') }}" class="btn btn-success btn-sm"><i class="bi bi-plus-lg me-1"></i>New QR Posters</a>
 </div>
 
 {% macro poster_cell(g, kind) %}
@@ -31,7 +31,7 @@
       <thead><tr><th>Class</th><th style="width:22%">{{ kinds.pre }}</th><th style="width:22%">{{ kinds.post }}</th></tr></thead>
       <tbody>
         {% for g in groups %}
-        <tr>
+        <tr {% if g.session_id %}id="class-{{ g.session_id }}"{% endif %}>
           <td>
             {% if g.session_id %}
             <a href="{{ url_for('sessions.view', session_id=g.session_id) }}" class="fw-semibold text-reset">{{ g.course_title }}</a>
@@ -49,7 +49,7 @@
     </table>
   </div>
   {% else %}
-  <p class="text-muted mb-0">No QR posters yet. Click "New QR Poster": choose the class, pick Pre or Post, paste the Google Form link.</p>
+  <p class="text-muted mb-0">No QR posters yet. Click "New QR Posters": choose the class, paste the Pre-Test and/or Post-Test link.</p>
   {% endif %}
 </div>
 {% endblock %}

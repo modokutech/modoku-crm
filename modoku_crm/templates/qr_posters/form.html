@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit' if poster_row else 'New' }} QR Poster{% endblock %}
+{% block title %}QR Posters for a Class{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h4 class="mb-0">{{ 'Edit QR Poster' if poster_row else 'New QR Poster' }}</h4>
-    <small class="text-muted">The course title and date on the poster come from the class.</small>
+    <h4 class="mb-0">Pre/Post-Assessment QR Posters</h4>
+    <small class="text-muted">Choose the class, paste the Pre-Test and/or Post-Test link, Generate. The course title and date come from the class.</small>
   </div>
-  <a href="{{ url_for('qr_posters.view', poster_id=poster_row.id) if poster_row else url_for('qr_posters.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+  <a href="{{ url_for('qr_posters.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
 </div>
 
-<form method="post" class="card p-4" style="max-width:720px">
+<form method="post" class="card p-4" style="max-width:820px">
   {{ csrf_field()|safe }}
   <div class="mb-3">
     <label class="form-label fw-semibold">1. Class</label>
@@ -20,53 +20,70 @@
               {{ 'selected' if values.session_id == c.id }}>{{ c.course_title }}, {{ c.date_text }}{% if c.client_name %} ({{ c.client_name }}){% endif %}</option>
       {% endfor %}
     </select>
+    <div class="small text-muted mt-1" id="qp_classinfo"></div>
   </div>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">2. Test</label>
-    <div class="d-flex gap-2">
-      {% for key, label in kinds.items() %}
-      <input type="radio" class="btn-check" name="kind" id="kind_{{ key }}" value="{{ key }}" {{ 'checked' if values.kind == key }}>
-      <label class="btn btn-outline-primary flex-fill" for="kind_{{ key }}">{{ label }}</label>
-      {% endfor %}
+  <label class="form-label fw-semibold mb-2">2. Google Form links <span class="text-muted fw-normal small">(fill in one or both)</span></label>
+  <div class="row g-3 mb-3">
+    {% for key, label in kinds.items() %}
+    <div class="col-md-6">
+      <div class="border rounded-3 p-3 h-100 {{ 'border-primary' if focus == key }}">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge {{ 'bg-primary' if key == 'pre' else 'bg-success' }}">{{ label }}</span>
+          <span class="small text-muted" id="qp_state_{{ key }}"></span>
+        </div>
+        <input type="url" name="link_{{ key }}" id="qp_link_{{ key }}" class="form-control" placeholder="https://forms.gle/..."
+               value="{{ values.links[key] if values.links else '' }}" {{ 'autofocus' if focus == key }}>
+      </div>
     </div>
+    {% endfor %}
   </div>
+  <p class="small text-muted">Use each form's "Send" link (forms.gle), as shorter links make QR codes that scan more easily.
+    A test this class already has a poster for is filled in above. Change its link to update that poster, or leave a box empty to skip it.</p>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">3. Google Form link</label>
-    <input type="url" name="link" class="form-control" required placeholder="https://forms.gle/..." value="{{ values.link or '' }}">
-    <small class="text-muted">Use the form's "Send" link (forms.gle) - shorter links make QR codes that scan more easily.</small>
-  </div>
-
-  <div class="alert alert-light border small mb-3" id="qp_preview" {% if not values.session_id %}style="display:none"{% endif %}>
-    <div class="text-muted mb-1">On the poster:</div>
-    <div class="fw-semibold" id="qp_heading"></div>
-    <div id="qp_title"></div>
+  <div class="alert alert-light border small mb-3" id="qp_preview" style="display:none">
+    <div class="text-muted mb-1">On the poster{{ 's' }}:</div>
+    <div id="qp_title" class="fw-semibold"></div>
     <div class="text-muted" id="qp_date"></div>
   </div>
 
   <div>
-    <button class="btn btn-success" type="submit"><i class="bi bi-qr-code me-1"></i>{{ 'Update Poster' if poster_row else 'Generate Poster' }}</button>
+    <button class="btn btn-success" type="submit" id="qp_submit"><i class="bi bi-qr-code me-1"></i>Generate Posters</button>
   </div>
 </form>
 
 <script>
 (function () {
   var sel = document.getElementById('qp_class');
-  var labels = {{ kinds|tojson }};
-  function refresh() {
+  var existing = {{ existing_links|tojson }};
+  var kinds = {{ kinds|tojson }};
+  var lastClass = sel.value;
+  function refresh(fromChange) {
     var opt = sel.options[sel.selectedIndex];
-    var kind = (document.querySelector('input[name="kind"]:checked') || {}).value;
+    var have = (opt && opt.value && existing[opt.value]) || {};
     var box = document.getElementById('qp_preview');
+    Object.keys(kinds).forEach(function (k) {
+      var input = document.getElementById('qp_link_' + k);
+      if (fromChange) input.value = have[k] || '';
+      var state = document.getElementById('qp_state_' + k);
+      if (!input.value.trim()) state.textContent = have[k] ? '' : 'Not created yet';
+      else if (have[k] && input.value.trim() === have[k]) state.textContent = 'Poster exists';
+      else if (have[k]) state.textContent = 'Will update the poster';
+      else state.textContent = 'Will create a poster';
+    });
+    var n = Object.keys(kinds).filter(function (k) { return document.getElementById('qp_link_' + k).value.trim(); }).length;
+    var label = Object.keys(have).length ? 'Save Posters' : (n === 2 ? 'Generate Both Posters' : 'Generate Poster');
+    document.getElementById('qp_submit').innerHTML = '<i class="bi bi-qr-code me-1"></i>' + label;
     if (!opt || !opt.value) { box.style.display = 'none'; return; }
     box.style.display = '';
-    document.getElementById('qp_heading').textContent = labels[kind] || '';
     document.getElementById('qp_title').textContent = opt.dataset.title;
     document.getElementById('qp_date').textContent = opt.dataset.date;
   }
-  sel.addEventListener('change', refresh);
-  document.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', refresh); });
-  refresh();
+  sel.addEventListener('change', function () { refresh(sel.value !== lastClass); lastClass = sel.value; });
+  Object.keys(kinds).forEach(function (k) {
+    document.getElementById('qp_link_' + k).addEventListener('input', function () { refresh(false); });
+  });
+  refresh(false);
 })();
 </script>
 {% endblock %}
