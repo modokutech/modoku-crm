@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix200 — Class page: Grant Documents says when the Quotation fills itself
+
+**Date:** 2026-10-19
+
+- The HRDCorp Grant Documents card no longer says the Quotation "is uploaded here". It now says it's added
+  automatically once the class's quotation is signed (or can be uploaded by hand).
+- While the Quotation slot is empty: "added automatically once #<quote no> is signed (<status> now)" with a
+  link to the quotation, or, for a class not on any quotation yet, how to get it there.
+
 ## Fix199 — Link or Create Classes: clearer note
 
 **Date:** 2026-10-19

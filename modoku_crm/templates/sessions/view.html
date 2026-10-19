@@ -126,7 +126,7 @@
 {% if s.hrdcorp_claimable or s.grant_docs_sent_at or s.grant_quotation_file %}
 <div class="card p-3 mt-3">
       <h6>HRDCorp Grant Documents</h6>
-      <p class="small text-muted mb-2">The 4 documents a client needs for their HRDCorp grant application. Three are pulled automatically from the Course and Trainer modules; the Quotation is uploaded here.</p>
+      <p class="small text-muted mb-2">The 4 documents a client needs for their HRDCorp grant application. Three are pulled automatically from the Course and Trainer modules. The Quotation is added automatically once this class's quotation is signed, or you can upload one here.</p>
       <ul class="list-unstyled small mb-3">
         <li class="mb-1">
           {% if s.course_outline_file %}
@@ -161,7 +161,13 @@
           <a href="{{ url_for('sessions.download_grant_quotation', session_id=s.id) }}" target="_blank">Quotation</a>{% if s.grant_quotation_file.startswith('grantquote_signed_') %} <span class="text-muted">(client's signed copy, added automatically)</span>{% endif %}{% if s.grant_quotation_file.startswith('grantquote_class_') %} <span class="text-muted">(this class's lines and amount from its quotation, added automatically)</span>{% endif %}
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
-          <span class="text-muted">Quotation, not uploaded yet</span>
+          {% if quoted_price and modules.quotations %}
+          <span class="text-muted">Quotation, added automatically once
+            <a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">{{ quoted_price.quote_no }}</a>
+            is signed ({{ quoted_price.status }} now)</span>
+          {% else %}
+          <span class="text-muted">Quotation, not added yet. Link this class to its quotation (added once the client signs), or upload one below.</span>
+          {% endif %}
           {% endif %}
         </li>
       </ul>
