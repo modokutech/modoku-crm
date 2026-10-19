@@ -13,7 +13,10 @@
       <div class="fw-semibold">{{ s.course_title }}</div>
       <div class="small text-muted">{{ s|sched_dates }}</div>
     </div>
-    {% if ready %}
+    {% if not_yet %}
+    <div class="alert alert-info small"><i class="bi bi-clock me-1"></i>Certificates will be available from
+      <strong>{{ not_yet }}</strong>. Please come back to this page then.</div>
+    {% elif ready %}
     <p class="small text-muted mb-2">Find your name and tap <strong>Download</strong>.</p>
     <input type="search" class="form-control mb-2" id="certSearch" placeholder="Search your name">
     <div class="list-group mb-3" id="certList">
@@ -28,8 +31,10 @@
     {% else %}
     <div class="alert alert-light border small">No certificates are ready yet. They appear here once attendance for every training day is complete.</div>
     {% endif %}
+    {% if not not_yet %}
     <p class="small text-muted mb-0">Don't see your name? Your attendance may not be complete yet. Please check with the trainer or
       <a href="mailto:hello@modoku.tech">hello@modoku.tech</a>.</p>
+    {% endif %}
   </div>
 </div>
 <script>

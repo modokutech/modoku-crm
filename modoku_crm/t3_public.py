@@ -19,11 +19,11 @@ it, the same way they'd sign a printed sheet passed around the room.
 """
 import os
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 
-from . import attendance_days, db, uploadutil
+from . import APP_TZ, attendance_days, db, uploadutil
 from . import certificates as _certificates
 from .csvutil import csv_response
 from .sessions import t3_form_is_editable
@@ -117,7 +117,7 @@ def form(token):
         )
         signed_today = {r["participant_id"] for r in rows}
     code_mode = bool(session_row["code_attendance"])
-    certificates_ready = code_mode and bool(db.query(
+    certificates_ready = code_mode and certificates_released(session_row) and bool(db.query(
         "SELECT 1 FROM t3_participants WHERE session_id = ? AND attended = 1 LIMIT 1", (session_row["id"],), one=True))
     return render_template("t3_public/form.html", s=session_row, participants=participants, token=token,
                             editable=t3_form_is_editable(session_row), genders=GENDERS,
@@ -188,8 +188,41 @@ def sign(token, participant_id):
 
     flash(f"Thanks, {participant['name']}. Your attendance is signed for today.", "success")
     if code_mode and newly_fully_attended:
-        flash("Your certificate is ready. Tap \"Download your certificate\" below.", "success")
+        if certificates_released(session_row):
+            flash("Your certificate is ready. Tap \"Download your certificate\" below.", "success")
+        else:
+            flash(f"Your certificate will be ready to download from {release_text(session_row)}, "
+                  "on this same page.", "info")
     return redirect(back)
+
+
+CERT_RELEASE_BEFORE_END = timedelta(hours=1)
+
+
+def certificates_release_at(session_row):
+    """Fix208: Code Attendance certificates open 1 hour before the end of the
+    last training day (that day's own end time; 5 PM if no time is set), so
+    nobody downloads theirs in the morning and leaves. Malaysia time."""
+    from . import schedule
+    day_list = schedule.row_days(session_row)
+    if not day_list:
+        return None
+    last_day, _start, end = day_list[-1]
+    end_hhmm = end or "17:00"
+    end_dt = datetime.combine(last_day, datetime.strptime(end_hhmm, "%H:%M").time())
+    return end_dt - CERT_RELEASE_BEFORE_END
+
+
+def certificates_released(session_row):
+    release_at = certificates_release_at(session_row)
+    return release_at is None or datetime.now(APP_TZ).replace(tzinfo=None) >= release_at
+
+
+def release_text(session_row):
+    release_at = certificates_release_at(session_row)
+    if release_at is None:
+        return ""
+    return release_at.strftime("%-I:%M %p on %-d %b %Y")
 
 
 @bp.route("/<token>/certificates")
@@ -200,6 +233,9 @@ def certificate_list(token):
     session_row = _find_session(token)
     if session_row is None or not session_row["code_attendance"]:
         return render_template("t3_public/not_found.html")
+    if not certificates_released(session_row):
+        return render_template("t3_public/certificates.html", s=session_row, token=token, ready=[],
+                               not_yet=release_text(session_row))
     ready = db.query("SELECT id, name FROM t3_participants WHERE session_id = ? AND attended = 1 "
                      "ORDER BY name COLLATE NOCASE", (session_row["id"],))
     return render_template("t3_public/certificates.html", s=session_row, token=token, ready=ready)
@@ -210,6 +246,9 @@ def certificate_download(token, participant_id):
     session_row = _find_session(token)
     if session_row is None or not session_row["code_attendance"]:
         return render_template("t3_public/not_found.html")
+    if not certificates_released(session_row):
+        flash(f"Certificates will be available from {release_text(session_row)}.", "warning")
+        return redirect(url_for("t3_public.certificate_list", token=token))
     participant = db.query("SELECT id, attended FROM t3_participants WHERE id = ? AND session_id = ?",
                            (participant_id, session_row["id"]), one=True)
     if participant is None or not participant["attended"]:

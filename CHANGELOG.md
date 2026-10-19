@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix208 — Code Attendance certificates open 1 hour before the training ends
+
+**Date:** 2026-10-19
+
+- Certificates on the Code Attendance name list (Fix207) can only be downloaded from 1 hour before the end
+  of the last training day (that day's own end time, so per-day times count; 5 PM if no time is set).
+  Before then the page says "Certificates will be available from 4:00 PM on 11 Nov 2026", the "Download
+  your certificate" button stays hidden, and a direct download link is refused.
+- A participant who completes attendance earlier (e.g. signs in on the final morning) is told when their
+  certificate will be ready instead of getting it straight away.
+- Classes using the IC check are unchanged.
+
 ## Fix207 — Code Attendance: e-Signature and certificates without IC numbers
 
 **Date:** 2026-10-19
