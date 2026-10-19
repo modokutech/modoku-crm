@@ -10,6 +10,32 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix193 — One quotation for several classes (batches), signed once
+
+**Date:** 2026-10-19
+
+- Each quotation line now has its own **Class** picker (under the Programme), replacing the single Class
+  dropdown at the top. Four batches = four lines, each linked to its class, one quotation for the client
+  to sign. Picking a class on a line fills that line (programme, pax, type, duration, dates, time, fee) and,
+  if still empty, the quotation's client, contact, venue and course title.
+- **Signed once, every class confirmed:** each linked class moves Proposed -> Scheduled (calendar blocked),
+  and the client gets **one** email listing every class with its own T3 Attendance Form link, plus one
+  calendar invite holding all the training dates. A one-class quotation sends exactly the same email as
+  before.
+- **HRDCorp grant documents per batch:** for a quotation covering several classes, each class's Grant
+  Documents get a quotation PDF with only that class's lines and amount (same quote number, class dates in
+  the filename), added automatically on signing. A one-class quotation still uses the client's signed copy.
+  Never replaces a quotation uploaded by hand.
+- Quotation page: new **Classes** card (each class, status, its own amount, and its "Grant quotation PDF").
+- **Create Proposed classes**: for lines with no class yet, one click makes a Proposed class per ticked line
+  (course matched from the programme name, dates/time/pax/type from the line, client/contact/venue/mode from
+  the quotation) and links it.
+- Class page "quoted price" = only that class's lines when the quotation covers several classes (a
+  one-class quotation still counts all its lines, e.g. training + meals).
+- Editing a quotation so a class is no longer on it (a dropped batch) warns that the class is still open.
+- Existing quotations: their class link is copied onto all their lines automatically on boot.
+- New column `quotation_items.session_id` (automatic on boot).
+
 ## Fix192 — "Training report not sent" opens the Training Report page
 
 **Date:** 2026-10-19

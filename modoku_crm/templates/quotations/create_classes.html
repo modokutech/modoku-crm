@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Create Classes from {{ q.quote_no }}{% endblock %}
+{% block content %}
+{# Fix193: one Proposed class per quotation line, linked back to the line. #}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Create Proposed Classes</h4>
+    <small class="text-muted">From quotation {{ q.quote_no }}. One class per ticked line, linked to it. Untick lines that aren't a class (e.g. meals or materials).</small>
+  </div>
+  <a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+</div>
+
+{% set posted = request.method == 'POST' %}
+<form method="post" class="card p-3" style="max-width:1140px">
+  {{ csrf_field()|safe }}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead><tr><th></th><th>Line</th><th style="width:30%">Course</th><th>Start</th><th>End <span class="text-muted small fw-normal">(optional)</span></th><th>Pax</th></tr></thead>
+      <tbody>
+      {% for line in lines %}
+      {% set key = line.id|string %}
+      {% set course_val = (request.form.get('course_' ~ key)|int(0)) if posted else line.course_guess %}
+      <tr>
+        <td><input type="checkbox" class="form-check-input" name="create" value="{{ key }}" {{ 'checked' if (key in request.form.getlist('create') if posted else true) }}></td>
+        <td>
+          <div class="fw-semibold">{{ line.programme }}</div>
+          <div class="small text-muted">{{ line.training_type or '' }}{% if line.item_time %} · {{ line.item_time }}{% endif %} · RM {{ line.investment_fee|fmtmoney }}</div>
+        </td>
+        <td>
+          <select name="course_{{ key }}" class="form-select form-select-sm">
+            <option value="">Choose the course…</option>
+            {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if course_val == c.id }}>{{ c.title }}</option>{% endfor %}
+          </select>
+          {% if not posted and line.course_guess %}<div class="small text-muted mt-1">Matched from the programme name. Check it.</div>{% endif %}
+        </td>
+        <td><input type="date" name="start_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('start_' ~ key) if posted else (line.item_date or '') }}"></td>
+        <td><input type="date" name="end_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('end_' ~ key) if posted else (line.item_date_end or '') }}"></td>
+        <td class="text-muted">{{ line.no_of_pax or '' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="small text-muted mb-3">
+    Each class gets: client{% if q.attention_to %} and contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) from the quotation;
+    time, training type and pax from its line. Status <strong>Proposed</strong>, so nothing is emailed. Add the trainer on each class page afterwards.
+  </p>
+  <div><button class="btn btn-success" type="submit"><i class="bi bi-calendar-plus me-1"></i>Create Classes</button></div>
+</form>
+{% endblock %}

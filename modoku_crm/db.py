@@ -1268,6 +1268,9 @@ _COLUMN_MIGRATIONS = [
     ("hotels", "quoted_on", "TEXT"),  # Fix190
     ("hotels", "quotation_file", "TEXT"),  # Fix190
     ("hotels", "quotation_name", "TEXT"),  # Fix190
+    # Fix193: each quotation line can belong to its own class (one quotation,
+    # several batches/classes, signed once).
+    ("quotation_items", "session_id", "INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL"),
 ]
 
 
@@ -1420,6 +1423,18 @@ def _apply_light_migrations(db):
                     db.execute("INSERT INTO hotel_packages (hotel_id, name, price, inclusions, min_pax, notes) "
                                "VALUES (?, ?, ?, ?, ?, ?)", (h["id"], name, price, inc, h["minimum_pax"], guess))
         db.execute("INSERT INTO settings (key, value) VALUES ('fix190_hotel_packages', datetime('now'))")
+        db.commit()
+
+    # Fix193: a quotation's single class link moves onto its lines (all of
+    # them, so the class keeps the whole quoted price). Once.
+    done = db.execute("SELECT value FROM settings WHERE key = 'fix193_item_classes'").fetchone()
+    if done is None:
+        db.execute(
+            """UPDATE quotation_items SET session_id = (
+                   SELECT q.session_id FROM quotations q WHERE q.id = quotation_items.quotation_id)
+               WHERE session_id IS NULL AND quotation_id IN (SELECT id FROM quotations WHERE session_id IS NOT NULL)"""
+        )
+        db.execute("INSERT INTO settings (key, value) VALUES ('fix193_item_classes', datetime('now'))")
         db.commit()
 
     # Fix192: existing "training report not sent" notifications point at the
