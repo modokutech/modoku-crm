@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix203 — Class page: back to the Fix200 sentence, "(Status: Sent)"
+
+**Date:** 2026-10-19
+
+- The Quotation line in HRDCorp Grant Documents is back to "Quotation, added automatically once #<no> is
+  signed", now ending "(Status: Sent)" instead of "(Sent now)". Replaces the Fix202 wording.
+
 ## Fix202 — Class page: clearer "Quotation, not added yet" wording
 
 **Date:** 2026-10-19
