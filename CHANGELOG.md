@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix202 — Class page: clearer "Quotation, not added yet" wording
+
+**Date:** 2026-10-19
+
+- Replaces "added automatically once #<no> is signed (Sent now)" with what it's waiting for, by the
+  quotation's status: "Waiting for the client to sign quotation #<no> (status: Sent). It's added here
+  automatically once they do." Draft: waiting to be sent and signed. Accepted with no signed copy on file:
+  says so and points to uploading the signed copy on the quotation.
+
 ## Fix201 — One quotation line for several classes, with each class's own amount
 
 **Date:** 2026-10-19

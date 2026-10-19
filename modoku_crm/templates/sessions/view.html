@@ -162,9 +162,11 @@
           {% else %}
           <i class="bi bi-exclamation-circle text-muted me-1"></i>
           {% if quoted_price and modules.quotations %}
-          <span class="text-muted">Quotation, added automatically once
-            <a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">{{ quoted_price.quote_no }}</a>
-            is signed ({{ quoted_price.status }} now)</span>
+          {% set qlink %}<a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">quotation {{ quoted_price.quote_no }}</a>{% endset %}
+          <span class="text-muted">Quotation, not added yet.
+            {% if quoted_price.status == 'Accepted' %}<a href="{{ url_for('quotations.view', quotation_id=quoted_price.quotation_id) }}">Quotation {{ quoted_price.quote_no }}</a> is marked Accepted, but no signed copy was recorded. Upload the signed copy on the quotation and it's added here.
+            {% elif quoted_price.status == 'Draft' %}Waiting for {{ qlink }} to be sent and signed. It's added here automatically once the client signs.
+            {% else %}Waiting for the client to sign {{ qlink }} (status: {{ quoted_price.status }}). It's added here automatically once they do.{% endif %}</span>
           {% else %}
           <span class="text-muted">Quotation, not added yet. Link this class to its quotation (added once the client signs), or upload one below.</span>
           {% endif %}
