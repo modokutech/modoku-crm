@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix195 — Quotation form: a second line's class no longer overwrites the title
+
+**Date:** 2026-10-19
+
+- Linking a class on a quotation line fills the quotation's Course / Programme Title, venue, client and
+  contact only when it's the first line linked to a class. Linking classes on further lines (batch 2, 3...)
+  fills just that line. Before, each new pick replaced the title and venue the first class had filled in.
+
 ## Fix194 — Per-class grant quotation: no client signature line
 
 **Date:** 2026-10-19

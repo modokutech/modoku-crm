@@ -432,11 +432,21 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
 
   // Fix193: picking a class on a line fills THAT line (and the quotation's
   // course title / venue / client the first time, if still empty).
+  // The quotation-level fields (course title, venue, client, contact) come
+  // from the FIRST line linked to a class only. Linking a class on another
+  // line (batch 2, 3...) fills just that line, never the title above.
+  function otherLineLinked(row) {
+    return Array.from(document.querySelectorAll('#items-table tbody tr')).some(function (tr) {
+      const sel = tr.querySelector('.item-class');
+      return tr !== row && sel && sel.value;
+    });
+  }
   function applyClass(opt, row) {
     const kept = [];
     const firstItemRow = row;
+    const fillHeader = !otherLineLinked(row);
     if (opt && opt.dataset.courseTitle) {
-      fillIfFree(courseTitleField, opt.dataset.courseTitle, null);
+      if (fillHeader) fillIfFree(courseTitleField, opt.dataset.courseTitle, null);
       fillIfFree(row.querySelector('input[name="item_programme"]'), opt.dataset.courseTitle, kept, 'Programme');
     }
     // No. of Pax, Training Type, Date/End Date, Time, and Investment Fee
@@ -478,9 +488,9 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     // (or still class-filled) field. fillIfFree fires 'input' so the Terms &
     // Conditions text swaps the "<venue>" placeholder for the real venue.
     if (opt) {
-      fillIfFree(venueField, opt.dataset.venue, null);
+      if (fillHeader) fillIfFree(venueField, opt.dataset.venue, null);
     }
-    const companyId = opt ? opt.dataset.clientCompanyId : '';
+    const companyId = opt && fillHeader ? opt.dataset.clientCompanyId : '';
     if (companyId && (!companySelect.value || companySelect.value === companyId)) {
       const sameCompany = companySelect.value === companyId;
       companySelect.value = companyId;
