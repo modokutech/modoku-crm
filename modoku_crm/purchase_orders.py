@@ -9,6 +9,7 @@ from flask import (Blueprint, Response, current_app, flash, g, redirect, render_
 from werkzeug.utils import secure_filename
 
 from . import activity, db, doc_sanity, mailer, uploadutil
+from . import schedule as _schedule
 from . import fmtdaterange
 from . import sessions as _sessions
 from . import settings as settings_module
@@ -98,27 +99,19 @@ def _build_ics_invite(po, uid_suffix=""):
     — always carrying a real time-of-day (see sessions.ics_datetime_lines),
     not just a bare date."""
     training_time = po["training_time"] if "training_time" in po.keys() else None
-    dtstart_line, dtend_line = _sessions.ics_datetime_lines(po["start_date"], po["end_date"], training_time)
-    now_stamp = date.today().strftime("%Y%m%d") + "T000000Z"
+    day_times = po["day_times"] if "day_times" in po.keys() else None  # Fix204: one event per day
     summary = f"Training: {po['course_title']}".replace("\n", " ")
     location = (po["venue"] or "").replace("\n", " ")
-    uid = f"po-{po['id']}{uid_suffix}@modoku.tech"
     return (
         "BEGIN:VCALENDAR\r\n"
         "VERSION:2.0\r\n"
         "PRODID:-//Modoku Hub//Purchase Order//EN\r\n"
         "CALSCALE:GREGORIAN\r\n"
         "METHOD:PUBLISH\r\n"
-        "BEGIN:VEVENT\r\n"
-        f"UID:{uid}\r\n"
-        f"DTSTAMP:{now_stamp}\r\n"
-        f"{dtstart_line}"
-        f"{dtend_line}"
-        f"SUMMARY:{summary}\r\n"
-        f"LOCATION:{location}\r\n"
-        f"DESCRIPTION:Training: {po['course_title']}\\nPO No.: {po['po_no']}\r\n"
-        "END:VEVENT\r\n"
-        "END:VCALENDAR\r\n"
+        + _sessions.ics_events_text(f"po-{po['id']}{uid_suffix}", po["start_date"], po["end_date"], training_time,
+                                    day_times, summary, location,
+                                    f"Training: {po['course_title']}\\nPO No.: {po['po_no']}")
+        + "END:VCALENDAR\r\n"
     ).encode("utf-8")
 
 
@@ -153,7 +146,7 @@ def _ensure_confirm_token(po_id):
 
 
 def _default_po_email_body(po, confirm_url=None):
-    dates = fmtdaterange(po["start_date"], po["end_date"])
+    dates = _schedule.jinja_dates(po)
     # Fix178: a Virtual class has no venue (Fix163 clears it) - say so.
     venue = po["venue"] or ("Virtual" if po["training_mode"] == "Virtual" else "To be confirmed")
     meeting_link_line = ""
@@ -184,7 +177,7 @@ def _default_po_email_body(po, confirm_url=None):
         "Please find attached the Purchase Order (PO) for the training services as follows:\n\n"
         f"Training: {po['course_title']}\n"
         f"Date: {dates}\n"
-        f"Time: {po['training_time'] or 'To be confirmed'}\n"
+        f"Time: {_schedule.row_time_text(po, sep='; ') or 'To be confirmed'}\n"
         f"Venue: {venue}\n"
         f"{meeting_link_line}\n"
         f"{attachments_line}"
@@ -382,7 +375,7 @@ def view(po_id):
     po = db.query(
         """SELECT po.*, t.name AS trainer_name, t.email AS trainer_email, t.phone AS trainer_phone,
                   t.company_name AS trainer_company_name, t.company_address AS trainer_company_address,
-                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue, cs.training_time,
+                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue, cs.training_time, cs.day_times,
                   cs.training_mode, cs.meeting_link, cs.training_banner_file, cs.evaluation_qr_poster_file,
                   cl.name AS client_name,
                   u.name AS authoriser_name, u.position AS authoriser_position,
@@ -650,7 +643,7 @@ def update_status(po_id):
 def send_email(po_id):
     po = db.query(
         """SELECT po.*, t.name AS trainer_name, t.email AS trainer_email, t.phone AS trainer_phone,
-                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue, cs.training_time,
+                  c.title AS course_title, cs.start_date, cs.end_date, cs.venue, cs.training_time, cs.day_times,
                   cs.training_mode, cs.meeting_link, cs.training_banner_file, cs.evaluation_qr_poster_file,
                   cl.name AS client_name,
                   u.name AS authoriser_name, u.position AS authoriser_position,

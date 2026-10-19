@@ -1283,6 +1283,9 @@ _COLUMN_MIGRATIONS = [
     # Fix193: each quotation line can belong to its own class (one quotation,
     # several batches/classes, signed once).
     ("quotation_items", "session_id", "INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL"),
+    # Fix204: per-day times / non-consecutive days (see schedule.py)
+    ("course_sessions", "day_times", "TEXT"),
+    ("quotation_items", "day_times", "TEXT"),
 ]
 
 

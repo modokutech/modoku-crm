@@ -103,8 +103,8 @@
             <td>{{ item.no_of_pax or '' }}</td>
             <td>{{ item.training_type or '' }}</td>
             <td>{{ item.duration or '' }}</td>
-            <td>{{ item.item_date|fmtdate if item.item_date else '' }}{% if item.item_date_end %} &ndash; {{ item.item_date_end|fmtdate }}{% endif %}</td>
-            <td>{{ item.item_time or '' }}</td>
+            <td>{% if item.day_times %}{{ item|sched_dates }}{% else %}{{ item.item_date|fmtdate if item.item_date else '' }}{% if item.item_date_end %} &ndash; {{ item.item_date_end|fmtdate }}{% endif %}{% endif %}</td>
+            <td>{% if item.day_times %}{% for part in (item|sched_time('|')).split('|') %}<div class="text-nowrap">{{ part }}</div>{% endfor %}{% else %}{{ item.item_time or '' }}{% endif %}</td>
             <td class="text-end">RM {{ item.investment_fee|fmtmoney }}</td>
           </tr>
           {% endfor %}

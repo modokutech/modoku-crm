@@ -42,6 +42,11 @@
         <label class="form-label">&nbsp;to</label>
         <input type="time" name="training_time_end" class="form-control" value="{{ training_time_end }}" required>
       </div>
+      {# Fix204: different times on some days / days not back to back #}
+      <div class="col-12 mt-1">
+        <input type="hidden" name="day_times" id="day_times" value="{{ (session.day_times or '') if session else '' }}">
+        <div id="day_times_box"></div>
+      </div>
 
       <div class="col-md-6">
         <label class="form-label">Client</label>
@@ -335,6 +340,16 @@ document.getElementById('qp_save').addEventListener('click', function () {
       errorBox.textContent = 'Something went wrong. Please try again.';
       errorBox.classList.remove('d-none');
     });
+});
+</script>
+<script src="{{ static_v('js/day-times.js') }}"></script>
+<script>
+DayTimes.attach(document.getElementById('day_times_box'), {
+  start: document.querySelector('input[name="start_date"]'),
+  end: document.querySelector('input[name="end_date"]'),
+  timeStart: document.querySelector('input[name="training_time_start"]'),
+  timeEnd: document.querySelector('input[name="training_time_end"]'),
+  hidden: document.getElementById('day_times'),
 });
 </script>
 {% endblock %}

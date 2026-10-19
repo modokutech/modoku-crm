@@ -342,6 +342,30 @@ def _build_html(po, items, grand_total):
 </body></html>"""
 
 
+def _item_dates(item):
+    """Fix204: '10 & 17 Nov 2026' for days that aren't back to back."""
+    from . import schedule
+    if "day_times" in item.keys() and item["day_times"]:
+        return schedule.jinja_dates(item)
+    return _fmtdaterange(item["item_date"], item["item_date_end"])
+
+
+def _item_time(item):
+    """Fix204: each day's own time when they differ, one per line."""
+    from html import escape
+    from . import schedule
+    if "day_times" in item.keys() and item["day_times"]:
+        text = schedule.jinja_time(item, sep="|") or ""
+        # "10 Nov" on its own line, then that day's time, which wraps like a
+        # single time does - the column is narrow (and wider still on the VPS)
+        out = []
+        for part in text.split("|"):
+            day, _sep, time_ = part.partition(": ")
+            out.append(f"<div style='margin-bottom:3px'><span style='color:#666'>{escape(day)}</span><br>{escape(time_)}</div>")
+        return "".join(out)
+    return (item["item_time"] if "item_time" in item.keys() else "") or ""
+
+
 def _build_quotation_html(q, items, subtotal, title, client_sign=True):
     logo_uri = _logo_data_uri()
     sst_rate = q["sst_rate"] if "sst_rate" in q.keys() else 0
@@ -366,8 +390,8 @@ def _build_quotation_html(q, items, subtotal, title, client_sign=True):
     item_rows = "".join(
         f"<tr><td>{i + 1}</td><td>{item['programme']}</td><td>{item['no_of_pax'] or ''}</td>"
         f"<td>{item['training_type'] or ''}</td><td>{item['duration'] or ''}</td>"
-        f"<td>{_fmtdaterange(item['item_date'], item['item_date_end'])}</td>"
-        f"<td>{(item['item_time'] if 'item_time' in item.keys() else '') or ''}</td>"
+        f"<td>{_item_dates(item)}</td>"
+        f"<td>{_item_time(item)}</td>"
         f"<td style='text-align:right'>RM {item['investment_fee']:,.2f}</td></tr>"
         for i, item in enumerate(items)
     )

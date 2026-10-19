@@ -10,6 +10,7 @@ from flask import (Blueprint, Response, current_app, flash, g, redirect, render_
 from werkzeug.utils import secure_filename
 
 from . import activity, ai_match, attendance_days, banner, db, doc_sanity, evaluation_forms, full_reports, mailer, notifications, pdfgen, poster, t3, trainer_scores, uploadutil, settings as settings_module
+from . import schedule as _schedule
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
@@ -81,6 +82,24 @@ def _parse_time_to_hhmm(text, default_ampm=None):
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         return ""
     return f"{hour:02d}:{minute:02d}"
+
+
+def schedule_from_form(form, start_date, end_date, training_time):
+    """Fix204: applies the per-day times editor (hidden "day_times" JSON) to
+    a class or quotation line being saved. Returns (start_date, end_date,
+    training_time, day_times_json_or_None, error_or_None): first/last date and
+    the first day's time come from the per-day rows; day_times is only kept
+    when the days really differ (other times, or not back to back)."""
+    from . import schedule
+    dt_json, first, last, first_times = schedule.from_form(form)
+    if not dt_json:
+        return start_date, end_date, training_time, None, None
+    day_list = schedule.days(None, None, None, dt_json)
+    if any(not (s and e) for _d, s, e in day_list):
+        return start_date, end_date, training_time, None, "Fill in the start and end time for every day."
+    training_time = format_training_time(*first_times)
+    return first, (last if last != first else None), training_time, \
+        (dt_json if schedule.is_varied(day_list) else None), None
 
 
 def split_training_time(training_time):
@@ -187,14 +206,41 @@ def ics_datetime_lines(start_date, end_date, training_time):
     )
 
 
+def ics_day_events(start_date, end_date, training_time, day_times=None):
+    """Fix204: (DTSTART, DTEND) lines for EACH training day, so a 2-day class
+    is two events (each with that day's own hours) rather than one event
+    blocking the night in between."""
+    from . import schedule
+    out = []
+    for d, s, e in schedule.days(start_date, end_date, training_time, day_times):
+        iso = d.isoformat()
+        out.append(ics_datetime_lines(iso, iso, format_training_time(s, e) if s and e else None))
+    return out
+
+
+def ics_events_text(uid_base, start_date, end_date, training_time, day_times, summary, location, description):
+    """The VEVENT blocks (one per training day) for an .ics file."""
+    now_stamp = date.today().strftime("%Y%m%d") + "T000000Z"
+    events = []
+    for i, (dtstart_line, dtend_line) in enumerate(ics_day_events(start_date, end_date, training_time, day_times)):
+        events.append(
+            "BEGIN:VEVENT\r\n"
+            f"UID:{uid_base}{'-day' + str(i + 1) if i else ''}@modoku.tech\r\n"
+            f"DTSTAMP:{now_stamp}\r\n"
+            f"{dtstart_line}"
+            f"{dtend_line}"
+            f"SUMMARY:{summary}\r\n"
+            f"LOCATION:{location}\r\n"
+            f"DESCRIPTION:{description}\r\n"
+            "END:VEVENT\r\n"
+        )
+    return "".join(events)
+
+
 def build_session_ics(session_row, description_extra=""):
     """Builds a minimal .ics calendar invite for a class's training dates —
     shared by the signed-quotation-return flow and any other feature that
     needs to hand a client/trainer a calendar invite for a class."""
-    dtstart_line, dtend_line = ics_datetime_lines(
-        session_row["start_date"], session_row["end_date"], session_row["training_time"]
-    )
-    now_stamp = date.today().strftime("%Y%m%d") + "T000000Z"
     summary = f"Training: {session_row['course_title']}".replace("\n", " ")
     location = (session_row["venue"] or "").replace("\n", " ")
     description = f"Training: {session_row['course_title']}"
@@ -202,33 +248,31 @@ def build_session_ics(session_row, description_extra=""):
         description += f"\\nTime: {session_row['training_time']}"
     if description_extra:
         description += f"\\n{description_extra}"
-    uid = f"session-{session_row['id']}@modoku.tech"
+    day_times = session_row["day_times"] if "day_times" in session_row.keys() else None
+    if day_times:
+        from . import schedule
+        description = description.split("\\nTime:")[0] + "\\nTime: " + schedule.row_time_text(session_row, sep="; ")
+        if description_extra:
+            description += f"\\n{description_extra}"
     return (
         "BEGIN:VCALENDAR\r\n"
         "VERSION:2.0\r\n"
         "PRODID:-//Modoku Hub//Class//EN\r\n"
         "CALSCALE:GREGORIAN\r\n"
         "METHOD:PUBLISH\r\n"
-        "BEGIN:VEVENT\r\n"
-        f"UID:{uid}\r\n"
-        f"DTSTAMP:{now_stamp}\r\n"
-        f"{dtstart_line}"
-        f"{dtend_line}"
-        f"SUMMARY:{summary}\r\n"
-        f"LOCATION:{location}\r\n"
-        f"DESCRIPTION:{description}\r\n"
-        "END:VEVENT\r\n"
-        "END:VCALENDAR\r\n"
+        + ics_events_text(f"session-{session_row['id']}", session_row["start_date"], session_row["end_date"],
+                          session_row["training_time"], day_times, summary, location, description)
+        + "END:VCALENDAR\r\n"
     ).encode("utf-8")
 
 
 def _default_t3_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"T3 Attendance Form - {session_row['course_title']} ({date_range})"
 
 
 def _default_t3_email_body(session_row, t3_url):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     greeting_name = session_row["pic_name"] if "pic_name" in session_row.keys() else None
     meeting_link_line = ""
     if session_row["training_mode"] in ("Virtual", "Hybrid") and session_row["meeting_link"]:
@@ -240,7 +284,7 @@ def _default_t3_email_body(session_row, t3_url):
         f"{t3_url}\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
-        f"Time: {session_row['training_time'] or 'To be confirmed'}\n"
+        f"Time: {_schedule.row_time_text(session_row, sep='; ') or 'To be confirmed'}\n"
         f"Venue: {_venue_text(session_row, 'To be confirmed')}\n"
         f"{meeting_link_line}\n"
         "Should you have any questions, please feel free to contact us.\n\n"
@@ -249,12 +293,12 @@ def _default_t3_email_body(session_row, t3_url):
 
 
 def _default_jd14_return_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"JD14 Form - please return the signed copy - {session_row['course_title']} ({date_range})"
 
 
 def _default_jd14_return_email_body(session_row, return_url):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     greeting_name = session_row["pic_name"] if "pic_name" in session_row.keys() and session_row["pic_name"] else None
     return (
         f"Hi {greeting_name or 'there'},\n\n"
@@ -269,12 +313,12 @@ def _default_jd14_return_email_body(session_row, return_url):
 
 
 def _default_jd14_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"JD14 Form - {session_row['course_title']} ({date_range})"
 
 
 def _default_jd14_email_body(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return (
         "Hi,\n\n"
         "Please find attached the signed HRDCorp Joint Declaration Form (PSMB/SBL-KHAS/JD/14) for the "
@@ -287,12 +331,12 @@ def _default_jd14_email_body(session_row):
 
 
 def _default_evaluation_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"Training Evaluation Report - {session_row['course_title']} ({date_range})"
 
 
 def _default_evaluation_email_body(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     greeting_name = session_row["pic_name"] if "pic_name" in session_row.keys() and session_row["pic_name"] else None
     return (
         f"Dear {greeting_name or 'Sir/Madam'},\n\n"
@@ -305,7 +349,7 @@ def _default_evaluation_email_body(session_row):
 
 
 def _default_grant_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"HRDCorp Grant Documents - {session_row['course_title']} ({date_range})"
 
 
@@ -331,12 +375,12 @@ def _default_grant_email_body(session_row, grant_url):
 
 
 def _default_t3_form_email_subject(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     return f"T3 Attendance Form (printable) - {session_row['course_title']} ({date_range})"
 
 
 def _default_t3_form_email_body(session_row):
-    date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    date_range = _schedule.jinja_dates(session_row)
     greeting_name = session_row["trainer_name"] if "trainer_name" in session_row.keys() else None
     meeting_link_line = ""
     if session_row["training_mode"] in ("Virtual", "Hybrid") and session_row["meeting_link"]:
@@ -356,7 +400,7 @@ def _default_t3_form_email_body(session_row):
         f"upload it via this link, no need to email it separately:\n{return_url}\n\n"
         f"Training: {session_row['course_title']}\n"
         f"Date: {date_range}\n"
-        f"Time: {session_row['training_time'] or 'To be confirmed'}\n"
+        f"Time: {_schedule.row_time_text(session_row, sep='; ') or 'To be confirmed'}\n"
         f"Venue: {_venue_text(session_row, 'To be confirmed')}\n"
         f"{meeting_link_line}\n"
         "Should you have any questions, please feel free to contact us.\n\n"
@@ -394,7 +438,7 @@ def _notify_document_uploaded(session_id, doc_label, ai_warning=None, link_endpo
         )
         if session_row is None:
             return
-        date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+        date_range = _schedule.jinja_dates(session_row)
         subject = f"{doc_label} ready - {session_row['course_title']} ({date_range})"
         # Fix138: in-app too, not just email - every admin plus the class's
         # owner (notify() skips the duplicate when the owner is an admin).
@@ -478,7 +522,7 @@ def _notify_trainers_invoice_due(session_id):
         from .trainer_invoice import ensure_token
         token = ensure_token(session_id)
         link = url_for("trainer_invoice.form", token=token, _external=True)
-        date_range = fmtdaterange(session_row["start_date"], session_row["end_date"])
+        date_range = _schedule.jinja_dates(session_row)
         subject = f"Please submit your invoice - {session_row['course_title']} ({date_range})"
         for trainer in recipients:
             body = (
@@ -652,6 +696,11 @@ def _session_start_datetime(row):
     except (ValueError, TypeError):
         return None
     start_hhmm, _ = split_training_time(row["training_time"])
+    if "day_times" in row.keys() and row["day_times"]:  # Fix204
+        from . import schedule
+        day_list = schedule.row_days(row)
+        if day_list:
+            base_date, start_hhmm = day_list[0][0], day_list[0][1]
     if start_hhmm:
         hour, minute = (int(part) for part in start_hhmm.split(":"))
         return datetime.combine(base_date, dtime(hour, minute))
@@ -669,6 +718,11 @@ def _session_end_datetime(row):
     except (ValueError, TypeError):
         return None
     _, end_hhmm = split_training_time(row["training_time"])
+    if "day_times" in row.keys() and row["day_times"]:  # Fix204: the last day's own end time
+        from . import schedule
+        day_list = schedule.row_days(row)
+        if day_list:
+            base_date, end_hhmm = day_list[-1][0], day_list[-1][2]
     if end_hhmm:
         hour, minute = (int(part) for part in end_hhmm.split(":"))
         return datetime.combine(base_date, dtime(hour, minute))
@@ -695,7 +749,7 @@ def _auto_advance_statuses():
     today = now.date().isoformat()
 
     scheduled_rows = db.query(
-        "SELECT id, start_date, end_date, training_time FROM course_sessions "
+        "SELECT id, start_date, end_date, training_time, day_times FROM course_sessions "
         "WHERE status = 'Scheduled' AND start_date <= ?",
         (today,),
     )
@@ -706,7 +760,7 @@ def _auto_advance_statuses():
         db.execute(f"UPDATE course_sessions SET status = 'Ongoing' WHERE id IN ({placeholders})", to_ongoing_ids)
 
     candidate_rows = db.query(
-        "SELECT id, start_date, end_date, training_time FROM course_sessions "
+        "SELECT id, start_date, end_date, training_time, day_times FROM course_sessions "
         "WHERE status IN ('Scheduled', 'Ongoing') AND COALESCE(end_date, start_date) <= ?",
         (today,),
     )
@@ -944,8 +998,12 @@ def new():
         training_time = format_training_time(
             request.form.get("training_time_start"), request.form.get("training_time_end")
         )
+        start_date, end_date, training_time, day_times, day_error = schedule_from_form(
+            request.form.get("day_times"), start_date, request.form.get("end_date") or None, training_time)
         if not course_id or not start_date:
             flash("Course and start date are required.", "danger")
+        elif day_error:
+            flash(day_error, "danger")
         elif not training_time:
             flash("Training time (start and end) is required.", "danger")
         else:
@@ -963,8 +1021,8 @@ def new():
                        venue, start_date, end_date, training_time, training_type, training_mode,
                        meeting_link, capacity, status, notes, evaluation_form_link, session_code,
                        requires_laptop_rental, laptop_rental_qty, has_exam, exam_participants,
-                       room_setup, owner_user_id, hrdcorp_claimable)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       room_setup, owner_user_id, hrdcorp_claimable, day_times)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
                     course_id,
                     trainer_ids[0] if trainer_ids else None,
@@ -972,7 +1030,7 @@ def new():
                     request.form.get("pic_lead_id") or None,
                     _physical_field("venue"),
                     start_date,
-                    request.form.get("end_date") or None,
+                    end_date,
                     training_time,
                     request.form.get("training_type") or None,
                     request.form.get("training_mode") or "Physical",
@@ -989,6 +1047,7 @@ def new():
                     _physical_field("room_setup"),
                     g.user["id"],
                     1 if request.form.get("hrdcorp_claimable") else 0,
+                    day_times,
                 ),
             )
             _set_session_trainers(sid, trainer_ids)
@@ -1389,8 +1448,12 @@ def edit(session_id):
         training_time = format_training_time(
             request.form.get("training_time_start"), request.form.get("training_time_end")
         )
+        start_date, end_date, training_time, day_times, day_error = schedule_from_form(
+            request.form.get("day_times"), start_date, request.form.get("end_date") or None, training_time)
         if not course_id or not start_date:
             flash("Course and start date are required.", "danger")
+        elif day_error:
+            flash(day_error, "danger")
         elif not training_time:
             flash("Training time (start and end) is required.", "danger")
         else:
@@ -1410,7 +1473,7 @@ def edit(session_id):
                        venue=?, start_date=?, end_date=?, training_time=?, training_type=?,
                        training_mode=?, meeting_link=?, capacity=?, status=?, notes=?, evaluation_form_link=?,
                        requires_laptop_rental=?, laptop_rental_qty=?, has_exam=?, exam_participants=?,
-                       room_setup=?, hrdcorp_claimable=?
+                       room_setup=?, hrdcorp_claimable=?, day_times=?
                    WHERE id=?""",
                 (
                     course_id,
@@ -1419,7 +1482,7 @@ def edit(session_id):
                     request.form.get("pic_lead_id") or None,
                     _physical_field("venue"),
                     start_date,
-                    request.form.get("end_date") or None,
+                    end_date,
                     training_time,
                     request.form.get("training_type") or None,
                     request.form.get("training_mode") or "Physical",
@@ -1439,6 +1502,7 @@ def edit(session_id):
                     exam_participants,
                     _physical_field("room_setup"),
                     1 if request.form.get("hrdcorp_claimable") else 0,
+                    day_times,
                     session_id,
                 ),
             )
@@ -2027,14 +2091,25 @@ def generate_banner(session_id):
     if session_row["client_logo_file"]:
         client_logo_path = os.path.join(_attendance_dir(session_id), session_row["client_logo_file"])
 
+    # Fix204: days with different times show the dates only; days that
+    # aren't back to back are listed ("10 & 17 November 2026").
+    banner_days = _schedule.row_days(session_row)
+    banner_time = None if _schedule.times_differ(banner_days) else session_row["training_time"]
+    banner_dates = _schedule.dates_text(banner_days)
+    if banner_dates:
+        banner_dates = banner_dates.replace("Jan ", "January ").replace("Feb ", "February ").replace(
+            "Mar ", "March ").replace("Apr ", "April ").replace("Jun ", "June ").replace("Jul ", "July ").replace(
+            "Aug ", "August ").replace("Sep ", "September ").replace("Oct ", "October ").replace(
+            "Nov ", "November ").replace("Dec ", "December ")
     png_bytes = banner.generate_banner(
         session_row["course_title"],
-        session_row["training_time"],
+        banner_time,
         session_row["start_date"],
         session_row["end_date"],
         session_row["venue"],
         modoku_logo_path=modoku_logo_path,
         client_logo_path=client_logo_path,
+        date_text=banner_dates,
     )
     stored_name = f"banner_{uuid.uuid4().hex[:8]}.png"
     with open(os.path.join(_attendance_dir(session_id), stored_name), "wb") as f:
@@ -2162,7 +2237,7 @@ def _open_pos_for_session(session_id):
 
 
 def _po_cancellation_email(session_row, po):
-    dates = fmtdaterange(session_row["start_date"], session_row["end_date"])
+    dates = _schedule.jinja_dates(session_row)
     subject = f"CANCELLED: {po['po_no']} - {session_row['course_title']} ({dates})"
     body = (
         f"Dear {po['party_name']},\n\n"

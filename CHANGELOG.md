@@ -10,6 +10,31 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix204 — Different times on some days (and days that aren't back to back)
+
+**Date:** 2026-10-19
+
+- **Class form and each quotation line:** once the end date is after the start date, a "Different time on
+  some days?" link opens one row per day (date, start, end), pre-filled with the main time. Change only the
+  days that differ (e.g. 1.5 days: day 1 9am-5pm, day 2 9am-1pm). "+ Add a day" and editable dates cover the
+  rare class that isn't back to back (10 & 17 Nov). "Use the same time every day" goes back to one time.
+- Saved as `day_times` (new columns on classes and quotation lines, automatic on boot) only when the days
+  really differ; the start/end date and time still hold the first/last date and day 1's time.
+- **Shown everywhere a time shows:** "10 Nov: 9:00 AM - 5:00 PM · 11 Nov: 9:00 AM - 1:00 PM" on the class
+  page, quotation page and PDF (each date above its time), the client's confirmation email, T3 emails, the
+  trainer's PO email, the PO response notice, the public T3 form and the data export. Days that aren't back
+  to back show as "10 & 17 Nov 2026".
+- **Training banner:** dates only when the times differ; "10 & 17 November 2026" for days not back to back.
+- **Calendar invites are now one event per training day**, each with that day's own hours: the client's
+  invite, the trainer's PO invite and the staff Google/Outlook blocks. Applies to every multi-day class, so
+  a 2-day class no longer blocks the night in between.
+- **Quotation line Duration** pre-fills from the dates and hours (6+ hours = 1 day, less = half a day), e.g.
+  "1.5 days". Still editable; a Duration typed by hand isn't replaced.
+- A class created from a quotation line gets the line's per-day times (another batch gets the same pattern
+  moved to its own dates), and linking a class to a line copies the class's per-day times into it.
+- A class moves to Completed at the last day's own end time (e.g. 1 PM on day 2).
+- Also fixed: since Fix190 the Hotels page's browser-tab title had CSS and script text in it.
+
 ## Fix203 — Class page: back to the Fix200 sentence, "(Status: Sent)"
 
 **Date:** 2026-10-19

@@ -143,7 +143,7 @@ def _fmt_date_range(start_date, end_date):
 
 
 def generate_banner(title, training_time, start_date, end_date, venue,
-                     modoku_logo_path=None, client_logo_path=None):
+                     modoku_logo_path=None, client_logo_path=None, date_text=None):
     """Returns PNG bytes for the training banner."""
     canvas = Image.new("RGB", (W, H), BG_COLOR)
     _draw_shapes(canvas)
@@ -211,7 +211,7 @@ def generate_banner(title, training_time, start_date, end_date, venue,
 
     # --- Time / date ---
     y += 30
-    date_text = _fmt_date_range(start_date, end_date)
+    date_text = date_text or _fmt_date_range(start_date, end_date)
     line1 = ", ".join(p for p in [training_time, date_text] if p)
     if line1:
         sub_font = _font(FONT_MEDIUM, 39)  # -15% from 46, per request

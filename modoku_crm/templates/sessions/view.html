@@ -60,8 +60,8 @@
   <div class="col-lg-4" id="classDetailsColLeft">
     <div class="card p-3">
       <table class="table table-sm table-borderless mb-0">
-        <tr><td class="text-muted">Date</td><td>{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}</td></tr>
-        <tr><td class="text-muted">Time</td><td>{{ s.training_time or '-' }}</td></tr>
+        <tr><td class="text-muted">Date</td><td>{% if s.day_times %}{{ s|sched_dates }}{% else %}{{ s.start_date|fmtdate }}{% if s.end_date and s.end_date != s.start_date %} → {{ s.end_date|fmtdate }}{% endif %}{% endif %}</td></tr>
+        <tr><td class="text-muted">Time</td><td>{% if s.day_times %}{% for part in (s|sched_time('|')).split('|') %}<div>{{ part }}</div>{% endfor %}{% else %}{{ s.training_time or '-' }}{% endif %}</td></tr>
         <tr><td class="text-muted">Venue</td><td>{{ s.venue or ('Virtual' if s.training_mode == 'Virtual' else '-') }}</td></tr>
         <tr><td class="text-muted">Client</td><td>{{ s.client_name or '-' }}</td></tr>
         <tr><td class="text-muted">Trainer(s)</td><td>{% if assigned_trainers %}{{ assigned_trainers|map(attribute='name')|join(', ') }}{% else %}{{ s.trainer_name or '-' }}{% endif %}</td></tr>

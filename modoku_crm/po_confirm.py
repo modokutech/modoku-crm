@@ -10,6 +10,7 @@ blueprint pattern already used by quotation_return.py / t3_public.py.
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
 from . import activity, db, fmtdaterange, mailer, notifications
+from . import schedule as _schedule
 from . import settings as settings_module
 
 bp = Blueprint("po_confirm", __name__, url_prefix="/po-confirm")
@@ -20,7 +21,7 @@ def _find_po(token):
         return None
     return db.query(
         """SELECT po.*, t.name AS trainer_name, c.title AS course_title,
-                  cs.start_date, cs.end_date, cs.training_time, cs.venue
+                  cs.start_date, cs.end_date, cs.training_time, cs.day_times, cs.venue
            FROM purchase_orders po
            JOIN trainers t ON t.id = po.trainer_id
            JOIN course_sessions cs ON cs.id = po.session_id
@@ -64,12 +65,12 @@ def respond(token):
         notify_to = ", ".join(settings_module.get_notification_emails())
         verb = "confirmed" if decision == "confirm" else "rejected"
         subject = f"{po['po_no']} {verb} by trainer"
-        date_range = fmtdaterange(po["start_date"], po["end_date"])
+        date_range = _schedule.jinja_dates(po)
         body = (
             f"{po['trainer_name']} has {verb} {po['po_no']} ({po['course_title']}) via the "
             f"confirmation link.\n\nStatus is now: {new_status}.\n\n"
             f"Date: {date_range}\n"
-            f"Time: {po['training_time'] or 'To be confirmed'}\n"
+            f"Time: {_schedule.row_time_text(po, sep='; ') or 'To be confirmed'}\n"
             f"Venue: {po['venue'] or 'To be confirmed'}"
         )
         if notify_to:

@@ -21,6 +21,7 @@ from datetime import datetime
 from flask import Blueprint, Response, current_app, render_template
 
 from . import db
+from . import schedule as _schedule
 from .auth import admin_required, login_required
 from .docutil import content_disposition
 
@@ -128,7 +129,7 @@ def download_year(year):
                 f"Class: {s['course_title']}\n"
                 f"Session Code: {s['session_code'] or '-'}\n"
                 f"Dates: {s['start_date']} to {s['end_date'] or s['start_date']}\n"
-                f"Time: {s['training_time'] or '-'}\n"
+                f"Time: {_schedule.row_time_text(s, sep='; ') or '-'}\n"
                 f"Venue: {s['venue'] or '-'}\n"
                 f"Training Type: {s['training_type'] or '-'}\n"
                 f"Trainer: {s['trainer_name'] or '-'}\n"

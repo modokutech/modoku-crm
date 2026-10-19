@@ -28,7 +28,7 @@
       data-start-date="{{ s.start_date or '' }}" data-end-date="{{ s.end_date or '' }}"
       data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
       data-price-inhouse="{{ "%.2f"|format(s.price_inhouse or 0) }}" data-duration="{{ s.duration }}"
-      data-label="{{ s.start_date|fmtdaterange(s.end_date) }} · {{ s.course_title }}">
+      data-label="{{ s.start_date|fmtdaterange(s.end_date) }} · {{ s.course_title }}" data-day-times="{{ s.day_times or '' }}">
       {{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})
     </option>
     {% endfor %}
@@ -173,9 +173,13 @@
             <td><input type="text" name="item_duration" class="form-control form-control-sm" value="{{ item.duration or '' }}" placeholder="e.g. 2 days"></td>
             <td><input type="date" name="item_date" class="form-control form-control-sm" value="{{ item.item_date or '' }}">
               <input type="date" name="item_date_end" class="form-control form-control-sm mt-1" value="{{ item.item_date_end or '' }}" title="End date (optional)"></td>
-            <td class="d-flex gap-1">
-              <input type="time" name="item_time_start" class="form-control form-control-sm" value="{{ item_time_start }}">
-              <input type="time" name="item_time_end" class="form-control form-control-sm" value="{{ item_time_end }}">
+            <td>
+              <div class="d-flex gap-1">
+                <input type="time" name="item_time_start" class="form-control form-control-sm" value="{{ item_time_start }}">
+                <input type="time" name="item_time_end" class="form-control form-control-sm" value="{{ item_time_end }}">
+              </div>
+              <input type="hidden" name="item_day_times" value="{{ item.day_times or '' }}">
+              <div class="item-day-times"></div>
             </td>
             <td><input type="number" step="0.01" min="0" name="item_fee" data-money class="form-control form-control-sm" value="{{ item.investment_fee }}"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
@@ -196,9 +200,13 @@
             <td><input type="text" name="item_duration" class="form-control form-control-sm" placeholder="e.g. 2 days"></td>
             <td><input type="date" name="item_date" class="form-control form-control-sm">
               <input type="date" name="item_date_end" class="form-control form-control-sm mt-1" title="End date (optional)"></td>
-            <td class="d-flex gap-1">
-              <input type="time" name="item_time_start" class="form-control form-control-sm">
-              <input type="time" name="item_time_end" class="form-control form-control-sm">
+            <td>
+              <div class="d-flex gap-1">
+                <input type="time" name="item_time_start" class="form-control form-control-sm">
+                <input type="time" name="item_time_end" class="form-control form-control-sm">
+              </div>
+              <input type="hidden" name="item_day_times" value="">
+              <div class="item-day-times"></div>
             </td>
             <td><input type="number" step="0.01" min="0" name="item_fee" data-money class="form-control form-control-sm" value="0"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
@@ -259,12 +267,66 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/money-input.js') }}"></script>
+<script src="{{ static_v('js/day-times.js') }}"></script>
 <script>
 function renumberRows() {
   document.querySelectorAll('#items-table tbody tr').forEach((row, idx) => {
     row.querySelector('.row-no').textContent = idx + 1;
   });
 }
+// Fix204: per-day times on each line, and Duration pre-filled from the
+// dates and hours (a day of 6+ hours = 1 day, shorter = half a day), still
+// editable: only an empty or still auto-filled Duration is replaced.
+function lineDays(row) {
+  let days = [];
+  try { days = JSON.parse(row.querySelector('input[name="item_day_times"]').value || '[]'); } catch (e) { days = []; }
+  if (days.length > 1) return days;
+  const s = row.querySelector('input[name="item_date"]').value;
+  const e = row.querySelector('input[name="item_date_end"]').value || s;
+  const ts = row.querySelector('input[name="item_time_start"]').value;
+  const te = row.querySelector('input[name="item_time_end"]').value;
+  if (!s) return [];
+  const out = [];
+  for (let d = new Date(s + 'T00:00:00Z'), n = 0; d.toISOString().slice(0, 10) <= e && n < 62; d.setUTCDate(d.getUTCDate() + 1), n++) {
+    out.push({ date: d.toISOString().slice(0, 10), start: ts, end: te });
+  }
+  return out;
+}
+function prefillDuration(row) {
+  const days = lineDays(row);
+  if (!days.length || days.some(d => !d.start || !d.end)) return;
+  let total = 0;
+  days.forEach(function (d) {
+    const [sh, sm] = d.start.split(':').map(Number), [eh, em] = d.end.split(':').map(Number);
+    const hours = ((eh * 60 + em) - (sh * 60 + sm)) / 60;
+    total += hours >= 6 ? 1 : (hours > 0 ? 0.5 : 0);
+  });
+  if (!total) return;
+  const label = total <= 1 ? total + ' day' : total + ' days';
+  const el = row.querySelector('input[name="item_duration"]');
+  if (el.value.trim() === '' || el.dataset.durationAuto === el.value || el.dataset.autofill === el.value) {
+    el.value = label;
+    el.dataset.durationAuto = label;
+  }
+}
+function attachRowDays(row) {
+  row._days = DayTimes.attach(row.querySelector('.item-day-times'), {
+    start: row.querySelector('input[name="item_date"]'),
+    end: row.querySelector('input[name="item_date_end"]'),
+    timeStart: row.querySelector('input[name="item_time_start"]'),
+    timeEnd: row.querySelector('input[name="item_time_end"]'),
+    hidden: row.querySelector('input[name="item_day_times"]'),
+    compact: true,
+    onChange: function () { prefillDuration(row); },
+  });
+}
+document.querySelectorAll('#items-table tbody tr').forEach(attachRowDays);
+document.getElementById('items-table').addEventListener('change', function (e) {
+  if (['item_date', 'item_date_end', 'item_time_start', 'item_time_end'].indexOf(e.target.name) !== -1) {
+    prefillDuration(e.target.closest('tr'));
+  }
+});
+
 function rowTemplate() {
   const tbody = document.querySelector('#items-table tbody');
   const first = tbody.querySelector('tr').cloneNode(true);
@@ -275,12 +337,17 @@ function rowTemplate() {
   });
   first.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
   first.querySelectorAll('.ic-chip').forEach(c => c.remove());
+  first.querySelectorAll('.item-day-times').forEach(b => { b.innerHTML = ''; });
+  first.querySelectorAll('input[name="item_time_start"], input[name="item_time_end"]').forEach(i => { i.readOnly = false; i.classList.remove('bg-light'); });
+  delete first.querySelector('input[name="item_duration"]').dataset.durationAuto;
   first.querySelectorAll('.ic-note').forEach(n => { n.textContent = ''; });
   first.querySelectorAll('input, select').forEach(el => { el.dataset.autofill = el.value; });
   return first;
 }
 document.getElementById('add-row').addEventListener('click', function () {
-  document.querySelector('#items-table tbody').appendChild(rowTemplate());
+  const newRow = rowTemplate();
+  document.querySelector('#items-table tbody').appendChild(newRow);
+  attachRowDays(newRow);
   renumberRows();
 });
 document.querySelector('#items-table').addEventListener('click', function (e) {
@@ -484,6 +551,11 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
       fillIfFree(firstItemRow.querySelector('input[name="item_date_end"]'), opt.dataset.endDate, kept, 'End Date');
       fillIfFree(firstItemRow.querySelector('input[name="item_time_start"]'), opt.dataset.timeStart, kept, 'Time');
       fillIfFree(firstItemRow.querySelector('input[name="item_time_end"]'), opt.dataset.timeEnd, kept, 'Time');
+      // Fix204: the class's own per-day times come with it (if the line has none yet)
+      const dayHidden = firstItemRow.querySelector('input[name="item_day_times"]');
+      if (opt.dataset.dayTimes && !dayHidden.value && firstItemRow._days) {
+        try { firstItemRow._days.open(JSON.parse(opt.dataset.dayTimes)); } catch (err) { /* ignore bad data */ }
+      }
       if (Number(opt.dataset.priceInhouse) > 0) {
         fillIfFree(firstItemRow.querySelector('input[name="item_fee"]'), opt.dataset.priceInhouse, kept, 'Investment Fee');
       }

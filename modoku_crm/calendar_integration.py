@@ -203,9 +203,12 @@ def block_calendar_for_session(session_row):
     summary = f"{course_title} (Training blocked)"
     description = "Auto-blocked by Modoku Hub once this class was confirmed/scheduled."
     location = session_row["venue"] if "venue" in session_row.keys() else None
-    start_dt, end_dt = _event_datetimes(
-        session_row["start_date"], session_row["end_date"], session_row["training_time"],
-    )
+    # Fix204: one event per training day, each with that day's own hours
+    from . import schedule
+    day_times = session_row["day_times"] if "day_times" in session_row.keys() else None
+    day_spans = [_event_datetimes(d.isoformat(), None, f"{s} - {e}" if s and e else None)
+                 for d, s, e in schedule.days(session_row["start_date"], session_row["end_date"],
+                                              session_row["training_time"], day_times)]
 
     connected_user_ids = [row["user_id"] for row in db.query(
         "SELECT DISTINCT user_id FROM calendar_connections"
@@ -220,7 +223,8 @@ def block_calendar_for_session(session_row):
             if not access_token:
                 continue
             try:
-                create_fn(access_token, summary, description, location, start_dt, end_dt)
+                for start_dt, end_dt in day_spans:
+                    create_fn(access_token, summary, description, location, start_dt, end_dt)
                 activity.log("update", "session", session_row["id"],
                              f"Blocked {provider.title()} calendar for user {user_id}")
                 blocked_any = True

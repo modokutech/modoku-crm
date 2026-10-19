@@ -304,6 +304,9 @@ def create_app(config_object="config.Config"):
     app.jinja_env.filters["fmtdate"] = fmtdate
     app.jinja_env.filters["fmtdatetime"] = lambda v: fmtdate(v, with_time=True)
     app.jinja_env.filters["fmtdaterange"] = fmtdaterange
+    from . import schedule as _schedule  # Fix204: per-day training times
+    app.jinja_env.filters["sched_time"] = _schedule.jinja_time
+    app.jinja_env.filters["sched_dates"] = _schedule.jinja_dates
     app.jinja_env.filters["linelist"] = linelist
     app.jinja_env.filters["fmtmoney"] = fmtmoney
     app.jinja_env.filters["fmtdays"] = fmtdays

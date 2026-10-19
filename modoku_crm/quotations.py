@@ -9,6 +9,7 @@ from flask import (Blueprint, Response, current_app, flash, g, jsonify, redirect
 from werkzeug.utils import secure_filename
 
 from . import activity, db, doc_sanity, mailer, notifications, uploadutil
+from . import schedule as _schedule
 from . import fmtdaterange, fmtmoney, parse_money
 from . import sessions as _sessions
 from . import settings as settings_module
@@ -296,7 +297,7 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
         confirmed.append({
             "row": session_row,
             "t3_url": url_for("t3_public.form", token=t3_token, _external=True),
-            "date_range": fmtdaterange(session_row["start_date"], session_row["end_date"]),
+            "date_range": _schedule.jinja_dates(session_row),
         })
 
     if to_email:
@@ -367,7 +368,7 @@ def _confirmation_email(q, confirmed):
             + "Thank you for returning the signed quotation. Your training is now confirmed as follows:\n\n"
             f"Training: {row['course_title']}\n"
             f"Date: {c['date_range']}\n"
-            f"Time: {row['training_time'] or 'To be confirmed'}\n"
+            f"Time: {_schedule.row_time_text(row, sep='; ') or 'To be confirmed'}\n"
             f"Venue: {row['venue'] or 'To be confirmed'}\n"
             f"{meeting_line(row)}\n"
             f"{hrdcorp_para}"
@@ -385,7 +386,7 @@ def _confirmation_email(q, confirmed):
         blocks.append(
             f"{i}. {row['course_title']}\n"
             f"   Date: {c['date_range']}\n"
-            f"   Time: {row['training_time'] or 'To be confirmed'}\n"
+            f"   Time: {_schedule.row_time_text(row, sep='; ') or 'To be confirmed'}\n"
             f"   Venue: {row['venue'] or 'To be confirmed'}\n"
             f"{meeting_line(row, '   ')}"
             f"   Attendance list: {c['t3_url']}\n"
@@ -411,7 +412,7 @@ def _combined_ics(rows):
     events = []
     for row in rows:
         text = _sessions.build_session_ics(row).decode("utf-8")
-        start, end = text.index("BEGIN:VEVENT"), text.index("END:VEVENT") + len("END:VEVENT\r\n")
+        start, end = text.index("BEGIN:VEVENT"), text.rindex("END:VEVENT") + len("END:VEVENT\r\n")
         events.append(text[start:end])
     return (
         "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Modoku Hub//Class//EN\r\n"
@@ -502,7 +503,7 @@ def class_items(quotation_id, session_id, items=None):
             out.append(item)
             continue
         if cls is None:
-            cls = db.query("SELECT start_date, end_date, training_time FROM course_sessions WHERE id = ?",
+            cls = db.query("SELECT start_date, end_date, training_time, day_times FROM course_sessions WHERE id = ?",
                            (session_id,), one=True)
         line = dict(item)
         line["investment_fee"] = class_shares(item["investment_fee"], item_links)[session_id]
@@ -510,6 +511,7 @@ def class_items(quotation_id, session_id, items=None):
             line["item_date"] = cls["start_date"]
             line["item_date_end"] = cls["end_date"] if cls["end_date"] and cls["end_date"] > cls["start_date"] else None
             line["item_time"] = cls["training_time"] or item["item_time"]
+            line["day_times"] = cls["day_times"]
         out.append(line)
     return out
 
@@ -651,6 +653,7 @@ def _items_from_form(form):
     times_end = form.getlist("item_time_end")
     fees = form.getlist("item_fee")
     classes_ = form.getlist("item_classes")
+    day_times_ = form.getlist("item_day_times")
     n = len(programmes)
     items = []
     for i in range(n):
@@ -667,6 +670,7 @@ def _items_from_form(form):
             ),
             "investment_fee": fees[i] if i < len(fees) else "0",
             "links": _parse_links(classes_[i] if i < len(classes_) else ""),
+            "day_times": day_times_[i] if i < len(day_times_) else "",
         })
     return items
 
@@ -684,8 +688,9 @@ def _save_items(quotation_id, form):
     # Fix201: each line's classes and their own amounts ("6=;7=12000"), one
     # hidden value per row so it lines up with the other columns
     classes_ = form.getlist("item_classes") or [""] * len(programmes)
-    for programme, pax, ttype, duration, item_date, item_date_end, time_start, time_end, fee, cls in zip(
-        programmes, paxs, types, durations, dates_, dates_end, times_start, times_end, fees, classes_
+    day_times_ = form.getlist("item_day_times") or [""] * len(programmes)  # Fix204
+    for programme, pax, ttype, duration, item_date, item_date_end, time_start, time_end, fee, cls, dts in zip(
+        programmes, paxs, types, durations, dates_, dates_end, times_start, times_end, fees, classes_, day_times_
     ):
         if not programme.strip():
             continue
@@ -696,13 +701,15 @@ def _save_items(quotation_id, form):
         if not item_date or not date_end or date_end <= item_date:
             date_end = None
         item_time = _sessions.format_training_time(time_start, time_end)
+        item_date, date_end, item_time, day_times, _err = _sessions.schedule_from_form(
+            dts, item_date or None, date_end, item_time)
         links = _parse_links(cls)
         item_id = db.execute(
             """INSERT INTO quotation_items (quotation_id, programme, no_of_pax, training_type,
-                   duration, item_date, item_date_end, item_time, investment_fee, session_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                   duration, item_date, item_date_end, item_time, investment_fee, session_id, day_times)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (quotation_id, programme.strip(), int(pax or 1), ttype or None, duration or None,
-             item_date or None, date_end, item_time, parse_money(fee), links[0][0] if links else None),
+             item_date or None, date_end, item_time, parse_money(fee), links[0][0] if links else None, day_times),
         )
         _save_links(item_id, links)
     return _sync_primary_session(quotation_id)
@@ -854,7 +861,7 @@ def _linkable_sessions(include_ids=None):
         f"""SELECT cs.id, cs.start_date, cs.end_date, cs.status, c.title AS course_title,
                   cs.client_company_id, cs.venue, pic.id AS pic_lead_id, pic.name AS pic_name,
                   cs.capacity, cs.training_type, cs.training_time, c.price_inhouse, c.duration_days,
-                  co.name AS client_name
+                  co.name AS client_name, cs.day_times
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
            LEFT JOIN leads pic ON pic.id = cs.pic_lead_id
@@ -1521,6 +1528,26 @@ def _guess_course(programme, courses):
     return best["id"] if best is not None and best_score >= 0.6 else None
 
 
+def _class_schedule_from_line(item, start, end):
+    """Fix204: a new class made from a quotation line gets the line's per-day
+    times. For another batch (a different start date) the same day-by-day
+    pattern is moved to its own dates. Returns (end_date, day_times)."""
+    from datetime import date as _date, timedelta as _td
+    from . import schedule
+    if not item["day_times"]:
+        return end, None
+    day_list = schedule.days(None, None, None, item["day_times"])
+    if start == item["item_date"]:
+        return end or (item["item_date_end"]), item["day_times"]
+    try:
+        first = _date.fromisoformat(start)
+    except ValueError:
+        return end, None
+    offset = first - day_list[0][0]
+    moved = [(d + offset, s, e) for d, s, e in day_list]
+    return moved[-1][0].isoformat(), schedule.to_json(moved)
+
+
 def _guess_existing(item, q, course_id, existing):
     """Fix198: an open class that looks like this line's - same client and
     start date (and the same course when more than one does), or None."""
@@ -1605,15 +1632,16 @@ def create_classes(quotation_id):
                                      f"Linked to quotation {q['quote_no']} ({item['programme']})")
                     else:
                         _kind, course_id, start, end = slot
+                        end, day_times = _class_schedule_from_line(item, start, end)
                         sid = db.execute(
                             """INSERT INTO course_sessions (course_id, client_company_id, pic_lead_id, venue,
                                    start_date, end_date, training_time, training_type, training_mode, capacity,
-                                   status, session_code, owner_user_id, hrdcorp_claimable)
-                               VALUES (?,?,?,?,?,?,?,?,?,?,'Proposed',?,?,?)""",
+                                   status, session_code, owner_user_id, hrdcorp_claimable, day_times)
+                               VALUES (?,?,?,?,?,?,?,?,?,?,'Proposed',?,?,?,?)""",
                             (course_id, q["client_company_id"], pic["id"] if pic else None,
                              q["venue"] if mode != "Virtual" else None, start, end, item["item_time"],
                              item["training_type"], mode, item["no_of_pax"] or 20, db.generate_session_code(),
-                             g.user["id"], 1 if q["is_hrdcorp"] else 0),
+                             g.user["id"], 1 if q["is_hrdcorp"] else 0, day_times),
                         )
                         created += 1
                         activity.log("create", "session", sid,

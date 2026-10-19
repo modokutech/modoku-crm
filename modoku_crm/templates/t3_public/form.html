@@ -11,7 +11,7 @@
 
     <div class="card bg-light border-0 p-3 mb-3">
       <div class="fw-semibold">{{ s.course_title }}</div>
-      <div class="small text-muted">{{ s.start_date|fmtdaterange(s.end_date) }}{% if s.training_time %} · {{ s.training_time }}{% endif %}</div>
+      <div class="small text-muted">{{ s|sched_dates }}{% if s|sched_time %} · {{ s|sched_time }}{% endif %}</div>
       {% if s.venue %}<div class="small text-muted">{{ s.venue }}</div>{% endif %}
     </div>
 
