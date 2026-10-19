@@ -233,7 +233,9 @@ def _heading_block(title):
     lh = _line_height(font, 1.15)
     return {
         "kind": "heading", "title": title, "font": font,
-        "height": lh, "before": _SECTION_GAP,
+        # Fix196: _HEADING_GAP was defined but never applied, so headings sat
+        # right on their first line of text.
+        "height": lh + _HEADING_GAP, "before": _SECTION_GAP,
     }
 
 

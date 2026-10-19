@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix196 — Trainer profile PDF: space under section headings
+
+**Date:** 2026-10-19
+
+- Section headings (Background, Experience, Academic Qualifications, Professional Certifications, Professional
+  Experience and custom sections) now have 2.6mm of space before their first line. The gap was defined
+  (`_HEADING_GAP`) but never applied, so headings sat right on the text. Existing profile PDFs change only
+  when regenerated.
+
 ## Fix195 — Quotation form: a second line's class no longer overwrites the title
 
 **Date:** 2026-10-19
