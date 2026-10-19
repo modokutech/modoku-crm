@@ -1,5 +1,6 @@
 import difflib
 import os
+import re
 import secrets
 import uuid
 from datetime import date, datetime, timedelta
@@ -359,6 +360,23 @@ def _confirmation_email(q, confirmed):
             return f"{indent}Meeting Link: {row['meeting_link']}\n"
         return ""
 
+    def venue(row):
+        """Fix206: a virtual class says it's online instead of "To be confirmed"."""
+        if row["training_mode"] == "Virtual":
+            return "Online (see meeting link below)" if row["meeting_link"] else "Online (meeting link to follow)"
+        return row["venue"] or "To be confirmed"
+
+    # Fix206: the same course more than once (batches) gets "(Batch 1)",
+    # "(Batch 2)"... numbered by date, so the classes are easy to tell apart.
+    batch = {}
+    by_course = {}
+    for c in confirmed:
+        by_course.setdefault(c["row"]["course_title"], []).append(c["row"])
+    for rows in by_course.values():
+        if len(rows) > 1:
+            for n, r in enumerate(sorted(rows, key=lambda r: (r["start_date"] or "", r["id"])), 1):
+                batch[r["id"]] = f" (Batch {n})"
+
     if len(confirmed) == 1:
         c = confirmed[0]
         row = c["row"]
@@ -369,7 +387,7 @@ def _confirmation_email(q, confirmed):
             f"Training: {row['course_title']}\n"
             f"Date: {c['date_range']}\n"
             f"Time: {_schedule.row_time_text(row, sep='; ') or 'To be confirmed'}\n"
-            f"Venue: {row['venue'] or 'To be confirmed'}\n"
+            f"Venue: {venue(row)}\n"
             f"{meeting_line(row)}\n"
             f"{hrdcorp_para}"
             "Please complete the attendance list for your participants here, you're welcome to come "
@@ -381,13 +399,14 @@ def _confirmation_email(q, confirmed):
         return subject, body
 
     blocks = []
+    confirmed = sorted(confirmed, key=lambda c: (c["row"]["start_date"] or "", c["row"]["id"]))  # by date
     for i, c in enumerate(confirmed, 1):
         row = c["row"]
         blocks.append(
-            f"{i}. {row['course_title']}\n"
+            f"{i}. {row['course_title']}{batch.get(row['id'], '')}\n"
             f"   Date: {c['date_range']}\n"
             f"   Time: {_schedule.row_time_text(row, sep='; ') or 'To be confirmed'}\n"
-            f"   Venue: {row['venue'] or 'To be confirmed'}\n"
+            f"   Venue: {venue(row)}\n"
             f"{meeting_line(row, '   ')}"
             f"   Attendance list: {c['t3_url']}\n"
         )
@@ -549,6 +568,10 @@ def class_quotation_pdf(quotation_id, session_id):
     items = class_items(quotation_id, session_id)
     if not items:
         return None
+    # Fix206: anything in brackets is left out of the programme name on the
+    # grant copy - "Effective Leadership (4 batches)" next to one batch's
+    # amount would confuse HRDCorp. The client's own quotation is unchanged.
+    items = [dict(i, programme=_strip_brackets(i["programme"])) for i in items]
     cls = db.query("SELECT c.title, cs.start_date, cs.end_date FROM course_sessions cs "
                    "JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?", (session_id,), one=True)
     subtotal = _totals(items, q["sst_rate"], q["sst_inclusive"])[0]
@@ -560,6 +583,14 @@ def class_quotation_pdf(quotation_id, session_id):
     # the class's dates in the filename tell batches of the same course apart
     when = f" ({fmtdaterange(cls['start_date'], cls['end_date'])})" if cls else ""
     return f"{title}{when}.pdf", pdfgen.generate_quotation_pdf(q, items, subtotal, title, client_sign=False)
+
+
+def _strip_brackets(text):
+    """"Effective Leadership (4 batches)" -> "Effective Leadership". Leaves the
+    text as it was if nothing would be left."""
+    stripped = re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", text or "")
+    stripped = re.sub(r"\s{2,}", " ", stripped).strip(" -,")
+    return stripped or text
 
 
 GRANT_QUOTE_CLASS_PREFIX = "grantquote_class_"

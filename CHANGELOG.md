@@ -10,6 +10,19 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix206 — Confirmation email: Online venue and batch labels; grant copy without brackets
+
+**Date:** 2026-10-19
+
+- Client confirmation email (after signing): a virtual class's venue reads "Online (see meeting link
+  below)" (or "Online (meeting link to follow)" when no link is set yet) instead of "To be confirmed".
+  Applies to the one-class and the multi-class email.
+- Multi-class email: the same course more than once gets "(Batch 1)", "(Batch 2)"... numbered by date, and
+  the classes are listed in date order.
+- Per-class HRDCorp grant quotation: anything in brackets is left out of the programme name ("Effective
+  Leadership (4 batches)" -> "Effective Leadership"), so one batch's amount isn't shown next to "4 batches".
+  The client's own quotation is unchanged.
+
 ## Fix205 — QC pass before shipping
 
 **Date:** 2026-10-19
