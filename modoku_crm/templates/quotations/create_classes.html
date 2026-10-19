@@ -60,11 +60,12 @@
       </tbody>
     </table>
   </div>
-  <p class="small text-muted mb-3">
-    <strong>Existing class:</strong> the line is linked to it, nothing about the class changes.
-    <strong>New class:</strong> client{% if q.attention_to %} and contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) from the quotation;
-    time, training type and pax from its line; status <strong>Proposed</strong>, so nothing is emailed. Add the trainer on its class page afterwards.
-  </p>
+  <ul class="small text-muted mb-3 ps-3">
+    <li><strong>Existing class:</strong> The line is linked to that class. The class itself stays as it is.</li>
+    <li><strong>New class:</strong> Created with status <strong>Proposed</strong>, so nothing is emailed to the client.
+      The client{% if q.attention_to %}, contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) come from the quotation.
+      The time, training type and pax come from the line. Add the trainer on the class page afterwards.</li>
+  </ul>
   <div><button class="btn btn-success" type="submit"><i class="bi bi-link-45deg me-1"></i>Link Classes</button></div>
 </form>
 

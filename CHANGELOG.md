@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix199 — Link or Create Classes: clearer note
+
+**Date:** 2026-10-19
+
+- The note under the Link or Create Classes table is now two bullets in full sentences with proper capitals
+  ("Existing class: The line is linked to that class. The class itself stays as it is." / "New class:
+  Created with status Proposed...").
+
 ## Fix198 — Quotation: link lines to existing classes, not only create new ones
 
 **Date:** 2026-10-19
