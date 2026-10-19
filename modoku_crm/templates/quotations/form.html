@@ -1,23 +1,41 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit' if is_edit else 'New' }} Quotation{% endblock %}
 {% block content %}
-{% macro class_select(selected_id) %}
-<select name="item_session_id" class="form-select form-select-sm mt-1 item-class" title="The class (batch) this line is for">
-  <option value="">No class linked</option>
-  {% for s in linkable_sessions %}
-  {% set s_time_start, s_time_end = s.training_time|_split_training_time %}
-  <option value="{{ s.id }}" data-course-title="{{ s.course_title }}"
-    data-client-company-id="{{ s.client_company_id or '' }}" data-pic-name="{{ s.pic_name or '' }}"
-    data-venue="{{ s.venue or '' }}"
-    data-capacity="{{ s.capacity or '' }}" data-training-type="{{ s.training_type or '' }}"
-    data-start-date="{{ s.start_date or '' }}" data-end-date="{{ s.end_date or '' }}"
-    data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
-    data-price-inhouse="{{ "%.2f"|format(s.price_inhouse or 0) }}" data-duration="{{ s.duration }}"
-    {{ 'selected' if selected_id == s.id }}>
-    Class: {{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})
-  </option>
-  {% endfor %}
-</select>
+{# Fix201: a line's classes - one or several (e.g. one line quoted for 4
+   batches). With 2+, each class has an amount box: blank = equal share of the
+   line's fee. Kept in one hidden value per row ("6=;7=12000") so it lines up
+   with the row's other fields. #}
+{% macro class_picker(links) %}
+{% set smap = {} %}{% for s in linkable_sessions %}{% set _ = smap.update({s.id: s}) %}{% endfor %}
+<div class="item-classes mt-1">
+  <div class="ic-list">
+    {% for sid, amt in links %}{% set s = smap.get(sid) %}
+    <div class="ic-chip d-flex align-items-center gap-1 mb-1" data-sid="{{ sid }}">
+      <span class="badge rounded-pill text-bg-light border text-truncate fw-normal text-start" style="max-width:190px" title="{{ (s.start_date|fmtdaterange(s.end_date) ~ ' · ' ~ s.course_title) if s else '' }}">{% if s %}{{ s.start_date|fmtdaterange(s.end_date) }} · {{ s.course_title }}{% else %}Class #{{ sid }}{% endif %}</span>
+      <input type="number" step="0.01" min="0" class="form-control form-control-sm ic-amount" style="width:112px" value="{{ ('%.2f'|format(amt)) if amt is not none else '' }}" title="This class's amount (blank = equal share)">
+      <button type="button" class="btn btn-sm btn-link text-danger p-0 ic-remove" title="Unlink this class">✕</button>
+    </div>
+    {% endfor %}
+  </div>
+  <select class="form-select form-select-sm item-class-add" title="Link a class (batch) to this line">
+    <option value="">{{ '+ Link another class' if links else '+ Link a class' }}</option>
+    {% for s in linkable_sessions %}
+    {% set s_time_start, s_time_end = s.training_time|_split_training_time %}
+    <option value="{{ s.id }}" data-course-title="{{ s.course_title }}"
+      data-client-company-id="{{ s.client_company_id or '' }}" data-pic-name="{{ s.pic_name or '' }}"
+      data-venue="{{ s.venue or '' }}"
+      data-capacity="{{ s.capacity or '' }}" data-training-type="{{ s.training_type or '' }}"
+      data-start-date="{{ s.start_date or '' }}" data-end-date="{{ s.end_date or '' }}"
+      data-time-start="{{ s_time_start }}" data-time-end="{{ s_time_end }}"
+      data-price-inhouse="{{ "%.2f"|format(s.price_inhouse or 0) }}" data-duration="{{ s.duration }}"
+      data-label="{{ s.start_date|fmtdaterange(s.end_date) }} · {{ s.course_title }}">
+      {{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})
+    </option>
+    {% endfor %}
+  </select>
+  <div class="ic-note small text-muted"></div>
+  <input type="hidden" name="item_classes" value="{% for sid, amt in links %}{{ sid }}={{ ('%.2f'|format(amt)) if amt is not none else '' }}{{ ';' if not loop.last }}{% endfor %}">
+</div>
 {% endmacro %}
 
 <div class="page-header"><h4 class="mb-0">{{ ('Edit Quotation ' + quotation.quote_no) if is_edit else 'New Quotation' }}</h4></div>
@@ -144,7 +162,7 @@
           <tr>
             <td class="row-no">{{ loop.index }}</td>
             <td><input type="text" name="item_programme" class="form-control form-control-sm" value="{{ item.programme }}">
-              {{ class_select(item.session_id) }}</td>
+              {{ class_picker(item.links or []) }}</td>
             <td><input type="number" min="1" name="item_pax" class="form-control form-control-sm" value="{{ item.no_of_pax }}"></td>
             <td>
               <select name="item_training_type" class="form-select form-select-sm">
@@ -167,7 +185,7 @@
           <tr data-blank-row>
             <td class="row-no">1</td>
             <td><input type="text" name="item_programme" class="form-control form-control-sm" placeholder="Programme name">
-              {{ class_select(preselect_session if not quotation else None) }}</td>
+              {{ class_picker([(preselect_session, None)] if preselect_session and not quotation else []) }}</td>
             <td><input type="number" min="1" name="item_pax" class="form-control form-control-sm" value="1"></td>
             <td>
               <select name="item_training_type" class="form-select form-select-sm">
@@ -256,6 +274,8 @@ function rowTemplate() {
     else i.value = '';
   });
   first.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  first.querySelectorAll('.ic-chip').forEach(c => c.remove());
+  first.querySelectorAll('.ic-note').forEach(n => { n.textContent = ''; });
   first.querySelectorAll('input, select').forEach(el => { el.dataset.autofill = el.value; });
   return first;
 }
@@ -437,8 +457,7 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   // line (batch 2, 3...) fills just that line, never the title above.
   function otherLineLinked(row) {
     return Array.from(document.querySelectorAll('#items-table tbody tr')).some(function (tr) {
-      const sel = tr.querySelector('.item-class');
-      return tr !== row && sel && sel.value;
+      return tr !== row && tr.querySelector('.ic-chip');
     });
   }
   function applyClass(opt, row) {
@@ -510,10 +529,66 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     telField.value = companyOpt.dataset.phone || '';
   }
 
+  // Fix201: linking classes to a line. The first class on a line fills the
+  // line (dates, pax, fee...); further classes are added as batches of it.
+  function money(n) { return n.toLocaleString('en-MY', {minimumFractionDigits: Number.isInteger(Math.round(n * 100) / 100) ? 0 : 2, maximumFractionDigits: 2}); }
+  function syncClasses(row) {
+    const box = row.querySelector('.item-classes');
+    if (!box) return;
+    const chips = Array.from(box.querySelectorAll('.ic-chip'));
+    const fee = parseFloat(String(row.querySelector('input[name="item_fee"]').value).replace(/,/g, '')) || 0;
+    const custom = chips.map(c => c.querySelector('.ic-amount').value.trim()).filter(v => v !== '').map(Number);
+    const free = chips.length - custom.length;
+    const customSum = custom.reduce((a, b) => a + b, 0);
+    const each = free ? Math.max((fee - customSum) / free, 0) : 0;
+    chips.forEach(function (c) {
+      const amt = c.querySelector('.ic-amount');
+      amt.style.display = chips.length > 1 ? '' : 'none';
+      amt.placeholder = money(each);
+    });
+    const note = box.querySelector('.ic-note');
+    if (chips.length > 1 && (customSum > fee + 0.005 || (!free && Math.abs(customSum - fee) > 0.005))) {
+      note.className = 'ic-note small text-danger';
+      note.textContent = 'Class amounts add up to RM ' + money(customSum) + ', the line is RM ' + money(fee) + '.';
+    } else {
+      note.className = 'ic-note small text-muted';
+      note.textContent = chips.length > 1 ? 'Split between ' + chips.length + ' classes. Blank = equal share.' : '';
+    }
+    box.querySelector('input[name="item_classes"]').value =
+      chips.map(c => c.dataset.sid + '=' + c.querySelector('.ic-amount').value.trim()).join(';');
+    box.querySelector('.item-class-add option').textContent = chips.length ? '+ Link another class' : '+ Link a class';
+  }
   document.getElementById('items-table').addEventListener('change', function (e) {
-    if (!e.target.classList.contains('item-class') || !e.target.value) return;
-    applyClass(e.target.selectedOptions[0], e.target.closest('tr'));
+    if (!e.target.classList.contains('item-class-add') || !e.target.value) return;
+    const row = e.target.closest('tr');
+    const opt = e.target.selectedOptions[0];
+    const list = row.querySelector('.ic-list');
+    const firstOnLine = !list.querySelector('.ic-chip');
+    if (!list.querySelector('.ic-chip[data-sid="' + opt.value + '"]')) {
+      const chip = document.createElement('div');
+      chip.className = 'ic-chip d-flex align-items-center gap-1 mb-1';
+      chip.dataset.sid = opt.value;
+      chip.innerHTML = '<span class="badge rounded-pill text-bg-light border text-truncate fw-normal text-start" style="max-width:190px"></span>'
+        + '<input type="number" step="0.01" min="0" class="form-control form-control-sm ic-amount" style="width:112px" title="This class\'s amount (blank = equal share)">'
+        + '<button type="button" class="btn btn-sm btn-link text-danger p-0 ic-remove" title="Unlink this class">✕</button>';
+      chip.querySelector('.badge').textContent = opt.dataset.label;
+      chip.querySelector('.badge').title = opt.dataset.label;
+      list.appendChild(chip);
+    }
+    if (firstOnLine) applyClass(opt, row);
+    e.target.value = '';
+    syncClasses(row);
   });
+  document.getElementById('items-table').addEventListener('click', function (e) {
+    if (!e.target.classList.contains('ic-remove')) return;
+    const row = e.target.closest('tr');
+    e.target.closest('.ic-chip').remove();
+    syncClasses(row);
+  });
+  document.getElementById('items-table').addEventListener('input', function (e) {
+    if (e.target.classList.contains('ic-amount') || e.target.name === 'item_fee') syncClasses(e.target.closest('tr'));
+  });
+  document.querySelectorAll('#items-table tbody tr').forEach(syncClasses);
   companySelect.addEventListener('change', function () {
     setAttentionTo(this.value, null);
   });
@@ -523,9 +598,10 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
   // form from it yet. Do exactly what picking it by hand would do. Only on a
   // brand-new quotation, so an edit never has its saved values overwritten.
   {% if preselect_session and not quotation %}
-  const preSelect = firstItemRow.querySelector('.item-class');
-  if (preSelect && preSelect.value) {
-    applyClass(preSelect.selectedOptions[0], firstItemRow);
+  const preChip = firstItemRow.querySelector('.ic-chip');
+  const preOpt = preChip && firstItemRow.querySelector('.item-class-add option[value="' + preChip.dataset.sid + '"]');
+  if (preOpt) {
+    applyClass(preOpt, firstItemRow);
   }
   {% endif %}
 

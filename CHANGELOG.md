@@ -10,6 +10,24 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix201 — One quotation line for several classes, with each class's own amount
+
+**Date:** 2026-10-19
+
+- A quotation line can now be linked to several classes (e.g. one line "Effective Leadership, 4 batches").
+  On the quotation form, each line lists its linked classes (dates first) with **+ Link another class**.
+  The client's quotation is unchanged: still one line, signed once.
+- **Amount per class:** the line's fee is split equally by default. With 2+ classes, each class has an
+  amount box: type an amount to fix it, leave blank for an equal share of the rest (the last class takes
+  the rounding remainder, so the shares add up to the line). A warning shows (on the form and after
+  saving) when the typed amounts don't fit the line's fee.
+- **Each class's grant quotation PDF / class page price** shows that batch only: the line's programme and
+  pax (pax is per batch), the class's own dates and time, and its own amount.
+- **Link or create classes** page: "+ Another class for this line" adds more classes to one line, each an
+  existing class or a new Proposed one (the same course is pre-picked, with its own dates).
+- New table `quotation_item_classes` (line, class, own amount). Existing line-to-class links move into it
+  automatically on boot.
+
 ## Fix200 — Class page: Grant Documents says when the Quotation fills itself
 
 **Date:** 2026-10-19

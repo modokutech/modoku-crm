@@ -419,35 +419,99 @@ def _combined_ics(rows):
     ).encode("utf-8")
 
 
-# ---- Fix193: one quotation, several classes ---------------------------------
-# Each quotation line can be linked to a class (quotation_items.session_id).
+# ---- Fix193/Fix201: one quotation, several classes --------------------------
+# Each quotation line is linked to the class(es) it's for, in
+# quotation_item_classes. One line can cover several classes (batches): its fee
+# is split equally between them, unless a class has its own amount.
 # quotations.session_id is kept as the FIRST linked class, so everything that
 # shows "the" class of a quotation (list, client return page) still works.
 
+def item_class_links(quotation_id):
+    """{item_id: [(session_id, custom_amount_or_None), ...]} in link order."""
+    rows = db.query(
+        """SELECT qic.item_id, qic.session_id, qic.amount FROM quotation_item_classes qic
+           JOIN quotation_items qi ON qi.id = qic.item_id
+           WHERE qi.quotation_id = ? ORDER BY qi.id, qic.id""", (quotation_id,))
+    out = {}
+    for r in rows:
+        out.setdefault(r["item_id"], []).append((r["session_id"], r["amount"]))
+    return out
+
+
 def linked_session_ids(quotation_id):
     """The classes on a quotation's lines, in line order (no repeats)."""
-    rows = db.query("SELECT session_id FROM quotation_items WHERE quotation_id = ? AND session_id IS NOT NULL "
-                    "ORDER BY id", (quotation_id,))
     out = []
-    for r in rows:
-        if r["session_id"] not in out:
-            out.append(r["session_id"])
+    for links in item_class_links(quotation_id).values():
+        for sid, _amount in links:
+            if sid not in out:
+                out.append(sid)
+    return out
+
+
+def class_shares(fee, links):
+    """Splits one line's fee between its classes: {session_id: amount}. A class
+    with its own amount keeps it; the rest of the fee is split equally between
+    the others (the last one takes the rounding remainder, so the shares add
+    up to the fee to the sen)."""
+    shares = {sid: round(amount, 2) for sid, amount in links if amount is not None}
+    free = [sid for sid, amount in links if amount is None]
+    rest = round((fee or 0) - sum(shares.values()), 2)
+    if free:
+        each = max(round(rest / len(free), 2), 0.0)
+        for sid in free[:-1]:
+            shares[sid] = each
+        shares[free[-1]] = max(round(rest - each * (len(free) - 1), 2), 0.0)
+    return shares
+
+
+def share_problems(items, links_by_item):
+    """Lines whose own class amounts don't fit the line's fee - for a warning."""
+    out = []
+    for item in items:
+        links = links_by_item.get(item["id"], [])
+        custom = [a for _s, a in links if a is not None]
+        if len(links) < 2 or not custom:
+            continue
+        total = round(sum(custom), 2)
+        fee = round(item["investment_fee"] or 0, 2)
+        if total > fee + 0.005 or (len(custom) == len(links) and abs(total - fee) > 0.005):
+            out.append(f"{item['programme']}: the class amounts add up to RM {fmtmoney(total)}, "
+                       f"but the line is RM {fmtmoney(fee)}")
     return out
 
 
 def class_items(quotation_id, session_id, items=None):
     """The lines that make up one class's price. A quotation for a single
     class: all of it (extra unlinked lines such as meals belong to that class).
-    Several classes: only the lines linked to this class."""
+    Several classes: only the lines linked to this class - and a line shared by
+    several classes counts with this class's share of the fee, its own dates
+    and time (Fix201), so the class's grant quotation shows that batch only."""
     if items is None:
         items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
-    ids = []
-    for item in items:
-        if item["session_id"] and item["session_id"] not in ids:
-            ids.append(item["session_id"])
+    links = item_class_links(quotation_id)
+    ids = linked_session_ids(quotation_id)
     if len(ids) <= 1:
         return list(items) if session_id in ids else []
-    return [item for item in items if item["session_id"] == session_id]
+    cls = None
+    out = []
+    for item in items:
+        item_links = links.get(item["id"], [])
+        if session_id not in [sid for sid, _a in item_links]:
+            continue
+        if len(item_links) == 1:
+            out.append(item)
+            continue
+        if cls is None:
+            cls = db.query("SELECT start_date, end_date, training_time FROM course_sessions WHERE id = ?",
+                           (session_id,), one=True)
+        line = dict(item)
+        line["investment_fee"] = class_shares(item["investment_fee"], item_links)[session_id]
+        if cls is not None:
+            line["item_date"] = cls["start_date"]
+            line["item_date_end"] = cls["end_date"] if cls["end_date"] and cls["end_date"] > cls["start_date"] else None
+            line["item_time"] = cls["training_time"] or item["item_time"]
+        out.append(line)
+    return out
 
 
 def _sync_primary_session(quotation_id):
@@ -586,7 +650,7 @@ def _items_from_form(form):
     times_start = form.getlist("item_time_start")
     times_end = form.getlist("item_time_end")
     fees = form.getlist("item_fee")
-    sessions_ = form.getlist("item_session_id")
+    classes_ = form.getlist("item_classes")
     n = len(programmes)
     items = []
     for i in range(n):
@@ -602,7 +666,7 @@ def _items_from_form(form):
                 times_end[i] if i < len(times_end) else "",
             ),
             "investment_fee": fees[i] if i < len(fees) else "0",
-            "session_id": int(sessions_[i]) if i < len(sessions_) and sessions_[i].isdigit() else None,
+            "links": _parse_links(classes_[i] if i < len(classes_) else ""),
         })
     return items
 
@@ -617,10 +681,11 @@ def _save_items(quotation_id, form):
     times_start = form.getlist("item_time_start")
     times_end = form.getlist("item_time_end")
     fees = form.getlist("item_fee")
-    # Fix193: each line's class (one select per row, so it lines up)
-    sessions_ = form.getlist("item_session_id") or [""] * len(programmes)
-    for programme, pax, ttype, duration, item_date, item_date_end, time_start, time_end, fee, sid in zip(
-        programmes, paxs, types, durations, dates_, dates_end, times_start, times_end, fees, sessions_
+    # Fix201: each line's classes and their own amounts ("6=;7=12000"), one
+    # hidden value per row so it lines up with the other columns
+    classes_ = form.getlist("item_classes") or [""] * len(programmes)
+    for programme, pax, ttype, duration, item_date, item_date_end, time_start, time_end, fee, cls in zip(
+        programmes, paxs, types, durations, dates_, dates_end, times_start, times_end, fees, classes_
     ):
         if not programme.strip():
             continue
@@ -631,14 +696,56 @@ def _save_items(quotation_id, form):
         if not item_date or not date_end or date_end <= item_date:
             date_end = None
         item_time = _sessions.format_training_time(time_start, time_end)
-        db.execute(
+        links = _parse_links(cls)
+        item_id = db.execute(
             """INSERT INTO quotation_items (quotation_id, programme, no_of_pax, training_type,
                    duration, item_date, item_date_end, item_time, investment_fee, session_id)
                VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (quotation_id, programme.strip(), int(pax or 1), ttype or None, duration or None,
-             item_date or None, date_end, item_time, parse_money(fee), int(sid) if sid.isdigit() else None),
+             item_date or None, date_end, item_time, parse_money(fee), links[0][0] if links else None),
         )
+        _save_links(item_id, links)
     return _sync_primary_session(quotation_id)
+
+
+def _with_links(quotation_id, items):
+    links = item_class_links(quotation_id)
+    return [dict(i, links=links.get(i["id"], [])) for i in items]
+
+
+def _flash_share_problems(quotation_id):
+    items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
+    for problem in share_problems(items, item_class_links(quotation_id)):
+        flash(f"Check the class amounts. {problem}.", "warning")
+
+
+def _parse_links(value):
+    """"6=;7=12000" -> [(6, None), (7, 12000.0)] (no repeats; a blank or
+    unreadable amount means "equal share")."""
+    out, seen = [], set()
+    for part in (value or "").split(";"):
+        sid, _eq, amount = part.partition("=")
+        sid = sid.strip()
+        if not sid.isdigit() or int(sid) in seen:
+            continue
+        seen.add(int(sid))
+        try:
+            amt = parse_money(amount) if amount.strip() else None
+        except ValueError:
+            amt = None
+        out.append((int(sid), amt))
+    return out
+
+
+def _save_links(item_id, links):
+    db.execute("DELETE FROM quotation_item_classes WHERE item_id = ?", (item_id,))
+    for sid, amount in links:
+        if db.query("SELECT 1 FROM course_sessions WHERE id = ?", (sid,), one=True):
+            db.execute("INSERT INTO quotation_item_classes (item_id, session_id, amount) VALUES (?,?,?)",
+                       (item_id, sid, amount))
+    first = db.query("SELECT session_id FROM quotation_item_classes WHERE item_id = ? ORDER BY id LIMIT 1",
+                     (item_id,), one=True)
+    db.execute("UPDATE quotation_items SET session_id = ? WHERE id = ?", (first["session_id"] if first else None, item_id))
 
 
 def _clean(value):
@@ -714,7 +821,9 @@ def quoted_price_for_session(session_id):
     rows = db.query(
         """SELECT id, quote_no, status, sst_rate, sst_inclusive, quote_date
            FROM quotations
-           WHERE session_id = ? OR id IN (SELECT quotation_id FROM quotation_items WHERE session_id = ?)
+           WHERE session_id = ? OR id IN (SELECT qi.quotation_id FROM quotation_items qi
+                                          JOIN quotation_item_classes qic ON qic.item_id = qi.id
+                                          WHERE qic.session_id = ?)
            ORDER BY CASE status WHEN 'Accepted' THEN 0 ELSE 1 END,
                     quote_date DESC, id DESC
            LIMIT 1""",
@@ -980,7 +1089,7 @@ def new():
                 preselect_company=int(fields["client_company_id"]) if fields["client_company_id"] else None,
                 default_terms=fields["terms"], items=_items_from_form(request.form),
                 linkable_sessions=_linkable_sessions(
-                    [i["session_id"] for i in _items_from_form(request.form)] + [preselect_session]),
+                    [sid for i in _items_from_form(request.form) for sid, _a in i["links"]] + [preselect_session]),
                 preselect_session=None,
                 leads=_leads_for_dropdown(),
             )
@@ -1003,6 +1112,7 @@ def new():
             ),
         )
         _save_items(quotation_id, request.form)
+        _flash_share_problems(quotation_id)
         activity.log("create", "quotation", quotation_id, f"Created quotation {quote_no}")
         flash("Quotation created.", "success")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
@@ -1056,7 +1166,8 @@ def view(quotation_id):
     linked_classes = _classes_summary(q, items)
     # lines with no class: all of them while nothing is linked; after that only
     # dated ones (an undated extra like meals belongs with the classes)
-    unlinked_items = [i for i in items if not i["session_id"] and (not linked_classes or i["item_date"])]
+    links = item_class_links(quotation_id)
+    unlinked_items = [i for i in items if not links.get(i["id"]) and (not linked_classes or i["item_date"])]
     return_token = _ensure_return_token(quotation_id)
     return_url = url_for("quotation_return.details", token=return_token, _external=True)
     return render_template("quotations/view.html", q=q, items=items, subtotal=subtotal,
@@ -1148,7 +1259,8 @@ def edit(quotation_id):
                 today=fields["quote_date"], default_valid_until=fields["valid_until"], preselect_company=None,
                 default_terms=fields["terms"], items=_items_from_form(request.form),
                 linkable_sessions=_linkable_sessions(
-                    [i["session_id"] for i in _items_from_form(request.form)] + linked_session_ids(quotation_id)),
+                    [sid for i in _items_from_form(request.form) for sid, _a in i["links"]]
+                    + linked_session_ids(quotation_id)),
                 leads=_leads_for_dropdown(), preselect_session=None, signed_total=_signed_total(q),
             )
         db.execute(
@@ -1170,6 +1282,7 @@ def edit(quotation_id):
         old_ids = linked_session_ids(quotation_id)
         db.execute("DELETE FROM quotation_items WHERE quotation_id = ?", (quotation_id,))
         new_ids = _save_items(quotation_id, request.form)
+        _flash_share_problems(quotation_id)
         new_items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
         new_total = _totals(new_items, fields["sst_rate"], fields["sst_inclusive"])[2]
         # Fix125: every amount change is in the Activity Log with old -> new,
@@ -1206,7 +1319,8 @@ def edit(quotation_id):
         "quotations/form.html", quotation=q, is_edit=True, companies=companies, courses=courses,
         statuses=STATUSES, training_types=TRAINING_TYPES, training_modes=TRAINING_MODES,
         today=q["quote_date"], default_valid_until=q["valid_until"], preselect_company=None,
-        default_terms=q["terms"], items=items, linkable_sessions=_linkable_sessions(linked_session_ids(quotation_id)),
+        default_terms=q["terms"], items=_with_links(quotation_id, items),
+        linkable_sessions=_linkable_sessions(linked_session_ids(quotation_id)),
         leads=_leads_for_dropdown(),
         preselect_session=None, signed_total=_signed_total(q),
     )
@@ -1422,16 +1536,19 @@ def _guess_existing(item, q, course_id, existing):
 @bp.route("/<int:quotation_id>/create-classes", methods=("GET", "POST"))
 @login_required
 def create_classes(quotation_id):
-    """Fix193/Fix198: link each line that has no class yet to its class -
-    either an existing Proposed/Scheduled class, or a new Proposed class made
-    from the line (course, dates, time, pax and training type from the line;
-    client, contact, venue and mode from the quotation)."""
+    """Fix193/Fix198/Fix201: link each line that has no class yet to its
+    class(es) - existing Proposed/Scheduled classes, or new Proposed classes
+    made from the line (course and dates per class; time, pax and training
+    type from the line; client, contact, venue and mode from the quotation).
+    One line can get several classes (e.g. one line quoted for 4 batches);
+    its fee is then split equally between them (editable on the quotation)."""
     q = db.query("SELECT * FROM quotations WHERE id = ?", (quotation_id,), one=True)
     if q is None:
         flash("Quotation not found.", "danger")
         return redirect(url_for("quotations.index"))
-    items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? AND session_id IS NULL ORDER BY id",
-                     (quotation_id,))
+    items = db.query(
+        """SELECT * FROM quotation_items WHERE quotation_id = ?
+             AND id NOT IN (SELECT item_id FROM quotation_item_classes) ORDER BY id""", (quotation_id,))
     courses = db.query("SELECT id, title FROM courses WHERE active = 1 ORDER BY title")
     if not items:
         flash("Every line on this quotation is already linked to a class.", "info")
@@ -1447,63 +1564,77 @@ def create_classes(quotation_id):
 
     if request.method == "POST":
         chosen = set(request.form.getlist("create"))
-        links, rows, errors = [], [], []
+        plan, errors = [], []  # plan: (item, [("link", sid) | ("new", course_id, start, end), ...])
         for item in items:
             key = str(item["id"])
             if key not in chosen:
                 continue
-            picked = request.form.get(f"existing_{key}", type=int)
-            if picked in existing_ids:
-                links.append((item, picked))
-                continue
-            course_id = request.form.get(f"course_{key}", type=int)
-            start = (request.form.get(f"start_{key}") or "").strip()
-            end = (request.form.get(f"end_{key}") or "").strip() or None
-            if not course_id or not start:
-                errors.append(item["programme"])
-                continue
-            if end and end <= start:
-                end = None
-            rows.append((item, course_id, start, end))
+            slots = []
+            for n in request.form.getlist(f"slot_{key}"):
+                picked = request.form.get(f"existing_{key}_{n}", type=int)
+                if picked in existing_ids:
+                    if ("link", picked) not in slots:
+                        slots.append(("link", picked))
+                    continue
+                course_id = request.form.get(f"course_{key}_{n}", type=int)
+                start = (request.form.get(f"start_{key}_{n}") or "").strip()
+                end = (request.form.get(f"end_{key}_{n}") or "").strip() or None
+                if not course_id or not start:
+                    errors.append(item["programme"])
+                    break
+                slots.append(("new", course_id, start, end if end and end > start else None))
+            if slots:
+                plan.append((item, slots))
         if errors:
-            flash(f"Pick an existing class, or choose the course and the start date for: {', '.join(errors)}.",
-                  "danger")
-        elif not rows and not links:
+            flash(f"Pick an existing class, or choose the course and the start date, for: "
+                  f"{', '.join(dict.fromkeys(errors))}.", "danger")
+        elif not plan:
             flash("Tick at least one line to link to a class.", "warning")
         else:
-            for item, sid in links:
-                db.execute("UPDATE quotation_items SET session_id = ? WHERE id = ?", (sid, item["id"]))
-                activity.log("update", "session", sid, f"Linked to quotation {q['quote_no']} ({item['programme']})")
             pic = db.query("SELECT id FROM leads WHERE company_id = ? AND name = ? ORDER BY id LIMIT 1",
                            (q["client_company_id"], q["attention_to"]), one=True) if q["client_company_id"] else None
             mode = q["training_mode"] or "Physical"
-            new_ids = []
-            for item, course_id, start, end in rows:
-                sid = db.execute(
-                    """INSERT INTO course_sessions (course_id, client_company_id, pic_lead_id, venue, start_date,
-                           end_date, training_time, training_type, training_mode, capacity, status, session_code,
-                           owner_user_id, hrdcorp_claimable)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,'Proposed',?,?,?)""",
-                    (course_id, q["client_company_id"], pic["id"] if pic else None,
-                     q["venue"] if mode != "Virtual" else None, start, end, item["item_time"],
-                     item["training_type"], mode, item["no_of_pax"] or 20, db.generate_session_code(),
-                     g.user["id"], 1 if q["is_hrdcorp"] else 0),
-                )
-                db.execute("UPDATE quotation_items SET session_id = ? WHERE id = ?", (sid, item["id"]))
-                activity.log("create", "session", sid,
-                             f"Proposed class created from quotation {q['quote_no']} ({start})")
-                new_ids.append(sid)
+            linked, created, touched = 0, 0, []
+            for item, slots in plan:
+                sids = []
+                for slot in slots:
+                    if slot[0] == "link":
+                        sid = slot[1]
+                        linked += 1
+                        activity.log("update", "session", sid,
+                                     f"Linked to quotation {q['quote_no']} ({item['programme']})")
+                    else:
+                        _kind, course_id, start, end = slot
+                        sid = db.execute(
+                            """INSERT INTO course_sessions (course_id, client_company_id, pic_lead_id, venue,
+                                   start_date, end_date, training_time, training_type, training_mode, capacity,
+                                   status, session_code, owner_user_id, hrdcorp_claimable)
+                               VALUES (?,?,?,?,?,?,?,?,?,?,'Proposed',?,?,?)""",
+                            (course_id, q["client_company_id"], pic["id"] if pic else None,
+                             q["venue"] if mode != "Virtual" else None, start, end, item["item_time"],
+                             item["training_type"], mode, item["no_of_pax"] or 20, db.generate_session_code(),
+                             g.user["id"], 1 if q["is_hrdcorp"] else 0),
+                        )
+                        created += 1
+                        activity.log("create", "session", sid,
+                                     f"Proposed class created from quotation {q['quote_no']} ({start})")
+                    if sid not in sids:
+                        sids.append(sid)
+                _save_links(item["id"], [(sid, None) for sid in sids])
+                touched += sids
             _sync_primary_session(quotation_id)
             if q["signed_file"]:
-                for sid in dict.fromkeys([sid for _i, sid in links] + new_ids):
+                for sid in dict.fromkeys(touched):
                     fill_grant_quotation(quotation_id, sid)
             parts = []
-            if links:
-                parts.append(f"{len(links)} line{'s' if len(links) > 1 else ''} linked to "
-                             + ("existing classes" if len(links) > 1 else "an existing class"))
-            if rows:
-                parts.append(f"{len(rows)} Proposed class{'es' if len(rows) > 1 else ''} created "
+            if linked:
+                parts.append(f"{linked} existing class{'es' if linked > 1 else ''} linked")
+            if created:
+                parts.append(f"{created} Proposed class{'es' if created > 1 else ''} created "
                              "(add the trainer on each class page)")
+            if any(len(slots) > 1 for _i, slots in plan):
+                parts.append("a line with several classes is split equally between them (change the amounts "
+                             "on the quotation's Edit page)")
             flash("Done: " + "; ".join(parts) + ".", "success")
             return redirect(url_for("quotations.view", quotation_id=quotation_id))
 

@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Link Classes to {{ q.quote_no }}{% endblock %}
 {% block content %}
-{# Fix193/Fix198: link each line to an existing class, or create a Proposed one from it. #}
+{# Fix193/Fix198/Fix201: link each line to existing class(es), or create Proposed ones from it.
+   One line can have several classes (e.g. one line quoted for 4 batches). #}
 <div class="page-header">
   <div>
     <h4 class="mb-0">Link or Create Classes</h4>
@@ -10,19 +11,44 @@
   <a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
 </div>
 
+{% macro slot(key, n, existing_val, course_val, start_val, end_val, first) %}
+<div class="slot d-flex gap-2 align-items-start mb-2" data-n="{{ n }}">
+  <input type="hidden" name="slot_{{ key }}" value="{{ n }}">
+  <div style="min-width:200px;flex:1 1 220px">
+    <select name="existing_{{ key }}_{{ n }}" class="form-select form-select-sm existing-pick">
+      <option value="">+ Create a new Proposed class</option>
+      {% set ns = namespace(group=None) %}
+      {% for s in existing %}
+      {% set grp = 'This client' if q.client_company_id and s.client_company_id == q.client_company_id else 'Other classes' %}
+      {% if grp != ns.group %}{% if ns.group %}</optgroup>{% endif %}<optgroup label="{{ grp }}">{% set ns.group = grp %}{% endif %}
+      <option value="{{ s.id }}" {{ 'selected' if existing_val == s.id }}>{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if grp == 'Other classes' and s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})</option>
+      {% endfor %}
+      {% if ns.group %}</optgroup>{% endif %}
+    </select>
+  </div>
+  <div class="new-only" style="min-width:160px;flex:1 1 180px">
+    <select name="course_{{ key }}_{{ n }}" class="form-select form-select-sm" title="Course (new class)">
+      <option value="">Choose the course…</option>
+      {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if course_val == c.id }}>{{ c.title }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="new-only" style="flex:0 0 138px"><input type="date" name="start_{{ key }}_{{ n }}" class="form-control form-control-sm" value="{{ start_val or '' }}" title="Start date"></div>
+  <div class="new-only" style="flex:0 0 138px"><input type="date" name="end_{{ key }}_{{ n }}" class="form-control form-control-sm" value="{{ end_val or '' }}" title="End date (optional)"></div>
+  <button type="button" class="btn btn-sm btn-outline-danger remove-slot" title="Remove this class" {{ 'style=visibility:hidden' if first }}>✕</button>
+</div>
+{% endmacro %}
+
 {% set posted = request.method == 'POST' %}
 <form method="post" class="card p-3" style="max-width:1240px">
   {{ csrf_field()|safe }}
   <div class="table-responsive">
-    <table class="table table-sm align-middle" id="link-table">
-      <thead><tr><th></th><th>Line</th><th style="min-width:260px">Class</th><th style="min-width:220px">Course <span class="text-muted small fw-normal">(new class)</span></th><th>Start</th><th>End <span class="text-muted small fw-normal">(optional)</span></th><th>Pax</th></tr></thead>
+    <table class="table table-sm align-top" id="link-table">
+      <thead><tr><th></th><th style="width:24%">Line</th><th>Class <span class="text-muted small fw-normal">· for a new one: course, start and end date</span></th><th>Pax</th></tr></thead>
       <tbody>
       {% for line in lines %}
       {% set key = line.id|string %}
-      {% set course_val = (request.form.get('course_' ~ key)|int(0)) if posted else line.course_guess %}
-      {% set existing_val = (request.form.get('existing_' ~ key)|int(0)) if posted else line.existing_guess %}
       <tr>
-        <td><input type="checkbox" class="form-check-input" name="create" value="{{ key }}" {{ 'checked' if (key in request.form.getlist('create') if posted else true) }}></td>
+        <td class="pt-2"><input type="checkbox" class="form-check-input" name="create" value="{{ key }}" {{ 'checked' if (key in request.form.getlist('create') if posted else true) }}></td>
         <td>
           <div class="fw-semibold">{{ line.programme }}</div>
           {% set bits = [] %}
@@ -32,29 +58,21 @@
           {% set _ = bits.append('RM ' ~ (line.investment_fee|fmtmoney)) %}
           <div class="small text-muted">{{ bits|join(' · ') }}</div>
         </td>
-        <td>
-          <select name="existing_{{ key }}" class="form-select form-select-sm existing-pick">
-            <option value="">+ Create a new Proposed class</option>
-            {% set ns = namespace(group=None) %}
-            {% for s in existing %}
-            {% set grp = 'This client' if q.client_company_id and s.client_company_id == q.client_company_id else 'Other classes' %}
-            {% if grp != ns.group %}{% if ns.group %}</optgroup>{% endif %}<optgroup label="{{ grp }}">{% set ns.group = grp %}{% endif %}
-            <option value="{{ s.id }}" {{ 'selected' if existing_val == s.id }}>{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if grp == 'Other classes' and s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})</option>
+        <td class="slots" data-key="{{ key }}">
+          {% if posted %}
+            {% for n in request.form.getlist('slot_' ~ key) %}
+            {{ slot(key, n, request.form.get('existing_' ~ key ~ '_' ~ n)|int(0), request.form.get('course_' ~ key ~ '_' ~ n)|int(0),
+                    request.form.get('start_' ~ key ~ '_' ~ n), request.form.get('end_' ~ key ~ '_' ~ n), loop.first) }}
             {% endfor %}
-            {% if ns.group %}</optgroup>{% endif %}
-          </select>
-          {% if not posted and line.existing_guess %}<div class="small text-muted mt-1">Same client and date. Check it.</div>{% endif %}
+          {% else %}
+            {{ slot(key, 0, line.existing_guess, line.course_guess, line.item_date, line.item_date_end, true) }}
+          {% endif %}
+          <button type="button" class="btn btn-link btn-sm p-0 add-slot">+ Another class for this line</button>
+          {% if not posted and (line.existing_guess or line.course_guess) %}
+          <div class="small text-muted">{% if line.existing_guess %}Class suggested: same client and date.{% else %}Course matched from the programme name.{% endif %} Check it.</div>
+          {% endif %}
         </td>
-        <td class="new-only">
-          <select name="course_{{ key }}" class="form-select form-select-sm">
-            <option value="">Choose the course…</option>
-            {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if course_val == c.id }}>{{ c.title }}</option>{% endfor %}
-          </select>
-          {% if not posted and line.course_guess %}<div class="small text-muted mt-1">Matched from the programme name. Check it.</div>{% endif %}
-        </td>
-        <td class="new-only"><input type="date" name="start_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('start_' ~ key) if posted else (line.item_date or '') }}"></td>
-        <td class="new-only"><input type="date" name="end_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('end_' ~ key) if posted else (line.item_date_end or '') }}"></td>
-        <td class="text-muted">{{ line.no_of_pax or '' }}</td>
+        <td class="text-muted pt-2">{{ line.no_of_pax or '' }}</td>
       </tr>
       {% endfor %}
       </tbody>
@@ -65,24 +83,48 @@
     <li><strong>New class:</strong> Created with status <strong>Proposed</strong>, so nothing is emailed to the client.
       The client{% if q.attention_to %}, contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) come from the quotation.
       The time, training type and pax come from the line. Add the trainer on the class page afterwards.</li>
+    <li><strong>Several classes on one line</strong> (e.g. one line quoted for 4 batches): The line's amount is split equally between them.
+      You can change each class's amount on the quotation's Edit page.</li>
   </ul>
   <div><button class="btn btn-success" type="submit"><i class="bi bi-link-45deg me-1"></i>Link Classes</button></div>
 </form>
 
 <script>
-// Course and dates are only needed for a new class; grey them out when an existing class is picked.
 (function () {
-  function sync(sel) {
-    const row = sel.closest('tr');
-    const isNew = !sel.value;
-    row.querySelectorAll('.new-only').forEach(function (td) {
-      td.style.opacity = isNew ? '' : '0.35';
-      td.querySelectorAll('input, select').forEach(function (el) { el.disabled = !isNew; });
+  // Course and dates are only needed for a new class; grey them out when an existing class is picked.
+  function sync(slot) {
+    const isNew = !slot.querySelector('.existing-pick').value;
+    slot.querySelectorAll('.new-only').forEach(function (box) {
+      box.style.opacity = isNew ? '' : '0.35';
+      box.querySelectorAll('input, select').forEach(function (el) { el.disabled = !isNew; });
     });
   }
-  document.querySelectorAll('.existing-pick').forEach(function (sel) {
-    sync(sel);
-    sel.addEventListener('change', function () { sync(sel); });
+  document.querySelectorAll('.slot').forEach(sync);
+  document.getElementById('link-table').addEventListener('change', function (e) {
+    if (e.target.classList.contains('existing-pick')) sync(e.target.closest('.slot'));
+  });
+  // "+ Another class for this line": a blank copy of the line's first class
+  // slot with its own field names (the server reads slot_<line> for the list).
+  document.getElementById('link-table').addEventListener('click', function (e) {
+    if (e.target.classList.contains('add-slot')) {
+      const cell = e.target.closest('.slots');
+      const slots = cell.querySelectorAll('.slot');
+      const n = Math.max.apply(null, Array.from(slots).map(function (s) { return Number(s.dataset.n); })) + 1;
+      const firstCourse = slots[0].querySelector('select[name^="course_"]').value;
+      const copy = slots[0].cloneNode(true);
+      copy.dataset.n = n;
+      copy.querySelectorAll('[name]').forEach(function (el) {
+        if (el.name.startsWith('slot_')) { el.value = n; return; }  // name is slot_<line>: keep it
+        el.name = el.name.replace(/_\d+$/, '_' + n);
+        if (el.classList.contains('existing-pick')) el.value = '';
+        else if (el.tagName === 'SELECT') el.value = firstCourse;  // same course, new dates
+        else el.value = '';
+      });
+      copy.querySelector('.remove-slot').style.visibility = '';
+      e.target.before(copy);
+      sync(copy);
+    }
+    if (e.target.classList.contains('remove-slot')) e.target.closest('.slot').remove();
   });
 })();
 </script>

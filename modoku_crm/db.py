@@ -725,6 +725,18 @@ CREATE TABLE IF NOT EXISTS hotel_rooms (
     breakfast INTEGER NOT NULL DEFAULT 0
 );
 
+-- Fix201: which classes a quotation line is for. One line can cover several
+-- classes (e.g. "Leadership, 4 batches"): the line's fee is split equally
+-- between them unless a class has its own amount here.
+CREATE TABLE IF NOT EXISTS quotation_item_classes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL REFERENCES quotation_items(id) ON DELETE CASCADE,
+    session_id INTEGER NOT NULL REFERENCES course_sessions(id) ON DELETE CASCADE,
+    amount REAL
+);
+CREATE INDEX IF NOT EXISTS idx_quotation_item_classes_item ON quotation_item_classes(item_id);
+CREATE INDEX IF NOT EXISTS idx_quotation_item_classes_session ON quotation_item_classes(session_id);
+
 -- Fix190: a hotel's meeting packages - hotels quote in packages (meeting
 -- room + some meals), each a price per pax per day with what it includes.
 -- inclusions: comma list of keys from hotels.INCLUSIONS. plus_plus: the
@@ -1447,6 +1459,19 @@ def _apply_light_migrations(db):
                  (SELECT id FROM course_sessions WHERE evaluation_form_id IS NOT NULL)"""
     )
     db.commit()
+
+    # Fix201: a line's class link (Fix193, quotation_items.session_id) moves
+    # into quotation_item_classes, where a line can have several. Once.
+    done = db.execute("SELECT value FROM settings WHERE key = 'fix201_item_class_links'").fetchone()
+    if done is None:
+        db.execute(
+            """INSERT INTO quotation_item_classes (item_id, session_id)
+               SELECT qi.id, qi.session_id FROM quotation_items qi
+               JOIN course_sessions cs ON cs.id = qi.session_id
+               WHERE qi.id NOT IN (SELECT item_id FROM quotation_item_classes)"""
+        )
+        db.execute("INSERT INTO settings (key, value) VALUES ('fix201_item_class_links', datetime('now'))")
+        db.commit()
 
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
