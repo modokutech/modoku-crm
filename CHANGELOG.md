@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix194 — Per-class grant quotation: no client signature line
+
+**Date:** 2026-10-19
+
+- The per-class quotation PDF for HRDCorp grant documents (Fix193) now has only Modoku's signature (the
+  quotation's PIC). The client's "On Behalf of Name, Company Stamp & Date" box and the "We hereby accept &
+  confirm the terms and conditions above." line are left out. The normal quotation is unchanged.
+
 ## Fix193 — One quotation for several classes (batches), signed once
 
 **Date:** 2026-10-19

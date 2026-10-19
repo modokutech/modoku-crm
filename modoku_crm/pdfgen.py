@@ -342,7 +342,7 @@ def _build_html(po, items, grand_total):
 </body></html>"""
 
 
-def _build_quotation_html(q, items, subtotal, title):
+def _build_quotation_html(q, items, subtotal, title, client_sign=True):
     logo_uri = _logo_data_uri()
     sst_rate = q["sst_rate"] if "sst_rate" in q.keys() else 0
     sst_amount = round(subtotal * (sst_rate or 0) / 100, 2)
@@ -410,8 +410,20 @@ def _build_quotation_html(q, items, subtotal, title):
     closing_html = (
         f"<div style='margin-top:16px;{small_style}'>Trusting that the above quotation will meet your "
         f"requirement and we look forward to your favorable reply. Please do not hesitate to contact me at "
-        f"{contact_phone or '-'}.<br>We hereby accept &amp; confirm the terms and conditions above.</div>"
+        f"{contact_phone or '-'}."
+        + ("<br>We hereby accept &amp; confirm the terms and conditions above." if client_sign else "")
+        + "</div>"
     )
+    # Fix194: the per-class copy for HRDCorp grant documents only needs our
+    # signature, so it has no client acceptance line.
+    client_sign_html = """
+        <td style="border:none;width:50%;vertical-align:top">
+          <div style="height:55px"></div>
+          <div style="border-top:1px solid #999;padding-top:4px;font-size:11px;color:#666">
+            On Behalf of Name, Company Stamp &amp; Date
+          </div>
+        </td>""" if client_sign else """
+        <td style="border:none;width:50%"></td>"""
 
     signature_block = f"""
       <table style="border:none;margin-top:32px"><tr style="border:none">
@@ -419,13 +431,7 @@ def _build_quotation_html(q, items, subtotal, title):
           {sig_img}
           <div style="font-weight:700">{sales_name}</div>
           {position_html}
-        </td>
-        <td style="border:none;width:50%;vertical-align:top">
-          <div style="height:55px"></div>
-          <div style="border-top:1px solid #999;padding-top:4px;font-size:11px;color:#666">
-            On Behalf of Name, Company Stamp &amp; Date
-          </div>
-        </td>
+        </td>{client_sign_html}
       </tr></table>
     """
 
@@ -491,10 +497,12 @@ def _build_quotation_html(q, items, subtotal, title):
 </body></html>"""
 
 
-def generate_quotation_pdf(q, items, subtotal, title):
+def generate_quotation_pdf(q, items, subtotal, title, client_sign=True):
     """Returns PDF bytes for the given quotation (sqlite Row), items, items subtotal
-    (SST is applied on top using q['sst_rate']), and document title."""
-    html = _build_quotation_html(q, items, subtotal, title)
+    (SST is applied on top using q['sst_rate']), and document title.
+    client_sign=False leaves out the client's acceptance line and signature
+    box (Fix194: the per-class HRDCorp grant copy)."""
+    html = _build_quotation_html(q, items, subtotal, title, client_sign=client_sign)
     with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as html_file:
         html_file.write(html)
         html_path = html_file.name

@@ -493,7 +493,7 @@ def class_quotation_pdf(quotation_id, session_id):
     from . import pdfgen
     # the class's dates in the filename tell batches of the same course apart
     when = f" ({fmtdaterange(cls['start_date'], cls['end_date'])})" if cls else ""
-    return f"{title}{when}.pdf", pdfgen.generate_quotation_pdf(q, items, subtotal, title)
+    return f"{title}{when}.pdf", pdfgen.generate_quotation_pdf(q, items, subtotal, title, client_sign=False)
 
 
 GRANT_QUOTE_CLASS_PREFIX = "grantquote_class_"
