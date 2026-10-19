@@ -1,40 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Create Classes from {{ q.quote_no }}{% endblock %}
+{% block title %}Link Classes to {{ q.quote_no }}{% endblock %}
 {% block content %}
-{# Fix193: one Proposed class per quotation line, linked back to the line. #}
+{# Fix193/Fix198: link each line to an existing class, or create a Proposed one from it. #}
 <div class="page-header">
   <div>
-    <h4 class="mb-0">Create Proposed Classes</h4>
-    <small class="text-muted">From quotation {{ q.quote_no }}. One class per ticked line, linked to it. Untick lines that aren't a class (e.g. meals or materials).</small>
+    <h4 class="mb-0">Link or Create Classes</h4>
+    <small class="text-muted">Quotation {{ q.quote_no }}. For each ticked line, pick its existing class or create a new Proposed one. Untick lines that aren't a class (e.g. meals or materials).</small>
   </div>
   <a href="{{ url_for('quotations.view', quotation_id=q.id) }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
 </div>
 
 {% set posted = request.method == 'POST' %}
-<form method="post" class="card p-3" style="max-width:1140px">
+<form method="post" class="card p-3" style="max-width:1240px">
   {{ csrf_field()|safe }}
   <div class="table-responsive">
-    <table class="table table-sm align-middle">
-      <thead><tr><th></th><th>Line</th><th style="width:30%">Course</th><th>Start</th><th>End <span class="text-muted small fw-normal">(optional)</span></th><th>Pax</th></tr></thead>
+    <table class="table table-sm align-middle" id="link-table">
+      <thead><tr><th></th><th>Line</th><th style="min-width:260px">Class</th><th style="min-width:220px">Course <span class="text-muted small fw-normal">(new class)</span></th><th>Start</th><th>End <span class="text-muted small fw-normal">(optional)</span></th><th>Pax</th></tr></thead>
       <tbody>
       {% for line in lines %}
       {% set key = line.id|string %}
       {% set course_val = (request.form.get('course_' ~ key)|int(0)) if posted else line.course_guess %}
+      {% set existing_val = (request.form.get('existing_' ~ key)|int(0)) if posted else line.existing_guess %}
       <tr>
         <td><input type="checkbox" class="form-check-input" name="create" value="{{ key }}" {{ 'checked' if (key in request.form.getlist('create') if posted else true) }}></td>
         <td>
           <div class="fw-semibold">{{ line.programme }}</div>
-          <div class="small text-muted">{{ line.training_type or '' }}{% if line.item_time %} · {{ line.item_time }}{% endif %} · RM {{ line.investment_fee|fmtmoney }}</div>
+          {% set bits = [] %}
+          {% if line.item_date %}{% set _ = bits.append(line.item_date|fmtdaterange(line.item_date_end)) %}{% endif %}
+          {% if line.training_type %}{% set _ = bits.append(line.training_type) %}{% endif %}
+          {% if line.item_time %}{% set _ = bits.append(line.item_time) %}{% endif %}
+          {% set _ = bits.append('RM ' ~ (line.investment_fee|fmtmoney)) %}
+          <div class="small text-muted">{{ bits|join(' · ') }}</div>
         </td>
         <td>
+          <select name="existing_{{ key }}" class="form-select form-select-sm existing-pick">
+            <option value="">+ Create a new Proposed class</option>
+            {% set ns = namespace(group=None) %}
+            {% for s in existing %}
+            {% set grp = 'This client' if q.client_company_id and s.client_company_id == q.client_company_id else 'Other classes' %}
+            {% if grp != ns.group %}{% if ns.group %}</optgroup>{% endif %}<optgroup label="{{ grp }}">{% set ns.group = grp %}{% endif %}
+            <option value="{{ s.id }}" {{ 'selected' if existing_val == s.id }}>{{ s.course_title }} · {{ s.start_date|fmtdaterange(s.end_date) }}{% if grp == 'Other classes' and s.client_name %} · {{ s.client_name }}{% endif %} ({{ s.status }})</option>
+            {% endfor %}
+            {% if ns.group %}</optgroup>{% endif %}
+          </select>
+          {% if not posted and line.existing_guess %}<div class="small text-muted mt-1">Same client and date. Check it.</div>{% endif %}
+        </td>
+        <td class="new-only">
           <select name="course_{{ key }}" class="form-select form-select-sm">
             <option value="">Choose the course…</option>
             {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if course_val == c.id }}>{{ c.title }}</option>{% endfor %}
           </select>
           {% if not posted and line.course_guess %}<div class="small text-muted mt-1">Matched from the programme name. Check it.</div>{% endif %}
         </td>
-        <td><input type="date" name="start_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('start_' ~ key) if posted else (line.item_date or '') }}"></td>
-        <td><input type="date" name="end_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('end_' ~ key) if posted else (line.item_date_end or '') }}"></td>
+        <td class="new-only"><input type="date" name="start_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('start_' ~ key) if posted else (line.item_date or '') }}"></td>
+        <td class="new-only"><input type="date" name="end_{{ key }}" class="form-control form-control-sm" value="{{ request.form.get('end_' ~ key) if posted else (line.item_date_end or '') }}"></td>
         <td class="text-muted">{{ line.no_of_pax or '' }}</td>
       </tr>
       {% endfor %}
@@ -42,9 +61,28 @@
     </table>
   </div>
   <p class="small text-muted mb-3">
-    Each class gets: client{% if q.attention_to %} and contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) from the quotation;
-    time, training type and pax from its line. Status <strong>Proposed</strong>, so nothing is emailed. Add the trainer on each class page afterwards.
+    <strong>Existing class:</strong> the line is linked to it, nothing about the class changes.
+    <strong>New class:</strong> client{% if q.attention_to %} and contact ({{ q.attention_to }}){% endif %}, venue and training mode ({{ q.training_mode or 'Physical' }}) from the quotation;
+    time, training type and pax from its line; status <strong>Proposed</strong>, so nothing is emailed. Add the trainer on its class page afterwards.
   </p>
-  <div><button class="btn btn-success" type="submit"><i class="bi bi-calendar-plus me-1"></i>Create Classes</button></div>
+  <div><button class="btn btn-success" type="submit"><i class="bi bi-link-45deg me-1"></i>Link Classes</button></div>
 </form>
+
+<script>
+// Course and dates are only needed for a new class; grey them out when an existing class is picked.
+(function () {
+  function sync(sel) {
+    const row = sel.closest('tr');
+    const isNew = !sel.value;
+    row.querySelectorAll('.new-only').forEach(function (td) {
+      td.style.opacity = isNew ? '' : '0.35';
+      td.querySelectorAll('input, select').forEach(function (el) { el.disabled = !isNew; });
+    });
+  }
+  document.querySelectorAll('.existing-pick').forEach(function (sel) {
+    sync(sel);
+    sel.addEventListener('change', function () { sync(sel); });
+  });
+})();
+</script>
 {% endblock %}

@@ -250,8 +250,8 @@ def _handle_quotation_signed(quotation_id, client_email=None, ai_warning=None):
                 f"A signed copy of quotation {q['quote_no']} has been received"
                 + (f" from {to_email}" if to_email else "") + ", but it isn't linked to a Class yet, so the "
                 "T3 Attendance Form link and calendar invite couldn't be sent automatically.\n\n"
-                "Link its lines to Classes on the quotation's Edit page (or use \"Create Proposed classes\" "
-                "on the quotation page), then send the T3 links from each class page." + warning_suffix,
+                "Link its lines to Classes with \"Link or create classes\" on the quotation page (or "
+                "the Class picker on each line in Edit), then send the T3 links from each class page." + warning_suffix,
                 related_type="quotation", related_id=quotation_id,
             )
         except Exception:  # noqa: BLE001 - notification must never break the caller
@@ -1407,13 +1407,25 @@ def _guess_course(programme, courses):
     return best["id"] if best is not None and best_score >= 0.6 else None
 
 
+def _guess_existing(item, q, course_id, existing):
+    """Fix198: an open class that looks like this line's - same client and
+    start date (and the same course when more than one does), or None."""
+    if not item["item_date"]:
+        return None
+    same = [s for s in existing if s["start_date"] == item["item_date"]
+            and (not q["client_company_id"] or s["client_company_id"] == q["client_company_id"])]
+    if len(same) > 1 and course_id:
+        same = [s for s in same if s["course_id"] == course_id] or same
+    return same[0]["id"] if len(same) == 1 else None
+
+
 @bp.route("/<int:quotation_id>/create-classes", methods=("GET", "POST"))
 @login_required
 def create_classes(quotation_id):
-    """Fix193: write the quotation first, then make a Proposed class for each
-    line that isn't linked to one yet (course, dates, time, pax and training
-    type from the line; client, contact, venue and mode from the quotation),
-    linking each line to its new class."""
+    """Fix193/Fix198: link each line that has no class yet to its class -
+    either an existing Proposed/Scheduled class, or a new Proposed class made
+    from the line (course, dates, time, pax and training type from the line;
+    client, contact, venue and mode from the quotation)."""
     q = db.query("SELECT * FROM quotations WHERE id = ?", (quotation_id,), one=True)
     if q is None:
         flash("Quotation not found.", "danger")
@@ -1424,13 +1436,25 @@ def create_classes(quotation_id):
     if not items:
         flash("Every line on this quotation is already linked to a class.", "info")
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
+    existing = [dict(r) for r in db.query(
+        """SELECT cs.id, cs.course_id, cs.client_company_id, cs.start_date, cs.end_date, cs.status,
+                  c.title AS course_title, co.name AS client_name
+           FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
+           LEFT JOIN companies co ON co.id = cs.client_company_id
+           WHERE cs.status IN ('Proposed', 'Scheduled')
+           ORDER BY (cs.client_company_id = ?) DESC, cs.start_date""", (q["client_company_id"] or 0,))]
+    existing_ids = {r["id"] for r in existing}
 
     if request.method == "POST":
         chosen = set(request.form.getlist("create"))
-        rows, errors = [], []
+        links, rows, errors = [], [], []
         for item in items:
             key = str(item["id"])
             if key not in chosen:
+                continue
+            picked = request.form.get(f"existing_{key}", type=int)
+            if picked in existing_ids:
+                links.append((item, picked))
                 continue
             course_id = request.form.get(f"course_{key}", type=int)
             start = (request.form.get(f"start_{key}") or "").strip()
@@ -1442,13 +1466,18 @@ def create_classes(quotation_id):
                 end = None
             rows.append((item, course_id, start, end))
         if errors:
-            flash(f"Choose the course and the start date for: {', '.join(errors)}.", "danger")
-        elif not rows:
-            flash("Tick at least one line to create a class for.", "warning")
+            flash(f"Pick an existing class, or choose the course and the start date for: {', '.join(errors)}.",
+                  "danger")
+        elif not rows and not links:
+            flash("Tick at least one line to link to a class.", "warning")
         else:
+            for item, sid in links:
+                db.execute("UPDATE quotation_items SET session_id = ? WHERE id = ?", (sid, item["id"]))
+                activity.log("update", "session", sid, f"Linked to quotation {q['quote_no']} ({item['programme']})")
             pic = db.query("SELECT id FROM leads WHERE company_id = ? AND name = ? ORDER BY id LIMIT 1",
                            (q["client_company_id"], q["attention_to"]), one=True) if q["client_company_id"] else None
             mode = q["training_mode"] or "Physical"
+            new_ids = []
             for item, course_id, start, end in rows:
                 sid = db.execute(
                     """INSERT INTO course_sessions (course_id, client_company_id, pic_lead_id, venue, start_date,
@@ -1463,15 +1492,26 @@ def create_classes(quotation_id):
                 db.execute("UPDATE quotation_items SET session_id = ? WHERE id = ?", (sid, item["id"]))
                 activity.log("create", "session", sid,
                              f"Proposed class created from quotation {q['quote_no']} ({start})")
-                if q["signed_file"]:
-                    fill_grant_quotation(quotation_id, sid)
+                new_ids.append(sid)
             _sync_primary_session(quotation_id)
-            flash(f"{len(rows)} Proposed class{'es' if len(rows) > 1 else ''} created and linked to this "
-                  "quotation. Add the trainer on each class page.", "success")
+            if q["signed_file"]:
+                for sid in dict.fromkeys([sid for _i, sid in links] + new_ids):
+                    fill_grant_quotation(quotation_id, sid)
+            parts = []
+            if links:
+                parts.append(f"{len(links)} line{'s' if len(links) > 1 else ''} linked to "
+                             + ("existing classes" if len(links) > 1 else "an existing class"))
+            if rows:
+                parts.append(f"{len(rows)} Proposed class{'es' if len(rows) > 1 else ''} created "
+                             "(add the trainer on each class page)")
+            flash("Done: " + "; ".join(parts) + ".", "success")
             return redirect(url_for("quotations.view", quotation_id=quotation_id))
 
-    lines = [dict(i, course_guess=_guess_course(i["programme"], courses)) for i in items]
-    return render_template("quotations/create_classes.html", q=q, lines=lines, courses=courses)
+    lines = []
+    for i in items:
+        guess = _guess_course(i["programme"], courses)
+        lines.append(dict(i, course_guess=guess, existing_guess=_guess_existing(i, q, guess, existing)))
+    return render_template("quotations/create_classes.html", q=q, lines=lines, courses=courses, existing=existing)
 
 
 @bp.route("/<int:quotation_id>/delete", methods=("POST",))

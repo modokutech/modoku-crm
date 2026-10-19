@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix198 — Quotation: link lines to existing classes, not only create new ones
+
+**Date:** 2026-10-19
+
+- The quotation page's "Create Proposed classes" is now **Link or create classes**. For each line with no
+  class, pick an existing Proposed/Scheduled class (this client's classes listed first) or "+ Create a new
+  Proposed class" (as before). Course and dates are only asked for new classes.
+- An existing class with the same client and start date as the line is suggested automatically.
+- Linking changes nothing about the existing class. If the quotation is already signed, the class's grant
+  documents quotation is filled in as usual.
+
 ## Fix197 — Trainer profile file name: Modoku_Trainer_Profile_<Name>
 
 **Date:** 2026-10-19

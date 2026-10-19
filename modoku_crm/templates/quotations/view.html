@@ -212,7 +212,7 @@
       {% if unlinked_items %}
       <div class="border-top pt-2 mt-2">
         <div class="small text-muted mb-2">{{ unlinked_items|length }} line{{ 's' if unlinked_items|length != 1 }} not linked to a class{% if linked_classes|length > 1 %} (not counted in any class's amount){% endif %}.</div>
-        <a href="{{ url_for('quotations.create_classes', quotation_id=q.id) }}" class="btn btn-sm btn-outline-success w-100"><i class="bi bi-calendar-plus me-1"></i>Create Proposed classes</a>
+        <a href="{{ url_for('quotations.create_classes', quotation_id=q.id) }}" class="btn btn-sm btn-outline-success w-100"><i class="bi bi-link-45deg me-1"></i>Link or create classes</a>
       </div>
       {% endif %}
     </div>
@@ -222,8 +222,8 @@
 
       {% if not linked_classes %}
       <p class="small text-warning-emphasis mb-2">
-        <i class="bi bi-exclamation-triangle me-1"></i>Not linked to a Class yet. Link each line to its class on
-        <a href="{{ url_for('quotations.edit', quotation_id=q.id) }}">Edit</a>, or create them below, so a signed
+        <i class="bi bi-exclamation-triangle me-1"></i>Not linked to a Class yet. Use <strong>Link or create classes</strong> above (or the
+        Class picker on each line in <a href="{{ url_for('quotations.edit', quotation_id=q.id) }}">Edit</a>), so a signed
         quotation can automatically trigger the T3 Attendance Form link and calendar invite.
       </p>
       {% elif linked_classes|length > 1 %}
