@@ -44,7 +44,7 @@
       </div>
       {# Fix204: different times on some days / days not back to back #}
       <div class="col-12 mt-1">
-        <input type="hidden" name="day_times" id="day_times" value="{{ (session.day_times or '') if session else '' }}">
+        <input type="hidden" name="day_times" id="day_times" value="{{ request.form.get('day_times', '') if request.method == 'POST' else ((session.day_times or '') if session else '') }}">
         <div id="day_times_box"></div>
       </div>
 

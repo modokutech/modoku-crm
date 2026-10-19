@@ -9,7 +9,7 @@ blueprint pattern already used by quotation_return.py / t3_public.py.
 """
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
-from . import activity, db, fmtdaterange, mailer, notifications
+from . import activity, db, mailer, notifications
 from . import schedule as _schedule
 from . import settings as settings_module
 

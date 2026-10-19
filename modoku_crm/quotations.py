@@ -1532,7 +1532,7 @@ def _class_schedule_from_line(item, start, end):
     """Fix204: a new class made from a quotation line gets the line's per-day
     times. For another batch (a different start date) the same day-by-day
     pattern is moved to its own dates. Returns (end_date, day_times)."""
-    from datetime import date as _date, timedelta as _td
+    from datetime import date as _date
     from . import schedule
     if not item["day_times"]:
         return end, None

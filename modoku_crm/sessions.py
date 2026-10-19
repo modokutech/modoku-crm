@@ -14,7 +14,7 @@ from . import schedule as _schedule
 # NOTE: calendar_integration is imported lazily (inside edit(), where it's
 # used) rather than at module level — calendar_integration imports from this
 # module (split_training_time), so a top-level import here would be circular.
-from . import APP_TZ, fmtdaterange
+from . import APP_TZ
 from .auth import admin_required, login_required
 from .csvutil import class_export_name, csv_response, table_response
 from .docutil import content_disposition

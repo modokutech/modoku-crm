@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix205 — QC pass before shipping
+
+**Date:** 2026-10-19
+
+- Class form: if saving fails a check (e.g. no course picked), the per-day time rows you entered are kept
+  instead of being lost.
+- Removed imports left unused by Fix204.
+- Checked: fresh-database boot and re-boot (all tables, columns and one-time migrations), every page as
+  admin and staff (210 each, no errors), the hotel, multi-class quotation and per-day time test suites,
+  and the public T3 form / quotation return pages.
+
 ## Fix204 — Different times on some days (and days that aren't back to back)
 
 **Date:** 2026-10-19
