@@ -65,17 +65,22 @@
        than always. It stays in the Add/Edit forms below regardless, since
        typing it in is a different thing from having it sit there readable
        by everyone. #}
-    {% set colspan = 3 + (1 if not e_sign_open else 0) + (1 if show_management_controls else 0) + (1 if e_sign_open else 0) %}
+    {# Fix209: in a Code Attendance class (names only, no IC), a column nobody has filled in is hidden,
+       so the list isn't crowded with dashes. #}
+    {% set show_ic = not e_sign_open and (not code_mode or participants|selectattr('ic_no')|list) %}
+    {% set show_employer = not code_mode or participants|selectattr('employer_name')|list %}
+    {% set show_gender = not code_mode or participants|selectattr('gender')|list %}
+    {% set colspan = 1 + (1 if show_ic else 0) + (1 if show_employer else 0) + (1 if show_gender else 0) + (1 if show_management_controls else 0) + (1 if e_sign_open else 0) %}
     <div class="table-responsive mb-3">
       <table class="table table-sm align-middle">
-        <thead><tr><th>Name</th>{% if not e_sign_open %}<th>IC No.</th>{% endif %}<th>Employer</th><th>Gender</th>{% if e_sign_open %}<th>Signature</th>{% endif %}{% if show_management_controls %}<th></th>{% endif %}</tr></thead>
+        <thead><tr><th>Name</th>{% if show_ic %}<th>IC No.</th>{% endif %}{% if show_employer %}<th>Employer</th>{% endif %}{% if show_gender %}<th>Gender</th>{% endif %}{% if e_sign_open %}<th>Signature</th>{% endif %}{% if show_management_controls %}<th></th>{% endif %}</tr></thead>
         <tbody>
           {% for p in participants %}
           <tr>
             <td>{{ p.name }}</td>
-            {% if not e_sign_open %}<td>{{ p.ic_no or '-' }}</td>{% endif %}
-            <td>{{ p.employer_name or '-' }}</td>
-            <td>{{ p.gender or '-' }}</td>
+            {% if show_ic %}<td>{{ p.ic_no or '-' }}</td>{% endif %}
+            {% if show_employer %}<td>{{ p.employer_name or '-' }}</td>{% endif %}
+            {% if show_gender %}<td>{{ p.gender or '-' }}</td>{% endif %}
             {% if e_sign_open %}
             <td class="text-nowrap">
               {% if p.id in signed_today %}

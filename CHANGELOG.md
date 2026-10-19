@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix209 — Code Attendance list: hide empty columns
+
+**Date:** 2026-10-19
+
+- On the public attendance form of a Code Attendance class, the IC No., Employer and Gender columns are
+  hidden when nobody in the class has that filled in. A names-only class shows just Name (and Signature on
+  training days). A column comes back as soon as anyone has a value in it. IC-check classes are unchanged.
+
 ## Fix208 — Code Attendance certificates open 1 hour before the training ends
 
 **Date:** 2026-10-19
