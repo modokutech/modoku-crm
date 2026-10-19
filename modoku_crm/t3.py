@@ -15,7 +15,7 @@ import binascii
 import csv
 import io
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from flask import (Blueprint, Response, current_app, flash, redirect, render_template, request,
                    send_from_directory, url_for)
@@ -125,6 +125,58 @@ def check_and_record_sign_attempt(participant, entered_ic):
                        (fail_count, participant["id"]))
         return False, "That IC number doesn't match our records for this name. Please try again."
 
+    db.execute("UPDATE t3_participants SET sign_fail_count = 0, sign_locked_until = NULL WHERE id = ?",
+               (participant["id"],))
+    return True, None
+
+
+# ---- Fix207: Code Attendance ------------------------------------------------
+# For classes whose participants have no IC on file (clients paying
+# themselves only give names), e-Signature can check a short class code
+# instead of the IC. The code is different every training day and is carried
+# by the sign-in QR on the trainer's screen (and shown under it), so it
+# proves the person is in the room; a link forwarded to someone elsewhere
+# stops working the next day.
+
+CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L
+
+
+def class_code(session_row, day_iso=None):
+    """Today's (or day_iso's) 6-character code for a Code Attendance class,
+    or None if the class isn't using it. Derived from a random per-class salt
+    and the date, so nothing needs storing per day."""
+    import hashlib
+    if not session_row["code_attendance"] or not session_row["code_attendance_salt"]:
+        return None
+    day_iso = day_iso or date.today().isoformat()
+    digest = hashlib.sha256(f"{session_row['code_attendance_salt']}:{day_iso}".encode()).digest()
+    return "".join(CODE_ALPHABET[b % len(CODE_ALPHABET)] for b in digest[:6])
+
+
+def check_and_record_code_attempt(participant, session_row, entered_code):
+    """Like check_and_record_sign_attempt, but checks today's class code -
+    same fail count and lockout on the participant's row."""
+    now = datetime.utcnow()
+    locked_until = participant["sign_locked_until"]
+    if locked_until:
+        try:
+            if datetime.fromisoformat(locked_until) > now:
+                return False, ("Too many incorrect attempts for this name. Signing is locked for a few "
+                               "minutes. Ask a staff member for help if you need to sign right now.")
+        except ValueError:
+            pass
+    expected = class_code(session_row)
+    if not expected or (entered_code or "").strip().upper().replace(" ", "") != expected:
+        fail_count = (participant["sign_fail_count"] or 0) + 1
+        if fail_count >= SIGN_FAIL_LIMIT:
+            lock_until = (now + timedelta(minutes=SIGN_LOCKOUT_MINUTES)).isoformat(" ")
+            db.execute("UPDATE t3_participants SET sign_fail_count = ?, sign_locked_until = ? WHERE id = ?",
+                       (fail_count, lock_until, participant["id"]))
+        else:
+            db.execute("UPDATE t3_participants SET sign_fail_count = ? WHERE id = ?",
+                       (fail_count, participant["id"]))
+        return False, ("That class code isn't right. Scan the QR on the trainer's screen again, or type the "
+                       "code shown under it.")
     db.execute("UPDATE t3_participants SET sign_fail_count = 0, sign_locked_until = NULL WHERE id = ?",
                (participant["id"],))
     return True, None
@@ -328,9 +380,11 @@ def manage(session_id):
         days_done, _ = attendance_days.attendance_status(p["id"], session_row)
         participants_with_status.append({"p": p, "days_done": days_done})
     from .sessions import ensure_t3_public_token
-    trainer_qr_url = url_for("t3_public.sign_in_qr", token=ensure_t3_public_token(session_id), _external=True)
+    public_token = ensure_t3_public_token(session_id)
+    trainer_qr_url = url_for("t3_public.sign_in_qr", token=public_token, _external=True)
+    certificate_list_url = url_for("t3_public.certificate_list", token=public_token, _external=True)
     return render_template("t3/manage.html", s=session_row, participants=participants_with_status,
-                            trainer_qr_url=trainer_qr_url,
+                            trainer_qr_url=trainer_qr_url, certificate_list_url=certificate_list_url,
                             total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
                             remaining=t3_remaining_capacity(session_row),
                             training_days=training_days, signatures_by_participant=signatures_by_participant)
@@ -690,7 +744,10 @@ def ai_match_reread(session_id, return_id):
 
 def _sign_in_url(session_id):
     from .sessions import ensure_t3_public_token
-    return url_for("t3_public.form", token=ensure_t3_public_token(session_id), _external=True)
+    session_row = db.query("SELECT * FROM course_sessions WHERE id = ?", (session_id,), one=True)
+    code = class_code(session_row) if session_row else None  # Fix207: the QR carries today's code
+    return url_for("t3_public.form", token=ensure_t3_public_token(session_id), _external=True,
+                   **({"code": code} if code else {}))
 
 
 @bp.route("/sessions/<int:session_id>/sign-in-qr")
@@ -706,7 +763,8 @@ def sign_in_qr(session_id):
     if not session_row["e_signature_enabled"]:
         flash("Turn on e-Signature for this class first; the sign-in QR is only available while it's on.", "warning")
         return redirect(url_for("t3.manage", session_id=session_id))
-    return render_template("t3/sign_in_qr.html", s=session_row, sign_url=_sign_in_url(session_id))
+    return render_template("t3/sign_in_qr.html", s=session_row, sign_url=_sign_in_url(session_id),
+                           code=class_code(session_row))
 
 
 @bp.route("/sessions/<int:session_id>/sign-in-qr.png")
@@ -720,7 +778,7 @@ def sign_in_qr_png(session_id):
     size = 1200 if request.args.get("download") else 900
     png = poster.qr_png(_sign_in_url(session_id), box_size=size,
                         logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
-    headers = {"Cache-Control": "private, max-age=300"}
+    headers = {"Cache-Control": "no-store"}  # Fix207: the QR's code changes daily
     if request.args.get("download"):
         title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
         headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
@@ -741,6 +799,30 @@ def toggle_e_signature(session_id):
     new_value = 0 if session_row["e_signature_enabled"] else 1
     db.execute("UPDATE course_sessions SET e_signature_enabled = ? WHERE id = ?", (new_value, session_id))
     flash("e-Signature attendance " + ("enabled" if new_value else "disabled") + " for this class.", "success")
+    return redirect(url_for("t3.manage", session_id=session_id))
+
+
+@bp.route("/sessions/<int:session_id>/toggle-code-attendance", methods=("POST",))
+@login_required
+def toggle_code_attendance(session_id):
+    """Fix207: Code Attendance on/off. On: participants confirm with today's
+    class code (from the sign-in QR) instead of their IC, and the class gets
+    a public certificate list where each person picks their own name.
+    Turning it on also turns e-Signature on."""
+    session_row = _session_or_none(session_id)
+    if session_row is None:
+        flash("Session not found.", "danger")
+        return redirect(url_for("sessions.index"))
+    if session_row["code_attendance"]:
+        db.execute("UPDATE course_sessions SET code_attendance = 0 WHERE id = ?", (session_id,))
+        flash("Code Attendance turned off. e-Signature checks the IC number again.", "success")
+    else:
+        import secrets as _secrets
+        db.execute("UPDATE course_sessions SET code_attendance = 1, e_signature_enabled = 1, "
+                   "code_attendance_salt = COALESCE(code_attendance_salt, ?) WHERE id = ?",
+                   (_secrets.token_hex(16), session_id))
+        flash("Code Attendance turned on (with e-Signature). Participants sign with today's class code from "
+              "the sign-in QR, no IC needed.", "success")
     return redirect(url_for("t3.manage", session_id=session_id))
 
 

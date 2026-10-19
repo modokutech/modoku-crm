@@ -1286,6 +1286,9 @@ _COLUMN_MIGRATIONS = [
     # Fix204: per-day times / non-consecutive days (see schedule.py)
     ("course_sessions", "day_times", "TEXT"),
     ("quotation_items", "day_times", "TEXT"),
+    # Fix207: e-Signature checked with a daily class code instead of IC
+    ("course_sessions", "code_attendance", "INTEGER NOT NULL DEFAULT 0"),
+    ("course_sessions", "code_attendance_salt", "TEXT"),
 ]
 
 

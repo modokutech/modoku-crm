@@ -10,6 +10,24 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix207 — Code Attendance: e-Signature and certificates without IC numbers
+
+**Date:** 2026-10-19
+
+- For classes where the client only gives names (no IC, e.g. self-paying clients): a new **"Code instead
+  of IC"** switch on the T3 Attendance List page (next to e-Signature; turning it on also turns
+  e-Signature on).
+- **Signing:** participants confirm with today's 6-character class code instead of their IC. The code is
+  different every training day and is carried by the sign-in QR on the trainer's screen, so scanning fills
+  it in (nothing to type); the QR screen also shows it in large text for anyone who can't scan. A wrong code
+  counts towards the same 5-try lockout as a wrong IC.
+- **Certificates:** a public page lists the names whose certificate is ready (all training days
+  attended); each person taps their own name to download it, with a search box for big classes. Linked from
+  the attendance form ("Download your certificate"), shown straight after the final-day signature, and
+  copyable for staff ("Copy Certificate List Link"). Only available while the switch is on.
+- Switching it off goes back to the IC check; classes that never use it are unchanged.
+- New columns `course_sessions.code_attendance` and `code_attendance_salt` (automatic on boot).
+
 ## Fix206 — Confirmation email: Online venue and batch labels; grant copy without brackets
 
 **Date:** 2026-10-19

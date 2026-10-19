@@ -53,6 +53,10 @@
   <div class="qr"><img src="{{ png_url }}" alt="Sign-in QR code"></div>
   <p class="scan">Scan to sign your attendance</p>
   <p class="hint">Find your name on the list and tap Sign.</p>
+  {% if code %}{# Fix207: Code Attendance - for anyone who can't scan #}
+  <p class="hint" style="margin-top:0">Can't scan? Open the attendance link and enter today's code:
+    <span style="font-weight:700;color:#fff;letter-spacing:.18em;font-size:1.5em;margin-left:.3em">{{ code }}</span></p>
+  {% endif %}
   {% else %}
   <p class="scan" style="margin-top:4vh">Sign-in isn't open for this class yet.</p>
   <p class="hint" style="margin-top:0">Please check with Modoku Tech. Refresh this page once it's turned on.</p>

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Certificates{% endblock %}
+{% block guest_content %}
+{# Fix207: Code Attendance classes - pick your own name to download your certificate. #}
+<div class="auth-wrap" style="align-items:flex-start;padding-top:40px;padding-bottom:40px;overflow-y:auto;">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow mb-4" style="max-width:640px;margin:0 14px;">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-0">Certificate of Participation</h4>
+    </div>
+    <div class="card bg-light border-0 p-3 mb-3">
+      <div class="fw-semibold">{{ s.course_title }}</div>
+      <div class="small text-muted">{{ s|sched_dates }}</div>
+    </div>
+    {% if ready %}
+    <p class="small text-muted mb-2">Find your name and tap <strong>Download</strong>.</p>
+    <input type="search" class="form-control mb-2" id="certSearch" placeholder="Search your name">
+    <div class="list-group mb-3" id="certList">
+      {% for p in ready %}
+      <a href="{{ url_for('t3_public.certificate_download', token=token, participant_id=p.id) }}"
+         class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-name="{{ p.name|lower }}">
+        <span>{{ p.name }}</span>
+        <span class="btn btn-sm btn-success"><i class="bi bi-download me-1"></i>Download</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-light border small">No certificates are ready yet. They appear here once attendance for every training day is complete.</div>
+    {% endif %}
+    <p class="small text-muted mb-0">Don't see your name? Your attendance may not be complete yet. Please check with the trainer or
+      <a href="mailto:hello@modoku.tech">hello@modoku.tech</a>.</p>
+  </div>
+</div>
+<script>
+(function () {
+  const box = document.getElementById('certSearch');
+  if (!box) return;
+  box.addEventListener('input', function () {
+    const q = box.value.trim().toLowerCase();
+    document.querySelectorAll('#certList [data-name]').forEach(function (a) {
+      a.style.display = !q || a.dataset.name.indexOf(q) !== -1 ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

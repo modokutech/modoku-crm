@@ -31,7 +31,7 @@ from .t3 import (
     GENDERS, CITIZENSHIPS, _ic_taken, _normalize_gender, _parse_csv,
     _insert_participants, _bulk_result_flash, t3_remaining_capacity,
     check_and_record_sign_attempt, decode_signature_png, _t3_signature_dir,
-    _title_case_name,
+    _title_case_name, class_code, check_and_record_code_attempt,
 )
 
 bp = Blueprint("t3_public", __name__, url_prefix="/t3-form")
@@ -55,8 +55,10 @@ def sign_in_qr(token):
     session_row = _find_session(token)
     if session_row is None:
         return render_template("t3_public/not_found.html")
-    return render_template("t3/sign_in_qr.html", s=session_row, public=True, token=token,
-                            sign_url=url_for("t3_public.form", token=token, _external=True))
+    code = class_code(session_row)
+    return render_template("t3/sign_in_qr.html", s=session_row, public=True, token=token, code=code,
+                            sign_url=url_for("t3_public.form", token=token, _external=True,
+                                             **({"code": code} if code else {})))
 
 
 @bp.route("/<token>/sign-in-qr.png")
@@ -67,7 +69,9 @@ def sign_in_qr_png(token):
     if session_row is None or not session_row["e_signature_enabled"]:
         return Response(status=404)
     size = 1200 if request.args.get("download") else 900
-    png = poster.qr_png(url_for("t3_public.form", token=token, _external=True), box_size=size,
+    code = class_code(session_row)  # Fix207: the QR carries today's class code
+    png = poster.qr_png(url_for("t3_public.form", token=token, _external=True,
+                                **({"code": code} if code else {})), box_size=size,
                         logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
     headers = {"Cache-Control": "no-store"}
     if request.args.get("download"):
@@ -112,10 +116,15 @@ def form(token):
             (session_row["id"], today_iso),
         )
         signed_today = {r["participant_id"] for r in rows}
+    code_mode = bool(session_row["code_attendance"])
+    certificates_ready = code_mode and bool(db.query(
+        "SELECT 1 FROM t3_participants WHERE session_id = ? AND attended = 1 LIMIT 1", (session_row["id"],), one=True))
     return render_template("t3_public/form.html", s=session_row, participants=participants, token=token,
                             editable=t3_form_is_editable(session_row), genders=GENDERS,
                             citizenships=CITIZENSHIPS, remaining=t3_remaining_capacity(session_row),
-                            e_sign_open=e_sign_open, signed_today=signed_today, today_iso=today_iso)
+                            e_sign_open=e_sign_open, signed_today=signed_today, today_iso=today_iso,
+                            code_mode=code_mode, prefill_code=(request.args.get("code") or "").strip().upper(),
+                            certificates_ready=certificates_ready)
 
 
 @bp.route("/<token>/<int:participant_id>/sign", methods=("POST",))
@@ -149,15 +158,22 @@ def sign(token, participant_id):
         flash("Participant not found on this attendance list.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
-    ok, error = check_and_record_sign_attempt(participant, request.form.get("ic_no", ""))
+    # Fix207: a Code Attendance class checks today's class code, not the IC
+    code_mode = bool(session_row["code_attendance"])
+    back = url_for("t3_public.form", token=token,
+                   **({"code": request.form.get("class_code", "").strip().upper()} if code_mode else {}))
+    if code_mode:
+        ok, error = check_and_record_code_attempt(participant, session_row, request.form.get("class_code", ""))
+    else:
+        ok, error = check_and_record_sign_attempt(participant, request.form.get("ic_no", ""))
     if not ok:
         flash(error, "danger")
-        return redirect(url_for("t3_public.form", token=token))
+        return redirect(back)
 
     raw_png = decode_signature_png(request.form.get("signature_data", ""))
     if raw_png is None:
         flash("We couldn't capture that signature. Please sign again and submit.", "danger")
-        return redirect(url_for("t3_public.form", token=token))
+        return redirect(back)
 
     stored_name = f"{participant_id}-{today_iso}-{uuid.uuid4().hex[:8]}.png"
     with open(os.path.join(_t3_signature_dir(session_row["id"]), stored_name), "wb") as fh:
@@ -171,7 +187,39 @@ def sign(token, participant_id):
         _certificates.generate_and_store_certificate(participant_id)
 
     flash(f"Thanks, {participant['name']}. Your attendance is signed for today.", "success")
-    return redirect(url_for("t3_public.form", token=token))
+    if code_mode and newly_fully_attended:
+        flash("Your certificate is ready. Tap \"Download your certificate\" below.", "success")
+    return redirect(back)
+
+
+@bp.route("/<token>/certificates")
+def certificate_list(token):
+    """Fix207: for a Code Attendance class (participants without IC): the
+    names whose certificate is ready - each person taps their own name to
+    download it. Same unguessable class link as the attendance list itself."""
+    session_row = _find_session(token)
+    if session_row is None or not session_row["code_attendance"]:
+        return render_template("t3_public/not_found.html")
+    ready = db.query("SELECT id, name FROM t3_participants WHERE session_id = ? AND attended = 1 "
+                     "ORDER BY name COLLATE NOCASE", (session_row["id"],))
+    return render_template("t3_public/certificates.html", s=session_row, token=token, ready=ready)
+
+
+@bp.route("/<token>/certificates/<int:participant_id>")
+def certificate_download(token, participant_id):
+    session_row = _find_session(token)
+    if session_row is None or not session_row["code_attendance"]:
+        return render_template("t3_public/not_found.html")
+    participant = db.query("SELECT id, attended FROM t3_participants WHERE id = ? AND session_id = ?",
+                           (participant_id, session_row["id"]), one=True)
+    if participant is None or not participant["attended"]:
+        flash("That certificate isn't available yet.", "warning")
+        return redirect(url_for("t3_public.certificate_list", token=token))
+    download_token = _certificates.ensure_download_token(participant_id)
+    if not download_token:
+        flash("We couldn't prepare that certificate just now. Please try again, or contact us.", "danger")
+        return redirect(url_for("t3_public.certificate_list", token=token))
+    return redirect(url_for("certificates.download", token=download_token))
 
 
 @bp.route("/<token>/add", methods=("POST",))
