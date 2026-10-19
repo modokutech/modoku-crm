@@ -45,6 +45,7 @@ in this app) for just the trainer's name itself and the sidebar's pill
 labels ("AREAS OF EXPERTISE" / "COMPANIES TRAINED").
 """
 import os
+import re
 from io import BytesIO
 
 from flask import current_app
@@ -788,3 +789,27 @@ def generate_trainer_profile_pdf(subject, profile, expertise, companies,
     pages[0].save(buf, format="PDF", resolution=DPI, save_all=True, append_images=pages[1:],
                   quality=95, subsampling=0)
     return buf.getvalue()
+
+
+_NAME_TITLES = {"dr", "prof", "ts", "ir", "mr", "mrs", "ms", "mdm", "puan", "pn", "encik", "en", "cik",
+                "dato", "datuk", "datin", "seri", "haji", "hj", "hajah", "hjh"}
+
+
+def profile_filename(trainer_name, ext="pdf"):
+    """Fix197: the name a trainer profile is saved/sent as -
+    Modoku_Trainer_Profile_<first two words of the name>, e.g. "Amelia Dillon
+    Ali" -> Modoku_Trainer_Profile_Amelia_Dillon.pdf; a one-word name uses
+    just that word. Punctuation is dropped from each word, and a leading
+    title (Dr, Prof, Ts, Datuk...) doesn't count as one of the two words."""
+    words = [re.sub(r"[^A-Za-z0-9-]+", "", w) for w in (trainer_name or "").split()]
+    words = [w for w in words if w]
+    while len(words) > 1:
+        if words[0].lower() in _NAME_TITLES:
+            words = words[1:]
+        elif len(words) > 2 and [w.lower() for w in words[:2]] == ["tan", "sri"]:
+            words = words[2:]  # "Tan Sri" only - Tan alone is a surname
+        else:
+            break
+    words = words[:2]
+    base = "_".join(["Modoku_Trainer_Profile"] + words)
+    return f"{base}.{(ext or 'pdf').lower()}"

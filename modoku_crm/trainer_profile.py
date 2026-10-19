@@ -35,7 +35,7 @@ from werkzeug.utils import secure_filename
 
 from . import activity, db, uploadutil
 from .auth import login_required
-from .trainer_profile_pdf import generate_trainer_profile_pdf
+from .trainer_profile_pdf import generate_trainer_profile_pdf, profile_filename
 
 bp = Blueprint("trainer_profiles", __name__, url_prefix="/trainer-profiles")
 
@@ -329,11 +329,12 @@ def photo(profile_id):
 @bp.route("/<int:profile_id>/download")
 @login_required
 def download(profile_id):
-    profile = db.query("SELECT profile_file FROM trainer_profiles WHERE id = ?", (profile_id,), one=True)
+    profile = db.query("SELECT profile_file, display_name FROM trainer_profiles WHERE id = ?", (profile_id,), one=True)
     if profile is None or not profile["profile_file"]:
         flash("No PDF generated yet.", "warning")
         return redirect(url_for("trainer_profiles.edit", profile_id=profile_id))
-    return send_from_directory(_profile_upload_dir(profile_id), profile["profile_file"], as_attachment=False)
+    return send_from_directory(_profile_upload_dir(profile_id), profile["profile_file"], as_attachment=False,
+                               download_name=profile_filename(profile["display_name"]))
 
 
 @bp.route("/<int:profile_id>/link", methods=("POST",))

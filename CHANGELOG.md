@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix197 — Trainer profile file name: Modoku_Trainer_Profile_<Name>
+
+**Date:** 2026-10-19
+
+- Trainer profile PDFs are now downloaded/saved as `Modoku_Trainer_Profile_<first two words of the name>`,
+  e.g. "Amelia Dillon Ali" -> `Modoku_Trainer_Profile_Amelia_Dillon.pdf`; a one-word name uses just that word.
+- Applies to: Generate Trainer Profile's download, the Trainer page's Trainer Profile document (keeps the
+  file's own extension), and the Trainer Profile attachment in the HRDCorp Grant Documents email.
+- A leading title (Dr, Prof, Ts, Ir, Datuk, Dato, Datin, Tan Sri, Haji, Puan, Encik...) is skipped so it
+  doesn't use up one of the two words ("Dr. Ahmad Faiz" -> Ahmad_Faiz). "Tan" alone is kept (a surname).
+  Punctuation is dropped from each word.
+
 ## Fix196 — Trainer profile PDF: space under section headings
 
 **Date:** 2026-10-19

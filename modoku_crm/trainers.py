@@ -249,11 +249,16 @@ def download_document(trainer_id, field):
     if field not in valid_columns:
         flash("Unknown document.", "danger")
         return redirect(url_for("trainers.index"))
-    trainer = db.query(f"SELECT {field} AS filename FROM trainers WHERE id = ?", (trainer_id,), one=True)
+    trainer = db.query(f"SELECT {field} AS filename, name FROM trainers WHERE id = ?", (trainer_id,), one=True)
     if trainer is None or not trainer["filename"]:
         flash("That document hasn't been uploaded yet.", "danger")
         return redirect(url_for("trainers.view", trainer_id=trainer_id))
-    return send_from_directory(_trainer_upload_dir(trainer_id), trainer["filename"], as_attachment=False)
+    download_name = None
+    if field == "profile_file":  # Fix197: Modoku_Trainer_Profile_<Name>
+        from .trainer_profile_pdf import profile_filename
+        download_name = profile_filename(trainer["name"], trainer["filename"].rsplit(".", 1)[-1])
+    return send_from_directory(_trainer_upload_dir(trainer_id), trainer["filename"], as_attachment=False,
+                               download_name=download_name)
 
 
 @bp.route("/<int:trainer_id>/avatar")

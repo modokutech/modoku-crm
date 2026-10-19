@@ -1610,6 +1610,7 @@ def send_grant_documents_email(session_id):
         """SELECT cs.*, c.title AS course_title, c.outline_file AS course_outline_file,
                   c.hrdcorp_programme_no,
                   t.profile_file AS trainer_profile_file, t.accredited_cert_file AS trainer_accredited_cert_file,
+                  t.name AS trainer_name,
                   cl.email AS client_email, pic.name AS pic_name, pic.email AS pic_email
            FROM course_sessions cs
            JOIN courses c ON c.id = cs.course_id
@@ -1660,7 +1661,11 @@ def send_grant_documents_email(session_id):
             with open(os.path.join(folder, filename), "rb") as f:
                 file_bytes = f.read()
             mimetype, _ = mimetypes.guess_type(filename)
-            attachments.append((filename, file_bytes, mimetype or "application/octet-stream"))
+            name = filename
+            if label == "Trainer Profile":  # Fix197: Modoku_Trainer_Profile_<Name>
+                from .trainer_profile_pdf import profile_filename
+                name = profile_filename(session_row["trainer_name"], filename.rsplit(".", 1)[-1])
+            attachments.append((name, file_bytes, mimetype or "application/octet-stream"))
         except OSError:
             missing.append(label)
 
