@@ -723,6 +723,15 @@ def _auto_advance_statuses():
 EVALUATION_REPORT_REMINDER_AFTER_DAYS = 21
 
 
+def training_report_link(row):
+    """Fix192: "training report not sent" reminders open the class's Training
+    Report page. A class without an evaluation form has no report there, so
+    it goes to the class page instead (where a report can be uploaded)."""
+    if row["evaluation_form_id"]:
+        return url_for("training_reports.view", session_id=row["id"])
+    return url_for("sessions.view", session_id=row["id"])
+
+
 def _notify_overdue_evaluation_reports():
     """Once a class has been Completed for over
     EVALUATION_REPORT_REMINDER_AFTER_DAYS days with no training report
@@ -741,7 +750,7 @@ def _notify_overdue_evaluation_reports():
     )
     cutoff = (date.today() - timedelta(days=EVALUATION_REPORT_REMINDER_AFTER_DAYS)).isoformat()
     overdue_rows = db.query(
-        """SELECT cs.id, cs.owner_user_id, c.title AS course_title
+        """SELECT cs.id, cs.owner_user_id, c.title AS course_title, cs.evaluation_form_id
            FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
            WHERE cs.status = 'Completed' AND (cs.evaluation_report_file IS NULL OR cs.evaluation_report_file = '')
              AND COALESCE(cs.end_date, cs.start_date) <= ?""",
@@ -753,7 +762,7 @@ def _notify_overdue_evaluation_reports():
             f"Training report not sent yet - {row['course_title']}",
             body=f"This class was completed over {EVALUATION_REPORT_REMINDER_AFTER_DAYS} days ago and its "
                  "training report hasn't been sent or uploaded yet.",
-            link=url_for("sessions.view", session_id=row["id"]),
+            link=training_report_link(row),
             dedupe_key=f"session:{row['id']}:eval_report_overdue",
         )
 

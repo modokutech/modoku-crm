@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix192 — "Training report not sent" opens the Training Report page
+
+**Date:** 2026-10-19
+
+- The dashboard's "Training reports not sent" entries and the matching notifications now open the class's
+  Training Report page instead of the class page. A class with no evaluation form (so no report there)
+  still opens the class page, where a report can be uploaded.
+- Existing notifications are repointed automatically on boot.
+
 ## Fix191 — Hotels: "Morning break" / "Afternoon break"
 
 **Date:** 2026-10-17

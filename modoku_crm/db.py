@@ -1422,6 +1422,17 @@ def _apply_light_migrations(db):
         db.execute("INSERT INTO settings (key, value) VALUES ('fix190_hotel_packages', datetime('now'))")
         db.commit()
 
+    # Fix192: existing "training report not sent" notifications point at the
+    # Training Report page (classes with an evaluation form) instead of the
+    # class page. Idempotent.
+    db.execute(
+        """UPDATE notifications SET link = '/training-report/' || substr(link, length('/sessions/') + 1)
+           WHERE type = 'evaluation_report_overdue' AND link LIKE '/sessions/%'
+             AND CAST(substr(link, length('/sessions/') + 1) AS INTEGER) IN
+                 (SELECT id FROM course_sessions WHERE evaluation_form_id IS NOT NULL)"""
+    )
+    db.commit()
+
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
     # any existing nonzero others_fee into one item (using its remarks text

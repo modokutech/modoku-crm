@@ -139,7 +139,8 @@ def _attention_items():
     eval_cutoff_days = _sessions.EVALUATION_REPORT_REMINDER_AFTER_DAYS
     eval_rows = [
         row for row in db.query(
-            """SELECT cs.id, c.title AS course_title, COALESCE(cs.end_date, cs.start_date) AS done_date
+            """SELECT cs.id, c.title AS course_title, COALESCE(cs.end_date, cs.start_date) AS done_date,
+                      cs.evaluation_form_id
                FROM course_sessions cs JOIN courses c ON c.id = cs.course_id
                WHERE cs.status = 'Completed' AND (cs.evaluation_report_file IS NULL OR cs.evaluation_report_file = '')
                ORDER BY cs.end_date ASC"""
@@ -152,7 +153,7 @@ def _attention_items():
             "entries": [{
                 "text": (f"{row['course_title']}, completed {_days_between(row['done_date'], today_iso)} "
                          f"day(s) ago, training report not sent yet"),
-                "link": url_for("sessions.view", session_id=row["id"]),
+                "link": _sessions.training_report_link(row),
             } for row in eval_rows],
         })
 
