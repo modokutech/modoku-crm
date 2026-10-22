@@ -10,6 +10,16 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix211 — Needs attention: takeaways no longer flagged as criticism
+
+**Date:** 2026-10-22
+
+- The wording-cue fallback no longer flags an answer just for containing "more", so takeaways like "Learn
+  more about Copilot functions" or "We get to know more about what we can do for Copilot" aren't listed. On
+  questions that ask for positives (takeaways, what you liked/learned), an answer is only flagged with a
+  clear criticism or request cue ("however", "but", "should", "would help", "too", "not"...).
+- The AI pass is told the same: a takeaway or something learned is praise, not a request.
+
 ## Fix210 — Training Report: "Needs attention" (internal)
 
 **Date:** 2026-10-22

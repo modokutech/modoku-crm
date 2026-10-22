@@ -417,10 +417,19 @@ def low_ratings(report):
 
 _EMPTY_ANSWERS = {"", "-", "--", "n/a", "na", "nil", "none", "no", "nothing", "no comment", "no comments",
                   "tiada", "tak ada", "takde", "ok", "okay", "good", "all good", "nope"}
-_IMPROVE_WORDS = ("improve", "should", "could", "would be better", "better if", "more ", "less ", "too ",
+_IMPROVE_WORDS = ("improve", "should", "could", "would be better", "better if", "would help", "less ", "too ",
                   "not ", "n't", "lack", "slow", "fast", "rush", "boring", "difficult", "hard to", "confus",
-                  "cold", "hot", "noisy", "late", "long", "short", "unclear", "problem", "issue", "disappoint",
-                  "suggest", "wish", "hope", "need", "kurang", "lambat", "susah", "sejuk", "panas", "bosan")
+                  "cold", "hot", "noisy", "late", "unclear", "problem", "issue", "disappoint", "however",
+                  " but ", "suggest", "wish", "need", "kurang", "lambat", "susah", "sejuk", "panas", "bosan",
+                  "tetapi", "tapi")
+# Fix211: on a question asking for positives ("most valuable takeaways", "what
+# did you like"), "learn more about Copilot" is a takeaway, not a complaint -
+# only clear criticism/request cues count there.
+_POSITIVE_QUESTION_WORDS = ("takeaway", "valuable", "like most", "liked", "enjoy", "learn", "gained", "benefit",
+                            "best", "useful", "strength", "highlight")
+_STRONG_CUES = ("however", " but ", "should", "could", "would help", "would be better", "better if", "improve",
+                "too ", "not ", "n't", "lack", "problem", "issue", "disappoint", "boring", "rush", "difficult",
+                "confus", "unclear", "suggest", "tetapi", "tapi", "kurang")
 
 
 def _keyword_attention(text_summary):
@@ -428,12 +437,14 @@ def _keyword_attention(text_summary):
     a suggestion, by simple wording cues. Marked as such on the page."""
     out = []
     for q in text_summary or []:
+        positive_q = any(w in (q.get("question") or "").lower() for w in _POSITIVE_QUESTION_WORDS)
+        cues = _STRONG_CUES if positive_q else _IMPROVE_WORDS
         for ans in q.get("answers", []):
             a = (ans or "").strip()
             if a.lower().strip(" .!") in _EMPTY_ANSWERS:
                 continue
             low = f" {a.lower()} "
-            if any(w in low for w in _IMPROVE_WORDS):
+            if any(w in low for w in cues):
                 out.append({"quote": a, "question": q["question"], "category": ""})
     return out
 
@@ -457,7 +468,10 @@ def _attention_comments(session_row, text_summary):
             "Below are open-ended answers from a post-training evaluation, grouped by question. Pick out EVERY "
             "answer that criticises something, shows dissatisfaction, describes a problem or setback, or asks "
             "or suggests that something be improved or done differently (even politely, e.g. 'more examples "
-            "would help'). Leave out pure praise and empty answers such as 'none', 'nil', 'no comment'. Copy "
+            "would help'). Leave out pure praise and empty answers such as 'none', 'nil', 'no comment'. A takeaway or "
+            "something learned is praise, not a request: answers like 'learned more about Copilot', 'we get to know "
+            "more about what Copilot can do' or 'more understanding of X and how to apply it' must be left out. "
+            "Copy "
             "each picked answer EXACTLY as written (the whole answer, or the critical sentence of a long one), "
             "never reword. Tag each with one category: Trainer, Content, Venue & Logistics, or Other. Reply with "
             "ONLY a JSON object, no markdown: {\"items\": [{\"question\": \"<question text>\", \"quote\": "
