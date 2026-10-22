@@ -370,6 +370,134 @@ def _summarize_ratings(session_row, numeric_summary, combined_ratings):
         return None
 
 
+# ---- Fix210: "Needs attention" (internal, never in the client report) ----------
+# Low ratings by plain arithmetic, and the comments that criticise something
+# or ask for an improvement - picked by AI word for word when the report is
+# built (keyword fallback otherwise). Shown on the staff Training Report page
+# only; full_reports.py reads named ai_summary keys and never this one.
+
+LOW_RATING_OUT_OF_5 = 3.75  # an average at or below this (scaled to the question's own scale)
+
+
+def low_ratings(report):
+    """Rated questions whose average is at or below 3.75 out of 5 (same share
+    of a 10-point scale etc.), lowest first, each with how many people gave
+    one of the two lowest scores."""
+    out = []
+    for q in (report or {}).get("numeric_summary", []):
+        avg = q.get("average")
+        if avg is None or q.get("kind") not in ("scale", "choice_numeric", "choice_ordinal"):
+            continue
+        top = q.get("scale_max") or 5
+        try:
+            norm = float(avg) / float(top) * 5
+        except (TypeError, ValueError, ZeroDivisionError):
+            continue
+        if norm > LOW_RATING_OUT_OF_5 + 1e-9:
+            continue
+        low_votes, low_labels = 0, ""
+        if q.get("kind") == "choice_ordinal" and q.get("scale"):
+            low = [lbl.lower() for lbl in q["scale"][:2]]
+            low_votes = sum(d["count"] for d in q.get("distribution", []) if str(d["option"]).strip().lower() in low)
+            low_labels = " / ".join(lbl.title() for lbl in q["scale"][:2])
+        else:
+            cutoff = float(top) * 0.4
+            for d in q.get("distribution", []):
+                try:
+                    if float(d["option"]) <= cutoff:
+                        low_votes += d["count"]
+                except (TypeError, ValueError):
+                    pass
+            low_labels = f"{_clean_num(round(cutoff))} or below"
+        out.append({"question": q["question"], "average": avg, "out_of": _clean_num(top),
+                    "norm": norm, "count": q.get("count"), "low_votes": low_votes, "low_labels": low_labels})
+    out.sort(key=lambda x: x["norm"])
+    return out
+
+
+_EMPTY_ANSWERS = {"", "-", "--", "n/a", "na", "nil", "none", "no", "nothing", "no comment", "no comments",
+                  "tiada", "tak ada", "takde", "ok", "okay", "good", "all good", "nope"}
+_IMPROVE_WORDS = ("improve", "should", "could", "would be better", "better if", "more ", "less ", "too ",
+                  "not ", "n't", "lack", "slow", "fast", "rush", "boring", "difficult", "hard to", "confus",
+                  "cold", "hot", "noisy", "late", "long", "short", "unclear", "problem", "issue", "disappoint",
+                  "suggest", "wish", "hope", "need", "kurang", "lambat", "susah", "sejuk", "panas", "bosan")
+
+
+def _keyword_attention(text_summary):
+    """Fallback when the AI can't be used: answers that read like criticism or
+    a suggestion, by simple wording cues. Marked as such on the page."""
+    out = []
+    for q in text_summary or []:
+        for ans in q.get("answers", []):
+            a = (ans or "").strip()
+            if a.lower().strip(" .!") in _EMPTY_ANSWERS:
+                continue
+            low = f" {a.lower()} "
+            if any(w in low for w in _IMPROVE_WORDS):
+                out.append({"quote": a, "question": q["question"], "category": ""})
+    return out
+
+
+def _attention_comments(session_row, text_summary):
+    """AI pass: every open-text answer that criticises something, shows
+    dissatisfaction or asks for an improvement, quoted exactly and tagged
+    Trainer / Content / Venue & Logistics / Other. Each quote is checked
+    against the real answers, so nothing reworded or invented gets through.
+    Returns None if the AI isn't available (callers fall back to keywords)."""
+    if not current_app.config.get("ANTHROPIC_API_KEY") or not text_summary:
+        return None
+    try:
+        lines = []
+        for q in text_summary:
+            lines.append(f"Question: {q['question']}")
+            for i, ans in enumerate(q["answers"][:MAX_ANSWERS_PER_QUESTION], 1):
+                lines.append(f"  {i}. {ans[:MAX_CHARS_PER_ANSWER]}")
+            lines.append("")
+        prompt = (
+            "Below are open-ended answers from a post-training evaluation, grouped by question. Pick out EVERY "
+            "answer that criticises something, shows dissatisfaction, describes a problem or setback, or asks "
+            "or suggests that something be improved or done differently (even politely, e.g. 'more examples "
+            "would help'). Leave out pure praise and empty answers such as 'none', 'nil', 'no comment'. Copy "
+            "each picked answer EXACTLY as written (the whole answer, or the critical sentence of a long one), "
+            "never reword. Tag each with one category: Trainer, Content, Venue & Logistics, or Other. Reply with "
+            "ONLY a JSON object, no markdown: {\"items\": [{\"question\": \"<question text>\", \"quote\": "
+            "\"<exact words>\", \"category\": \"<category>\"}]}. Use {\"items\": []} if there are none.\n\n"
+            + "\n".join(lines)
+        )
+        parsed = _call_claude_json(prompt, max_tokens=2000)
+        items = parsed.get("items") if isinstance(parsed, dict) else None
+        if not isinstance(items, list):
+            return None
+        answers = [a for q in text_summary for a in q.get("answers", [])]
+        lowered = [a.lower() for a in answers]
+        out = []
+        for item in items:
+            quote = str((item or {}).get("quote") or "").strip().strip('"')
+            if not quote or not any(quote.lower() in a for a in lowered):
+                continue  # not in the real answers: never show it
+            cat = str(item.get("category") or "").strip().lower()
+            category = ("Trainer" if cat.startswith(("trainer", "facilitator", "speaker")) else
+                        "Content" if cat.startswith(("content", "material", "module", "course")) else
+                        "Venue & Logistics" if cat.startswith(("venue", "logistic", "facilit", "food", "room")) else
+                        "Other")
+            out.append({"quote": quote, "question": str(item.get("question") or ""), "category": category})
+        return out
+    except Exception:  # noqa: BLE001 - a bad response must never break the report
+        current_app.logger.exception("AI attention-comments pass failed for session %s", session_row["id"])
+        return None
+
+
+def attention(report):
+    """Everything the "Needs attention" card shows."""
+    report = report or {}
+    ai = report.get("ai_summary") or {}
+    comments = ai.get("attention")
+    by_ai = comments is not None
+    if not by_ai:
+        comments = _keyword_attention(report.get("text_summary"))
+    return {"low": low_ratings(report), "comments": comments, "by_ai": by_ai}
+
+
 def get_report(session_id):
     """The last-generated Training Report for a class, or None if one has
     never been built."""
@@ -494,9 +622,12 @@ def build_report(session_id, user_id=None):
 
     ratings_summary = _summarize_ratings(session_row, numeric_summary, combined_ratings)
     text_ai_summary = _summarize_open_text(session_row, text_summary, combined_ratings)
+    attention_items = _attention_comments(session_row, text_summary)  # Fix210, internal only
     ai_summary = None
-    if ratings_summary or text_ai_summary:
+    if ratings_summary or text_ai_summary or attention_items is not None:
         ai_summary = {}
+        if attention_items is not None:
+            ai_summary["attention"] = attention_items
         if ratings_summary:
             ai_summary["ratings_summary"] = ratings_summary
         if text_ai_summary:
@@ -585,6 +716,7 @@ def view(session_id):
         report=report,
         ai_configured=is_ai_configured(),
         full_report=full_reports.get_full_report(session_id),
+        attention=attention(report),
     )
 
 

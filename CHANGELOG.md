@@ -10,6 +10,21 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix210 — Training Report: "Needs attention" (internal)
+
+**Date:** 2026-10-22
+
+- New soft-amber **Needs attention** card at the top of the Training Report page, for all staff. Never in
+  the full PDF report or the client email.
+- **Low ratings:** every rated question averaging 3.75 out of 5 or below (the same share on other scales,
+  e.g. 7.5/10), lowest first, with how many people gave one of the two lowest scores. Plain arithmetic.
+- **Critical comments & suggestions:** every open-text answer that criticises something, shows
+  dissatisfaction, describes a setback or asks for an improvement, quoted exactly and tagged Trainer /
+  Content / Venue & Logistics / Other. Picked by AI when the report is refreshed; each quote is checked
+  against the real answers so nothing reworded or invented shows. Without the AI (or for reports not yet
+  refreshed) a wording-cue fallback picks likely ones, marked as such.
+- Nothing flagged: a single "No concerns flagged" line.
+
 ## Fix209 — Code Attendance list: hide empty columns
 
 **Date:** 2026-10-19
