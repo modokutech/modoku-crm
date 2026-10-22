@@ -10,6 +10,17 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix212 — Needs attention: fewer false flags from positive comments
+
+**Date:** 2026-10-22
+
+- The wording-cue fallback (used until a report is refreshed with the AI) now matches whole words only
+  ("hot" no longer matches "hotel's"), treats "improve" as a request only when it is one ("can be improved",
+  "needs improvement", not "able to improve myself"), ignores "problems" in takeaways ("solving problems"),
+  and treats questions about who else should attend like positive questions ("every department should take
+  part" isn't criticism). Checked against the real answers from two reports: 17 of 17 right.
+- The AI pass gets the same examples of praise that must be left out.
+
 ## Fix211 — Needs attention: takeaways no longer flagged as criticism
 
 **Date:** 2026-10-22

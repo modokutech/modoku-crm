@@ -417,19 +417,34 @@ def low_ratings(report):
 
 _EMPTY_ANSWERS = {"", "-", "--", "n/a", "na", "nil", "none", "no", "nothing", "no comment", "no comments",
                   "tiada", "tak ada", "takde", "ok", "okay", "good", "all good", "nope"}
-_IMPROVE_WORDS = ("improve", "should", "could", "would be better", "better if", "would help", "less ", "too ",
-                  "not ", "n't", "lack", "slow", "fast", "rush", "boring", "difficult", "hard to", "confus",
-                  "cold", "hot", "noisy", "late", "unclear", "problem", "issue", "disappoint", "however",
-                  " but ", "suggest", "wish", "need", "kurang", "lambat", "susah", "sejuk", "panas", "bosan",
-                  "tetapi", "tapi")
-# Fix211: on a question asking for positives ("most valuable takeaways", "what
-# did you like"), "learn more about Copilot" is a takeaway, not a complaint -
-# only clear criticism/request cues count there.
+# Fix211/Fix212: the wording-cue fallback (used only until a report gets its
+# AI pass). Whole-word patterns, so "hot" never matches "hotel's".
+_CONTRAST = r"\b(however|but|although|though|except|tapi|tetapi|cuma)\b"
+_REQUEST = (r"\bwould (help|be better|be good|be great|be nice|make)\b|\bbetter if\b|"
+            r"\b(can|could|should|need|needs|must|to) be improved\b|\bneeds? (to )?improv|\bimprovement|"
+            r"\bsuggest|\bwish\b|\brefin(e|ing)\b|\bimproving the\b|\brecommend (that|refining|improving|adding|more|less)|"
+            r"\b(more|less|extra|additional) (time|examples?|exercises?|hands-on|practical|practice|interactive|"
+            r"activities|breaks?|days?|sessions?|case studies|videos?)\b|"
+            r"\bneeds? (more|less|an? |extra|half|another|additional|to)|\bcould (be|have|include|add|use)\b")
+_COMPLAINT = (r"\b(not|cannot|unable|blocked|lack|lacking|rushed?|rushing|boring|difficult|hard to|confus\w*|"
+              r"unclear|disappoint\w*|slow|cold|noisy|late|crowded|cramped|kurang|lambat|susah|sejuk|bosan|"
+              r"problems?|issues?)\b|n't\b|\btoo (much|many|long|short|fast|slow|cold|hot|noisy|difficult|"
+              r"technical|basic|rushed|packed|early|late)\b|\bshould\b")
+# Questions asking for positives or recommendations ("most valuable
+# takeaways", "who else might benefit"): only a contrast or a clear request
+# counts there - "able to improve myself", "solving problems", "every
+# department should take part" are not criticism.
 _POSITIVE_QUESTION_WORDS = ("takeaway", "valuable", "like most", "liked", "enjoy", "learn", "gained", "benefit",
-                            "best", "useful", "strength", "highlight")
-_STRONG_CUES = ("however", " but ", "should", "could", "would help", "would be better", "better if", "improve",
-                "too ", "not ", "n't", "lack", "problem", "issue", "disappoint", "boring", "rush", "difficult",
-                "confus", "unclear", "suggest", "tetapi", "tapi", "kurang")
+                            "best", "useful", "strength", "highlight", "recommend", "department", "colleague",
+                            "who else")
+
+
+def _flag_answer(answer, positive_question):
+    import re as _re
+    low = answer.lower()
+    if _re.search(_CONTRAST, low) or _re.search(_REQUEST, low):
+        return True
+    return not positive_question and bool(_re.search(_COMPLAINT, low))
 
 
 def _keyword_attention(text_summary):
@@ -438,13 +453,11 @@ def _keyword_attention(text_summary):
     out = []
     for q in text_summary or []:
         positive_q = any(w in (q.get("question") or "").lower() for w in _POSITIVE_QUESTION_WORDS)
-        cues = _STRONG_CUES if positive_q else _IMPROVE_WORDS
         for ans in q.get("answers", []):
             a = (ans or "").strip()
             if a.lower().strip(" .!") in _EMPTY_ANSWERS:
                 continue
-            low = f" {a.lower()} "
-            if any(w in low for w in cues):
+            if _flag_answer(a, positive_q):
                 out.append({"quote": a, "question": q["question"], "category": ""})
     return out
 
@@ -470,7 +483,10 @@ def _attention_comments(session_row, text_summary):
             "or suggests that something be improved or done differently (even politely, e.g. 'more examples "
             "would help'). Leave out pure praise and empty answers such as 'none', 'nil', 'no comment'. A takeaway or "
             "something learned is praise, not a request: answers like 'learned more about Copilot', 'we get to know "
-            "more about what Copilot can do' or 'more understanding of X and how to apply it' must be left out. "
+            "more about what Copilot can do' or 'more understanding of X and how to apply it' must be left out. So must "
+            "praise that mentions improving or problems in a positive way ('able to improve myself at work', 'learnt "
+            "things to improve our service', 'learnt how to solve customer problems') and recommendations of who else "
+            "should attend ('every department should take part'). "
             "Copy "
             "each picked answer EXACTLY as written (the whole answer, or the critical sentence of a long one), "
             "never reword. Tag each with one category: Trainer, Content, Venue & Logistics, or Other. Reply with "
