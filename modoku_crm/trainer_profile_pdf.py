@@ -813,3 +813,87 @@ def profile_filename(trainer_name, ext="pdf"):
     words = words[:2]
     base = "_".join(["Modoku_Trainer_Profile"] + words)
     return f"{base}.{(ext or 'pdf').lower()}"
+
+
+# ---- Fix213: the trainer's certificates, one page each, after the profile ----
+CERT_MARGIN_MM = 10.0
+
+
+def _a4_points(landscape):
+    w, h = PAGE_W_MM / 25.4 * 72, PAGE_H_MM / 25.4 * 72
+    return (h, w) if landscape else (w, h)
+
+
+def _image_cert_page(path):
+    """A white A4 page (landscape for a landscape certificate) with the image
+    fitted inside a 10mm margin, centred. Returns one-page PDF bytes."""
+    with Image.open(path) as img:
+        img = img.convert("RGB")
+        landscape = img.width > img.height
+        page_w, page_h = (PAGE_H_PX, PAGE_W_PX) if landscape else (PAGE_W_PX, PAGE_H_PX)
+        margin = round(mm(CERT_MARGIN_MM))
+        box_w, box_h = page_w - 2 * margin, page_h - 2 * margin
+        scale = min(box_w / img.width, box_h / img.height)
+        size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+        img = img.resize(size, Image.LANCZOS)
+        page = Image.new("RGB", (page_w, page_h), (255, 255, 255))
+        page.paste(img, ((page_w - size[0]) // 2, (page_h - size[1]) // 2))
+    buf = BytesIO()
+    page.save(buf, format="PDF", resolution=DPI, quality=90, subsampling=0)
+    return buf.getvalue()
+
+
+def _pdf_cert_pages(path):
+    """Every page of a certificate PDF, each fitted onto its own A4 page (same
+    orientation as the certificate) inside the margin, centred - vector, so
+    nothing is lost. Returns a list of pypdf pages."""
+    from pypdf import PdfReader, PageObject, Transformation
+    reader = PdfReader(path)
+    if reader.is_encrypted:
+        reader.decrypt("")
+    out = []
+    margin = CERT_MARGIN_MM / 25.4 * 72
+    for src in reader.pages:
+        box = src.cropbox
+        w, h = float(box.width), float(box.height)
+        rotate = (src.get("/Rotate") or 0) % 180 != 0
+        shown_w, shown_h = (h, w) if rotate else (w, h)
+        page_w, page_h = _a4_points(shown_w > shown_h)
+        if rotate:
+            src.transfer_rotation_to_content()
+            box = src.cropbox
+            w, h = float(box.width), float(box.height)
+        scale = min((page_w - 2 * margin) / w, (page_h - 2 * margin) / h)
+        tx = (page_w - w * scale) / 2 - float(box.left) * scale
+        ty = (page_h - h * scale) / 2 - float(box.bottom) * scale
+        page = PageObject.create_blank_page(width=page_w, height=page_h)
+        page.merge_transformed_page(src, Transformation().scale(scale, scale).translate(tx, ty))
+        out.append(page)
+    return out
+
+
+def append_certificates(profile_pdf_bytes, cert_paths):
+    """The profile PDF with each certificate file (PDF or image) added after
+    its last page, in order. Returns (pdf_bytes, skipped_names): a file that
+    can't be read (damaged, password-protected) is skipped, not fatal."""
+    if not cert_paths:
+        return profile_pdf_bytes, []
+    from pypdf import PdfReader, PdfWriter
+    writer = PdfWriter()
+    for page in PdfReader(BytesIO(profile_pdf_bytes)).pages:
+        writer.add_page(page)
+    skipped = []
+    for path, name in cert_paths:
+        try:
+            if path.lower().endswith(".pdf"):
+                for page in _pdf_cert_pages(path):
+                    writer.add_page(page)
+            else:
+                for page in PdfReader(BytesIO(_image_cert_page(path))).pages:
+                    writer.add_page(page)
+        except Exception:  # noqa: BLE001 - one bad file must not stop the whole profile
+            current_app.logger.exception("Couldn't add certificate %s to the trainer profile", path)
+            skipped.append(name)
+    buf = BytesIO()
+    writer.write(buf)
+    return buf.getvalue(), skipped

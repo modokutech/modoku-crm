@@ -193,6 +193,16 @@ CREATE TABLE IF NOT EXISTS trainer_profile_certifications (
 
 -- Professional Experience - job history (company, the period worked
 -- there, and the role/title held).
+-- Fix213: the trainer's certificate files (PDF or image), added at the end of
+-- the generated Trainer Profile PDF, one page per certificate, in this order.
+CREATE TABLE IF NOT EXISTS trainer_profile_cert_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    original_name TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS trainer_profile_experience (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_id INTEGER NOT NULL REFERENCES trainer_profiles(id) ON DELETE CASCADE,

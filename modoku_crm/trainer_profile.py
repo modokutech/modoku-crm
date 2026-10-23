@@ -35,7 +35,7 @@ from werkzeug.utils import secure_filename
 
 from . import activity, db, uploadutil
 from .auth import login_required
-from .trainer_profile_pdf import generate_trainer_profile_pdf, profile_filename
+from .trainer_profile_pdf import append_certificates, generate_trainer_profile_pdf, profile_filename
 
 bp = Blueprint("trainer_profiles", __name__, url_prefix="/trainer-profiles")
 
@@ -161,6 +161,65 @@ def _handle_photo_upload(profile_id):
     return stored_name
 
 
+# Fix213: certificate files added after the profile pages, one page each.
+CERT_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "webp"}
+CERT_MAX_BYTES = 5 * 1024 * 1024
+PROFILE_EMAIL_WARN_BYTES = 6 * 1024 * 1024  # the grant documents email carries 8 MB in total
+
+
+def _cert_files(profile_id):
+    return db.query("SELECT * FROM trainer_profile_cert_files WHERE profile_id = ? ORDER BY sort_order, id",
+                    (profile_id,))
+
+
+def _save_cert_files(profile_id, form):
+    """Removes ticked certificates, applies the order shown on the form, then
+    adds newly uploaded ones at the end. Photos are shrunk on the way in so
+    the finished profile stays small enough to email."""
+    from . import image_compress
+    folder = _profile_upload_dir(profile_id)
+    for cert_id in form.getlist("remove_cert"):
+        row = db.query("SELECT filename FROM trainer_profile_cert_files WHERE id = ? AND profile_id = ?",
+                       (cert_id, profile_id), one=True)
+        if row:
+            db.execute("DELETE FROM trainer_profile_cert_files WHERE id = ?", (cert_id,))
+            try:
+                os.remove(os.path.join(folder, row["filename"]))
+            except OSError:
+                pass
+    for i, cert_id in enumerate(form.getlist("cert_order")):
+        db.execute("UPDATE trainer_profile_cert_files SET sort_order = ? WHERE id = ? AND profile_id = ?",
+                   (i, cert_id, profile_id))
+    row = db.query("SELECT MAX(sort_order) AS m FROM trainer_profile_cert_files WHERE profile_id = ?",
+                   (profile_id,), one=True)
+    order = (row["m"] if row and row["m"] is not None else -1) + 1
+    for file_storage in request.files.getlist("cert_files"):
+        if not file_storage or not file_storage.filename:
+            continue
+        original = file_storage.filename
+        ext = original.rsplit(".", 1)[-1].lower() if "." in original else ""
+        if ext not in CERT_EXTENSIONS:
+            flash(f"{original}: only PDF, JPG, PNG or WEBP certificates can be added.", "warning")
+            continue
+        raw = file_storage.read()
+        name = secure_filename(original) or f"certificate.{ext}"
+        if ext != "pdf":
+            raw, name = image_compress.compress_photo(raw, name)
+        if not raw:
+            flash(f"{original}: that file is empty.", "warning")
+            continue
+        if len(raw) > CERT_MAX_BYTES:
+            flash(f"{original} is {len(raw) / (1024 * 1024):.1f} MB, over the 5 MB limit for a certificate. "
+                  "Try a smaller scan or a compressed PDF.", "warning")
+            continue
+        stored = f"cert_{uuid.uuid4().hex[:8]}_{name}"
+        with open(os.path.join(folder, stored), "wb") as f:
+            f.write(raw)
+        db.execute("INSERT INTO trainer_profile_cert_files (profile_id, filename, original_name, sort_order) "
+                   "VALUES (?,?,?,?)", (profile_id, stored, original, order))
+        order += 1
+
+
 def _photo_path(profile):
     if not profile.get("photo_file"):
         return None
@@ -201,6 +260,15 @@ def _regenerate(profile_id):
     except Exception:  # noqa: BLE001 - surface a clean flash instead of a 500
         current_app.logger.exception("Failed to build Trainer Profile PDF for profile %s", profile_id)
         return "Something went wrong building the PDF. The data you entered has been saved either way."
+
+    # Fix213: the trainer's certificates, one page each, after the profile
+    folder = _profile_upload_dir(profile_id)
+    certs = [(os.path.join(folder, c["filename"]), c["original_name"] or c["filename"])
+             for c in _cert_files(profile_id)]
+    pdf_bytes, skipped = append_certificates(pdf_bytes, certs)
+    if skipped:
+        flash("Couldn't add these certificate files (damaged or password-protected): " + ", ".join(skipped)
+              + ". Remove them, or upload a fresh copy.", "warning")
 
     stored_name = f"trainer_profile_{profile_id}.pdf"
     with open(os.path.join(_profile_upload_dir(profile_id), stored_name), "wb") as f:
@@ -256,6 +324,7 @@ def new():
                 certifications=[], experience=[], sections=[])
         profile_id = _save_base_fields(request.form)
         _save_children(profile_id, request.form)
+        _save_cert_files(profile_id, request.form)
         photo = _handle_photo_upload(profile_id)
         if photo:
             db.execute("UPDATE trainer_profiles SET photo_file = ? WHERE id = ?", (photo, profile_id))
@@ -293,6 +362,7 @@ def edit(profile_id):
             return redirect(url_for("trainer_profiles.edit", profile_id=profile_id))
         _save_base_fields(request.form, profile_id=profile_id)
         _save_children(profile_id, request.form)
+        _save_cert_files(profile_id, request.form)
         photo = _handle_photo_upload(profile_id)
         if photo:
             db.execute("UPDATE trainer_profiles SET photo_file = ? WHERE id = ?", (photo, profile_id))
@@ -313,7 +383,30 @@ def edit(profile_id):
     return render_template(
         "trainer_profile/edit.html", profile=profile, trainers=_trainer_options(),
         expertise=children["expertise"], companies=children["companies"], academic=children["academic"],
-        certifications=children["certifications"], experience=children["experience"], sections=children["sections"])
+        certifications=children["certifications"], experience=children["experience"], sections=children["sections"],
+        cert_files=_cert_files(profile_id), pdf_size=_pdf_size(profile), email_warn_bytes=PROFILE_EMAIL_WARN_BYTES)
+
+
+def _pdf_size(profile):
+    if not profile.get("profile_file"):
+        return None
+    try:
+        return os.path.getsize(os.path.join(_profile_upload_dir(profile["id"]), profile["profile_file"]))
+    except OSError:
+        return None
+
+
+@bp.route("/<int:profile_id>/certs/<int:cert_id>")
+@login_required
+def cert_file(profile_id, cert_id):
+    """Fix213: view one attached certificate file."""
+    row = db.query("SELECT * FROM trainer_profile_cert_files WHERE id = ? AND profile_id = ?",
+                   (cert_id, profile_id), one=True)
+    if row is None:
+        flash("That certificate file isn't on this profile.", "warning")
+        return redirect(url_for("trainer_profiles.edit", profile_id=profile_id))
+    return send_from_directory(_profile_upload_dir(profile_id), row["filename"], as_attachment=False,
+                               download_name=row["original_name"] or row["filename"])
 
 
 @bp.route("/<int:profile_id>/photo")

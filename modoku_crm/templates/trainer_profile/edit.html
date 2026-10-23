@@ -162,6 +162,35 @@ Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e
     </div>
   </template>
 
+  {# Fix213: certificate files - added after the profile pages, one page each. #}
+  <div class="card p-3 mb-3">
+    <h6>Certificate attachments <span class="badge bg-light text-muted fw-normal">optional, added at the end of the PDF</span></h6>
+    <p class="small text-muted mb-2">The trainer's certificates (PDF, JPG or PNG). Each one is added after the last profile page, one
+      page per certificate, in the order below. A landscape certificate gets a landscape page; a PDF with several pages adds all of them.</p>
+    {% if cert_files %}
+    <ul class="list-group mb-2" id="certList">
+      {% for c in cert_files %}
+      <li class="list-group-item d-flex align-items-center gap-2 py-2">
+        <input type="hidden" name="cert_order" value="{{ c.id }}">
+        <span class="text-muted small cert-no" style="width:22px">{{ loop.index }}.</span>
+        <i class="bi {{ 'bi-file-earmark-pdf text-danger' if c.filename.lower().endswith('.pdf') else 'bi-file-earmark-image text-primary' }}"></i>
+        <a href="{{ url_for('trainer_profiles.cert_file', profile_id=profile.id, cert_id=c.id) }}" target="_blank" class="small text-truncate flex-grow-1">{{ c.original_name or c.filename }}</a>
+        <button type="button" class="btn btn-sm btn-outline-secondary cert-up" title="Move up">↑</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary cert-down" title="Move down">↓</button>
+        <label class="small text-danger text-nowrap mb-0"><input type="checkbox" class="form-check-input me-1" name="remove_cert" value="{{ c.id }}">Remove</label>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <label class="form-label small mb-1">{{ 'Add more certificates' if cert_files else 'Add certificates' }} <span class="text-muted">(you can pick several at once, up to 5 MB each)</span></label>
+    <input type="file" name="cert_files" class="form-control" multiple accept=".pdf,.jpg,.jpeg,.png,.webp">
+    {% if pdf_size and pdf_size > email_warn_bytes %}
+    <div class="alert alert-warning small mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i>The generated profile PDF is
+      {{ '%.1f'|format(pdf_size / 1048576) }} MB. The HRDCorp Grant Documents email can carry about 8 MB in total, so it may be
+      too big to send. Use smaller scans or compressed PDFs for the certificates.</div>
+    {% endif %}
+  </div>
+
   <div class="d-flex gap-2">
     <button type="submit" class="btn btn-success">Save &amp; Generate PDF</button>
     <a href="{{ url_for('trainer_profiles.index') }}" class="btn btn-outline-secondary">Cancel</a>
@@ -196,6 +225,18 @@ Redberry Contact Centre (BPO) | Aug 2016-Sep 2018 | Operation Director">{% for e
 {% endif %}
 
 <script>
+// Fix213: reorder certificate attachments (the hidden cert_order inputs follow the list order)
+(function () {
+  const list = document.getElementById('certList');
+  if (!list) return;
+  function renumber() { list.querySelectorAll('.cert-no').forEach(function (n, i) { n.textContent = (i + 1) + '.'; }); }
+  list.addEventListener('click', function (e) {
+    const li = e.target.closest('li');
+    if (e.target.classList.contains('cert-up') && li.previousElementSibling) li.parentNode.insertBefore(li, li.previousElementSibling);
+    if (e.target.classList.contains('cert-down') && li.nextElementSibling) li.parentNode.insertBefore(li.nextElementSibling, li);
+    renumber();
+  });
+})();
 document.getElementById('addSectionBtn').addEventListener('click', function () {
   var tpl = document.getElementById('sectionTemplate');
   var clone = tpl.content.cloneNode(true);

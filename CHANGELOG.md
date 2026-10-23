@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix213 — Trainer Profile: attach certificates (one page each)
+- New "Certificate attachments" card on the trainer profile form: upload the trainer's certificates
+  (PDF, JPG, PNG, WebP; several at once, up to 5 MB each), reorder them with ↑/↓, or remove them.
+- On Save & Generate PDF, each certificate is added after the last profile page, one page per
+  certificate, in the listed order. Images are fitted on an A4 page (landscape for a landscape
+  image) with a 10 mm margin. A multi-page PDF adds all its pages, each scaled to A4 in its own
+  orientation; rotated PDF pages keep their rotation.
+- Photos are compressed on upload. A file that can't be read is skipped with a warning.
+- The form warns when the generated PDF is over 6 MB (grant emails cap attachments at 8 MB).
+- New table `trainer_profile_cert_files` (created automatically on boot). Files live under
+  `instance/uploads/trainer_profiles/<id>/`.
+
 ## Fix212 — Needs attention: fewer false flags from positive comments
 
 **Date:** 2026-10-22
