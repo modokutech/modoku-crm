@@ -408,6 +408,11 @@ _TRIANGLE_RAISE = 0.85 * 1.08
 _TRI_TOP_MM = 202.4 * _TRIANGLE_RAISE
 _LOGO_TOP_MM = 281 * 0.90 * 1.08
 
+# Space between sidebar list items (Areas of Expertise / Companies Trained),
+# on top of the line height (Fix215).
+_SIDEBAR_ITEM_GAP_MM = 1.8
+
+
 def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     draw.rectangle([0, 0, SIDEBAR_W_PX, PAGE_H_PX], fill=NAVY)
 
@@ -486,12 +491,20 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     y = pill_y + th + 2 * pad_y + round(mm(4))
     triangle_top = round(mm(_TRI_TOP_MM))
     max_y = triangle_top - round(mm(4))
-    for item in list_items:
-        for line in _wrap(f"• {item}", list_font, list_width):
+    wrapped = [_wrap(f"• {item}", list_font, list_width) for item in list_items]
+    # The gap between items shrinks (down to none) when a long list needs the
+    # room, so spacing never pushes the last items off the sidebar.
+    gap = round(mm(_SIDEBAR_ITEM_GAP_MM))
+    if len(wrapped) > 1:
+        spare = max_y - y - sum(len(w) for w in wrapped) * list_lh
+        gap = max(0, min(gap, spare // (len(wrapped) - 1)))
+    for lines in wrapped:
+        for line in lines:
             if y + list_lh > max_y:
                 return
             draw.text((list_x, y), line, font=list_font, fill=WHITE)
             y += list_lh
+        y += gap
 
 
 def _corner_diamond(canvas, size_mm, top_mm, left_mm, color):
@@ -703,6 +716,7 @@ def _chunk_companies(names, max_per_page=None):
     if max_per_page is None:
         # how many single-line items fit, conservatively (each name may
         # itself wrap onto 2 lines, but company names are normally short)
+        # (without the item gap: _draw_sidebar shrinks the gap to fit)
         max_per_page = max(1, available // lh)
     if len(names) <= max_per_page:
         return [names]

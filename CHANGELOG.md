@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix215 — Trainer Profile PDF: space between sidebar points
+- Areas of Expertise and Companies Trained items get 1.8 mm of space between them.
+- On a long list the space shrinks (down to none) so every item still fits above the yellow
+  triangle; nothing is pushed off the page and Companies Trained still fits as many names per page.
+
 ## Fix214 — Trainer Profile PDF: full circle photo, no hyphenation
 - The trainer photo now fills the whole circle (cover-fit). Portrait and full-length photos are
   cropped to a square from near the top, so the face stays in. Before, the whole photo was shrunk
