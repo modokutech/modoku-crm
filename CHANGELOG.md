@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix214 — Trainer Profile PDF: full circle photo, no hyphenation
+- The trainer photo now fills the whole circle (cover-fit). Portrait and full-length photos are
+  cropped to a square from near the top, so the face stays in. Before, the whole photo was shrunk
+  inside the circle, leaving the sides flat.
+- Paragraphs no longer hyphenate words at the end of a line: a word that doesn't fit moves to the
+  next line. Lines are still justified.
+
 ## Fix213 — Trainer Profile: attach certificates (one page each)
 - New "Certificate attachments" card on the trainer profile form: upload the trainer's certificates
   (PDF, JPG, PNG, WebP; several at once, up to 5 MB each), reorder them with ↑/↓, or remove them.

@@ -140,67 +140,6 @@ def _wrap(text, font, max_width):
     return lines or [""]
 
 
-try:  # optional - justified text still works without it, just looser
-    import pyphen
-    _HYPHENATOR = pyphen.Pyphen(lang="en_US")
-except Exception:  # noqa: BLE001
-    _HYPHENATOR = None
-
-
-def _hyphen_splits(word):
-    """Candidate (head, tail) splits for a word, longest head first. Only
-    plain lowercase words of 7+ letters are hyphenated - never names,
-    acronyms or anything with digits - and each side keeps 3+ letters."""
-    if _HYPHENATOR is None:
-        return []
-    core = word.rstrip(",.;:)!?")
-    if len(core) < 7 or not core.isalpha() or not core.islower():
-        return []
-    trail = word[len(core):]
-    return [(head, tail + trail) for head, tail in _HYPHENATOR.iterate(core)
-            if len(head) >= 3 and len(tail) >= 3]
-
-
-def _wrap_justified(text, font, max_width):
-    """Greedy wrap for justified paragraphs, with hyphenation. Without it,
-    a long word like "manufacturing" that just misses the end of a line
-    gets pushed down whole, and that line is left with wide gaps once it's
-    stretched to the column - that's what looked broken. Hyphenating the
-    word that doesn't fit (as Adobe does with justify on) keeps each line
-    close to full so the stretch stays small."""
-    words = (text or "").split()
-    if not words:
-        return [""]
-    lines, line = [], ""
-    queue = list(words)
-    while queue:
-        word = queue.pop(0)
-        candidate = f"{line} {word}".strip()
-        if _MEASURE.textlength(candidate, font=font) <= max_width:
-            line = candidate
-            continue
-        placed = False
-        # At most 2 hyphenated line-ends in a row (a ladder of hyphens
-        # down the right edge looks worse than one slightly loose line).
-        ladder = len(lines) >= 2 and lines[-1].endswith("-") and lines[-2].endswith("-")
-        if line and not ladder:
-            for head, tail in _hyphen_splits(word):
-                if _MEASURE.textlength(f"{line} {head}-", font=font) <= max_width:
-                    lines.append(f"{line} {head}-")
-                    queue.insert(0, tail)
-                    line = ""
-                    placed = True
-                    break
-        if placed:
-            continue
-        if line:
-            lines.append(line)
-        line = word
-    if line:
-        lines.append(line)
-    return lines
-
-
 def _line_height(font, leading=1.28):
     ascent, descent = font.getmetrics()
     return round((ascent + descent) * leading)
@@ -252,7 +191,9 @@ def _paragraph_block(text, width):
         para = " ".join(para.split())
         if not para:
             continue
-        wrapped = _wrap_justified(para, font, width)
+        # Whole words only: a word that doesn't fit moves to the next line,
+        # never hyphenated (Fix214, per Erik).
+        wrapped = _wrap(para, font, width)
         lines.extend((ln, i < len(wrapped) - 1) for i, ln in enumerate(wrapped))
         lines.append(("", False))  # blank line between paragraphs
     while lines and lines[-1][0] == "":
@@ -499,13 +440,9 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     except Exception:  # noqa: BLE001 - a missing logo shouldn't break the whole page
         current_app.logger.exception("Failed to composite logo onto trainer profile sidebar")
 
-    # Circular photo - contain-fit, not cropped: the whole photo stays
-    # visible, scaled down (preserving aspect ratio) to fit within the
-    # circle and centered, rather than center-cropped to fill it (which
-    # could cut off the top of a head or the sides of a wider shot). Any
-    # gap around the photo within the circle is filled with the sidebar's
-    # own navy, so it reads as the photo floating on the sidebar rather
-    # than sitting in a visible box.
+    # Circular photo, cover-fit (Fix214): the photo fills the whole circle.
+    # A portrait or full-length shot is cropped to a square from near the
+    # top, where the face is; a wide shot is cropped from the centre.
     photo_d = round(mm(40))
     photo_cx = SIDEBAR_W_PX / 2
     photo_top = mm(16)
@@ -520,12 +457,10 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
                  outline=ORANGE, width=ring_w)
     if photo_img is not None:
         photo = photo_img.copy().convert("RGB")
-        scale = photo_d / max(photo.size)
-        fit_w = max(1, round(photo.width * scale))
-        fit_h = max(1, round(photo.height * scale))
-        photo = photo.resize((fit_w, fit_h), Image.LANCZOS)
-        square = Image.new("RGB", (photo_d, photo_d), NAVY)
-        square.paste(photo, ((photo_d - fit_w) // 2, (photo_d - fit_h) // 2))
+        side = min(photo.size)
+        left = (photo.width - side) // 2
+        top = round((photo.height - side) * 0.12)
+        square = photo.crop((left, top, left + side, top + side)).resize((photo_d, photo_d), Image.LANCZOS)
         mask = Image.new("L", (photo_d, photo_d), 0)
         ImageDraw.Draw(mask).ellipse([0, 0, photo_d, photo_d], fill=255)
         canvas.paste(square, (photo_left, round(photo_top)), mask)
