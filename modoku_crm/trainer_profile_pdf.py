@@ -500,7 +500,10 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     y = pill_y + th + 2 * pad_y + round(mm(4))
     triangle_top = round(mm(_TRI_TOP_MM))
     max_y = triangle_top - round(mm(4))
-    wrapped = [_wrap(f"• {item}", list_font, list_width) for item in list_items]
+    # Hanging indent (Fix220): the bullet sits on its own and a wrapped item's
+    # second line lines up with the text after the bullet, not under it.
+    indent = round(draw.textlength("• ", font=list_font))
+    wrapped = [_wrap(item, list_font, list_width - indent) for item in list_items]
     # The gap between items shrinks (down to none) when a long list needs the
     # room, so spacing never pushes the last items off the sidebar.
     gap = round(mm(_SIDEBAR_ITEM_GAP_MM))
@@ -508,10 +511,12 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
         spare = max_y - y - sum(len(w) for w in wrapped) * list_lh
         gap = max(0, min(gap, spare // (len(wrapped) - 1)))
     for lines in wrapped:
-        for line in lines:
+        for i, line in enumerate(lines):
             if y + list_lh > max_y:
                 return
-            draw.text((list_x, y), line, font=list_font, fill=WHITE)
+            if i == 0:
+                draw.text((list_x, y), "•", font=list_font, fill=WHITE)
+            draw.text((list_x + indent, y), line, font=list_font, fill=WHITE)
             y += list_lh
         y += gap
 

@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix220 — Trainer Profile PDF: hanging indent in sidebar lists
+- A long Areas of Expertise / Companies Trained item that wraps now continues under its text, not
+  under the bullet.
+
 ## Fix219 — Trainers: Trainer Profile upload up to 3.5 MB
 - The Trainer Profile document on a trainer's record now accepts files up to 3.5 MB (was 1 MB).
   TTT and Accredited Certificates stay at 1 MB.
