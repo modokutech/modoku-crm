@@ -411,7 +411,7 @@ _LOGO_TOP_MM = 281 * 0.90 * 1.08
 
 # Space between sidebar list items (Areas of Expertise / Companies Trained),
 # on top of the line height (Fix215).
-_SIDEBAR_ITEM_GAP_MM = 1.8
+_SIDEBAR_ITEM_GAP_MM = 1.2
 
 
 # Sidebar list font: Poppins Light 9pt (Fix216, per Erik; was Morion 10.2pt).
@@ -419,7 +419,9 @@ _SIDEBAR_LIST_FONT = lambda: _font(_POPPINS_LIGHT, 9)
 
 
 def _sidebar_list_lh(font):
-    return _line_height(font, 1.35)
+    # Poppins' own line box is already tall, so little extra leading
+    # (Fix217: 1.35 plus the item gap spread short lists too far apart).
+    return _line_height(font, 1.05)
 
 
 def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
