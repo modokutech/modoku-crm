@@ -42,6 +42,16 @@
         <small class="text-muted">Used to auto-prefill the Purchase Order fee (rate × course duration).</small>
       </div>
     </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Half-Day Rate (RM)</label>
+        <input type="number" step="0.01" min="0" name="half_day_rate" class="form-control" value="{{ trainer.half_day_rate if trainer else 0 }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Outstation Rate (RM)</label>
+        <input type="number" step="0.01" min="0" name="outstation_rate" class="form-control" value="{{ trainer.outstation_rate if trainer else 0 }}">
+      </div>
+    </div>
     {# Fix147: for trainers paid through their own company. #}
     <div class="row g-3 mb-3">
       <div class="col-md-6">
@@ -53,16 +63,6 @@
       <div class="col-md-6">
         <label class="form-label">Company Address <span class="text-muted small fw-normal">(optional)</span></label>
         <textarea name="company_address" class="form-control" rows="2">{{ (trainer.company_address or '') if trainer else '' }}</textarea>
-      </div>
-    </div>
-    <div class="row g-3 mb-3">
-      <div class="col-md-6">
-        <label class="form-label">Half-Day Rate (RM)</label>
-        <input type="number" step="0.01" min="0" name="half_day_rate" class="form-control" value="{{ trainer.half_day_rate if trainer else 0 }}">
-      </div>
-      <div class="col-md-6">
-        <label class="form-label">Outstation Rate (RM)</label>
-        <input type="number" step="0.01" min="0" name="outstation_rate" class="form-control" value="{{ trainer.outstation_rate if trainer else 0 }}">
       </div>
     </div>
     <div class="mb-3">

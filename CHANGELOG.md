@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix221 — Trainer form: Company fields after the rates
+- On the New/Edit Trainer form, Company and Company Address now come after Half-Day Rate and
+  Outstation Rate, so all the rates sit together.
+
 ## Fix220 — Trainer Profile PDF: hanging indent in sidebar lists
 - A long Areas of Expertise / Companies Trained item that wraps now continues under its text, not
   under the bullet.
