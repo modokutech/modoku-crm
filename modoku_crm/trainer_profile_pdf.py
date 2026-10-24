@@ -93,6 +93,7 @@ _FONT_DIR = os.path.join(os.path.dirname(__file__), "static", "fonts")
 _MORION_REGULAR = os.path.join(_FONT_DIR, "Morion-Regular.ttf")
 _MORION_BOLD = os.path.join(_FONT_DIR, "Morion-Bold.ttf")
 _POPPINS_REGULAR = os.path.join(_FONT_DIR, "Poppins-Regular.ttf")
+_POPPINS_LIGHT = os.path.join(_FONT_DIR, "Poppins-Light.ttf")
 _POPPINS_MEDIUM = os.path.join(_FONT_DIR, "Poppins-Medium.ttf")
 _POPPINS_SEMIBOLD = os.path.join(_FONT_DIR, "Poppins-SemiBold.ttf")  # Latin subset
 _POPPINS_BOLD = os.path.join(_FONT_DIR, "Poppins-Bold.ttf")
@@ -413,6 +414,14 @@ _LOGO_TOP_MM = 281 * 0.90 * 1.08
 _SIDEBAR_ITEM_GAP_MM = 1.8
 
 
+# Sidebar list font: Poppins Light 9pt (Fix216, per Erik; was Morion 10.2pt).
+_SIDEBAR_LIST_FONT = lambda: _font(_POPPINS_LIGHT, 9)
+
+
+def _sidebar_list_lh(font):
+    return _line_height(font, 1.35)
+
+
 def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     draw.rectangle([0, 0, SIDEBAR_W_PX, PAGE_H_PX], fill=NAVY)
 
@@ -480,12 +489,9 @@ def _draw_sidebar(canvas, draw, pill_label, list_items, photo_img):
     draw.rectangle([pill_x, pill_y, pill_x + tw + 2 * pad_x, pill_y + th + 2 * pad_y], fill=ORANGE)
     draw.text((pill_x + pad_x, pill_y + pad_y), pill_text, font=pill_font, fill=NAVY)
 
-    # Content is Morion (the pill label above stays Poppins) - per Erik's
-    # request. Bullet char is U+2022, not U+00B7: Morion has no middle-dot
-    # glyph (same issue already found and fixed for the right column's own
-    # bullet lists - see _draw_block's "bullet" case).
-    list_font = _font(_MORION_REGULAR, 10.2)
-    list_lh = _line_height(list_font, 1.35)
+    # Bullet char is U+2022.
+    list_font = _SIDEBAR_LIST_FONT()
+    list_lh = _sidebar_list_lh(list_font)
     list_x = round(mm(6))
     list_width = SIDEBAR_W_PX - round(mm(10))
     y = pill_y + th + 2 * pad_y + round(mm(4))
@@ -709,8 +715,7 @@ def _companies_for_page(companies, page_index):
 
 
 def _chunk_companies(names, max_per_page=None):
-    font = _font(_MORION_REGULAR, 10.2)  # must match _draw_sidebar's list_font
-    lh = _line_height(font, 1.35)
+    lh = _sidebar_list_lh(_SIDEBAR_LIST_FONT())
     list_width = SIDEBAR_W_PX - round(mm(10))
     available = round(mm(_TRI_TOP_MM)) - round(mm(4)) - (round(mm(70)) + round(mm(9.5)) + round(mm(4)))
     if max_per_page is None:

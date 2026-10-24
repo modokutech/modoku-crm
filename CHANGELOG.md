@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix216 — Trainer Profile PDF: sidebar lists in Poppins Light
+- Areas of Expertise and Companies Trained items now use Poppins Light 9pt (was Morion 10.2pt),
+  matching the Poppins pills and headings. Long items wrap less.
+
 ## Fix215 — Trainer Profile PDF: space between sidebar points
 - Areas of Expertise and Companies Trained items get 1.8 mm of space between them.
 - On a long list the space shrinks (down to none) so every item still fits above the yellow
