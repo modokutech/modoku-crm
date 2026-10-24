@@ -414,8 +414,9 @@ _LOGO_TOP_MM = 281 * 0.90 * 1.08
 _SIDEBAR_ITEM_GAP_MM = 1.2
 
 
-# Sidebar list font: Poppins Light 9pt (Fix216, per Erik; was Morion 10.2pt).
-_SIDEBAR_LIST_FONT = lambda: _font(_POPPINS_LIGHT, 9)
+# Sidebar list font: Poppins Regular 9pt (Fix218, per Erik; Fix216 had Light,
+# before that Morion 10.2pt).
+_SIDEBAR_LIST_FONT = lambda: _font(_POPPINS_REGULAR, 9)
 
 
 def _sidebar_list_lh(font):
