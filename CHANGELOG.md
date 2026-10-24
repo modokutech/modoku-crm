@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix219 — Trainers: Trainer Profile upload up to 3.5 MB
+- The Trainer Profile document on a trainer's record now accepts files up to 3.5 MB (was 1 MB).
+  TTT and Accredited Certificates stay at 1 MB.
+- Upload size errors show fractional limits correctly ("The maximum is 3.5 MB").
+
 ## Fix218 — Trainer Profile PDF: sidebar lists in Poppins Regular
 - Areas of Expertise and Companies Trained items now use Poppins Regular 9pt (was Light), same
   spacing as Fix217.

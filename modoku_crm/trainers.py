@@ -25,11 +25,11 @@ def _trainer_upload_dir(trainer_id):
     return path
 
 
-def _save_document(trainer_id, file_storage, label=None):
+def _save_document(trainer_id, file_storage, label=None, max_bytes=uploadutil.TRAINER_DOCUMENT_MAX_BYTES):
     if not file_storage or not file_storage.filename:
         return None
     error = uploadutil.validate_upload(file_storage, allowed_extensions=uploadutil.DEFAULT_EXTENSIONS,
-                                        max_bytes=uploadutil.TRAINER_DOCUMENT_MAX_BYTES)
+                                        max_bytes=max_bytes)
     if error:
         flash(error, "danger")
         return None
@@ -46,7 +46,9 @@ def _save_document(trainer_id, file_storage, label=None):
 def _handle_document_uploads(trainer_id):
     updates = {}
     for form_field, column, label in DOCUMENT_FIELDS:
-        stored = _save_document(trainer_id, request.files.get(form_field), label=label)
+        max_bytes = (uploadutil.TRAINER_PROFILE_MAX_BYTES if column == "profile_file"
+                     else uploadutil.TRAINER_DOCUMENT_MAX_BYTES)
+        stored = _save_document(trainer_id, request.files.get(form_field), label=label, max_bytes=max_bytes)
         if stored:
             updates[column] = stored
     if updates:

@@ -15,6 +15,8 @@ MAX_UPLOAD_BYTES = 2 * 1024 * 1024  # 2 MB per file — the default cap everywhe
 # email in sessions.py), so keeping them small matters more here than
 # elsewhere to stay under mailer.MAX_TOTAL_ATTACHMENT_BYTES.
 TRAINER_DOCUMENT_MAX_BYTES = 1 * 1024 * 1024  # 1 MB per file
+# The Trainer Profile itself (photo + several pages) gets 3.5 MB (Fix219).
+TRAINER_PROFILE_MAX_BYTES = int(3.5 * 1024 * 1024)
 
 # Lead Proposal Decks are often multi-slide PPT/PPTX exports with embedded
 # images, which routinely blow past the default 2 MB cap — bumped just for
@@ -72,5 +74,5 @@ def validate_upload(file_storage, allowed_extensions=None, max_bytes=MAX_UPLOAD_
     if size == 0:
         return "That file is empty."
     if size > max_bytes:
-        return f"File is too large ({size / (1024 * 1024):.1f} MB). The maximum is {max_bytes // (1024 * 1024)} MB."
+        return f"File is too large ({size / (1024 * 1024):.1f} MB). The maximum is {max_bytes / (1024 * 1024):g} MB."
     return None
