@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix222 — Quotation T&C: first line reads properly for each training mode
+- Default Terms & Conditions, first line:
+  - Virtual: "The training will be conducted virtually on <venue> as agreed between both parties."
+  - Physical: "The training will be conducted physically at <venue> as agreed between both parties."
+  - Hybrid: "The training will be conducted in hybrid mode, at <venue> and online, as agreed between
+    both parties."
+- Was "conducted virtual at" / "conducted physical at". Only new default terms change; saved
+  quotations keep their own text.
+
 ## Fix221 — Trainer form: Company fields after the rates
 - On the New/Edit Trainer form, Company and Company Address now come after Half-Day Rate and
   Outstation Rate, so all the rates sit together.

@@ -708,14 +708,22 @@ document.querySelector('#items-table').addEventListener('click', function (e) {
     return `${parseInt(d, 10)} ${monthName} ${y}`;
   }
 
+  // Fix222: keep in step with _DELIVERY_SENTENCES in quotations.py.
+  function deliverySentence(mode, venue) {
+    const m = (mode || '').trim().toLowerCase();
+    if (m === 'physical') return `The training will be conducted physically at ${venue}`;
+    if (m === 'virtual') return `The training will be conducted virtually on ${venue}`;
+    if (m === 'hybrid') return `The training will be conducted in hybrid mode, at ${venue} and online,`;
+    return `The training will be conducted ${m || '<training mode>'} at ${venue}`;
+  }
+
   function buildDefaultTerms() {
-    const mode = (modeField.value || '<training mode>').toLowerCase();
     const venue = venueField.value.trim() || '<venue>';
     const validUntil = validUntilField.value
       ? fmtDdMYyyy(validUntilField.value)
       : '<30 days from the quotation date>';
     return (
-      `The training will be conducted ${mode} at ${venue} as agreed between both parties.\n` +
+      `${deliverySentence(modeField.value, venue)} as agreed between both parties.\n` +
       `This course is HRDC SBL-Khas Claimable.\n` +
       `Any balance amount not eligible for HRDC claim shall be borne and paid by the client.\n` +
       `Any cancellation / reschedule must be informed at least 14 working days prior to the training date. ` +

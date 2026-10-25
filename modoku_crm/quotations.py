@@ -32,7 +32,7 @@ TRAINING_TYPES = ["In-house Training", "Public Training", "Workshop", "Conferenc
 TRAINING_MODES = ["Physical", "Virtual", "Hybrid"]
 
 DEFAULT_TERMS_TEMPLATE = (
-    "The training will be conducted {mode} at {venue} as agreed between both parties.\n"
+    "{delivery} as agreed between both parties.\n"
     "This course is HRDC SBL-Khas Claimable.\n"
     "Any balance amount not eligible for HRDC claim shall be borne and paid by the client.\n"
     "Any cancellation / reschedule must be informed at least 14 working days prior to the training date. "
@@ -63,10 +63,27 @@ def _fmt_full_date(iso_date):
     return f"{d.day} {d.strftime('%B')} {d.year}"
 
 
+# Fix222: the first T&C line reads properly for each mode ("virtually on
+# Microsoft Teams / Zoom", not "virtual at"). Keep in step with
+# deliverySentence() in templates/quotations/form.html.
+_DELIVERY_SENTENCES = {
+    "physical": "The training will be conducted physically at {venue}",
+    "virtual": "The training will be conducted virtually on {venue}",
+    "hybrid": "The training will be conducted in hybrid mode, at {venue} and online,",
+}
+
+
+def _delivery_sentence(training_mode, venue):
+    venue = venue or "<venue>"
+    template = _DELIVERY_SENTENCES.get((training_mode or "").strip().lower())
+    if template is None:
+        return f"The training will be conducted {(training_mode or '<training mode>').lower()} at {venue}"
+    return template.format(venue=venue)
+
+
 def _default_terms(training_mode, venue, valid_until):
     return DEFAULT_TERMS_TEMPLATE.format(
-        mode=(training_mode or "<training mode>").lower(),
-        venue=venue or "<venue>",
+        delivery=_delivery_sentence(training_mode, venue),
         valid_until=_fmt_full_date(valid_until) if valid_until else f"<{VALID_FOR_DAYS} days from the quotation date>",
     )
 
