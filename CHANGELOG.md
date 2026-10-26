@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix223 — Sign-in QR: Download gives the full poster
+- "Download PNG" on the full-screen sign-in page and "Download" on the class page now save the whole
+  sign-in poster (course title, dates, QR, "Scan to sign your attendance", and today's code in Code
+  Attendance mode) as a 2400x1350 PNG, instead of the bare QR. The QR shown on the pages is unchanged.
+- Works the same from the public (no-login) sign-in link.
+
 ## Fix222 — Quotation T&C: first line reads properly for each training mode
 - Default Terms & Conditions, first line:
   - Virtual: "The training will be conducted virtually on <venue> as agreed between both parties."

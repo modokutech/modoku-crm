@@ -767,22 +767,32 @@ def sign_in_qr(session_id):
                            code=class_code(session_row))
 
 
+def sign_in_png_response(session_row, link, code):
+    """The sign-in QR as PNG. ?download=1 gives the whole sign-in poster
+    (title, date, QR, instructions, today's code) instead of the bare QR
+    (Fix223), so a downloaded copy works on its own on a screen or in chat."""
+    from . import fmtdaterange, poster
+    from .docutil import content_disposition
+    logo = os.path.join(current_app.root_path, "static", "img", "logo.png")
+    headers = {"Cache-Control": "no-store"}  # Fix207: the QR's code changes daily
+    if request.args.get("download"):
+        png = poster.sign_in_poster_png(session_row["course_title"],
+                                        fmtdaterange(session_row["start_date"], session_row["end_date"]),
+                                        link, code=code, logo_path=logo)
+        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
+        headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
+    else:
+        png = poster.qr_png(link, box_size=900, logo_path=logo)
+    return Response(png, mimetype="image/png", headers=headers)
+
+
 @bp.route("/sessions/<int:session_id>/sign-in-qr.png")
 @login_required
 def sign_in_qr_png(session_id):
-    from . import poster
-    from .docutil import content_disposition
     session_row = _session_or_none(session_id)
     if session_row is None or not session_row["e_signature_enabled"]:
         return Response(status=404)
-    size = 1200 if request.args.get("download") else 900
-    png = poster.qr_png(_sign_in_url(session_id), box_size=size,
-                        logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
-    headers = {"Cache-Control": "no-store"}  # Fix207: the QR's code changes daily
-    if request.args.get("download"):
-        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
-        headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
-    return Response(png, mimetype="image/png", headers=headers)
+    return sign_in_png_response(session_row, _sign_in_url(session_id), class_code(session_row))
 
 
 @bp.route("/sessions/<int:session_id>/toggle-e-signature", methods=("POST",))

@@ -255,3 +255,75 @@ def qr_png(value, box_size=900, logo_path=None):
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def sign_in_poster_png(course_title, date_text, link, code=None, logo_path=None):
+    """Fix223: the whole e-signature sign-in screen as one landscape PNG
+    (2400x1350, 16:9 like the training-room screen): course title, date,
+    the QR, "Scan to sign your attendance" and, in Code Attendance mode,
+    today's code. Same layout as templates/t3/sign_in_qr.html."""
+    import io
+    W, H = 2400, 1350
+    try:
+        canvas = _fill_resize(Image.open(BG_IMAGE_PATH).convert("RGB"), W, H)
+    except Exception:  # noqa: BLE001 - plain indigo if the background image is missing
+        canvas = Image.new("RGB", (W, H), BG_COLOR)
+    draw = ImageDraw.Draw(canvas)
+
+    def centred(text, font, y, fill):
+        draw.text(((W - draw.textlength(text, font=font)) / 2, y), text, font=font, fill=fill)
+
+    # Title: one line, shrinking to fit; a very long one wraps to two.
+    title = course_title or ""
+    title_font = _fit_font(draw, title, FONT_BOLD, 64, W - 300, min_size=48)
+    title_lines = _wrap_text(draw, title, title_font, W - 300)[:2]
+    title_lh = round(title_font.size * 1.3)
+    date_font, scan_font, hint_font, code_font = (_font(FONT_REGULAR, 34), _font(FONT_BOLD, 54),
+                                                  _font(FONT_REGULAR, 30), _font(FONT_BOLD, 46))
+    card, pad = 760, 50
+
+    # Everything stacked and centred on the page as one block, like the screen.
+    total = (len(title_lines) * title_lh + (60 if date_text else 0) + 36 + card + 44 + 84 + 46
+             + (74 if code else 0))
+    y = max(30, (H - total) // 2)
+    for line in title_lines:
+        centred(line, title_font, y, TITLE_COLOR)
+        y += title_lh
+    if date_text:
+        centred(date_text, date_font, y + 8, DATE_COLOR)
+        y += 60
+    y += 36
+
+    # QR on a white rounded card with a soft shadow.
+    from PIL import ImageFilter
+    card_x, card_y = (W - card) // 2, y
+    shadow = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(shadow).rounded_rectangle([card_x, card_y + 16, card_x + card, card_y + card + 16],
+                                             radius=30, fill=90)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(28))
+    canvas.paste(Image.new("RGB", (W, H), (0, 0, 0)), (0, 0), shadow)
+    draw = ImageDraw.Draw(canvas)
+    draw.rounded_rectangle([card_x, card_y, card_x + card, card_y + card], radius=30, fill=(255, 255, 255))
+    qr_img = Image.open(io.BytesIO(qr_png(link, box_size=card - 2 * pad, logo_path=logo_path))).convert("RGB")
+    canvas.paste(qr_img, (card_x + (card - qr_img.width) // 2, card_y + (card - qr_img.height) // 2))
+
+    y = card_y + card + 44
+    centred("Scan to sign your attendance", scan_font, y, TITLE_COLOR)
+    y += 84
+    centred("Find your name on the list and tap Sign.", hint_font, y, DATE_COLOR)
+    if code:
+        y += 74
+        lead = "Can't scan? Open the attendance link and enter today's code:"
+        spacing = 12
+        code_w = sum(draw.textlength(ch, font=code_font) for ch in code) + spacing * (len(code) - 1)
+        lead_w = draw.textlength(lead, font=hint_font)
+        x = (W - (lead_w + 24 + code_w)) / 2
+        draw.text((x, y + 10), lead, font=hint_font, fill=DATE_COLOR)
+        x += lead_w + 24
+        for ch in code:
+            draw.text((x, y - 2), ch, font=code_font, fill=TITLE_COLOR)
+            x += draw.textlength(ch, font=code_font) + spacing
+
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()

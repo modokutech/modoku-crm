@@ -21,7 +21,7 @@ import os
 import uuid
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
 
 from . import APP_TZ, attendance_days, db, uploadutil
 from . import certificates as _certificates
@@ -31,7 +31,7 @@ from .t3 import (
     GENDERS, CITIZENSHIPS, _ic_taken, _normalize_gender, _parse_csv,
     _insert_participants, _bulk_result_flash, t3_remaining_capacity,
     check_and_record_sign_attempt, decode_signature_png, _t3_signature_dir,
-    _title_case_name, class_code, check_and_record_code_attempt,
+    _title_case_name, class_code, check_and_record_code_attempt, sign_in_png_response,
 )
 
 bp = Blueprint("t3_public", __name__, url_prefix="/t3-form")
@@ -63,21 +63,12 @@ def sign_in_qr(token):
 
 @bp.route("/<token>/sign-in-qr.png")
 def sign_in_qr_png(token):
-    from . import poster
-    from .docutil import content_disposition
     session_row = _find_session(token)
     if session_row is None or not session_row["e_signature_enabled"]:
         return Response(status=404)
-    size = 1200 if request.args.get("download") else 900
     code = class_code(session_row)  # Fix207: the QR carries today's class code
-    png = poster.qr_png(url_for("t3_public.form", token=token, _external=True,
-                                **({"code": code} if code else {})), box_size=size,
-                        logo_path=os.path.join(current_app.root_path, "static", "img", "logo.png"))
-    headers = {"Cache-Control": "no-store"}
-    if request.args.get("download"):
-        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
-        headers["Content-Disposition"] = content_disposition(f"Sign_in_QR_{title}_{session_row['start_date']}.png")
-    return Response(png, mimetype="image/png", headers=headers)
+    return sign_in_png_response(session_row, url_for("t3_public.form", token=token, _external=True,
+                                                     **({"code": code} if code else {})), code)
 
 
 @bp.route("/example.csv")

@@ -559,7 +559,7 @@
       {# Fix155: the same link as a QR code - only while e-Signature is on. #}
       {% if s.e_signature_enabled %}
       <div class="d-flex align-items-center gap-3 mb-3">
-        <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}" title="Download QR code">
+        <a href="{{ url_for('t3.sign_in_qr_png', session_id=s.id, download=1) }}" title="Download sign-in poster">
           <img src="{{ url_for('t3.sign_in_qr_png', session_id=s.id) }}" alt="QR code for the Online Attendance Form" width="88" height="88" class="border rounded" loading="lazy">
         </a>
         <div class="small">
