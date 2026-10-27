@@ -161,6 +161,10 @@
   </div>
 
   <div class="col-lg-4 d-print-none">
+    {# Fix224: the trainer invoice and payment receipt boxes only once the PO is
+       Confirmed (or if something was already uploaded to them). #}
+    {% set show_payment_cards = po.status == 'Confirmed' or trainer_invoice_documents or payment_receipts %}
+    {% if show_payment_cards %}
     <div class="card p-3">
       <h6>Invoice Submitted by Trainer</h6>
       <p class="small text-muted mb-2">Sent to the trainer automatically once this class is marked Completed. Anything they upload (invoices, claims) appears here.</p>
@@ -236,7 +240,9 @@
       {% endif %}
     </div>
 
-    <div class="card p-3 mt-3">
+    {% endif %}
+
+    <div class="card p-3 {{ 'mt-3' if show_payment_cards }}">
       <h6>Send to Trainer</h6>
       <p class="small text-muted">Emails this PO directly, no need to send it separately from Outlook.</p>
       <p class="small text-muted mb-2">

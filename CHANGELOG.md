@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix224 — PO page: invoice and payment receipt boxes only once Confirmed
+- "Invoice Submitted by Trainer" and "Payment Receipt" now show on a purchase order only when its
+  status is Confirmed. Draft, Sent and Cancelled POs go straight to "Send to Trainer".
+- If a trainer invoice or payment receipt was already uploaded, the boxes stay visible whatever
+  the status, so nothing on file is hidden.
+
 ## Fix223 — Sign-in QR: Download gives the full poster
 - "Download PNG" on the full-screen sign-in page and "Download" on the class page now save the whole
   sign-in poster (course title, dates, QR, "Scan to sign your attendance", and today's code in Code
