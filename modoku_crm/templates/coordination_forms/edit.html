@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "coordination_forms/_fields.html" import fields, script with context %}
+{% block title %}{{ 'Edit Coordination Form' if f else 'New Coordination Form' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ 'Edit Coordination Form' if f else 'New Coordination Form' }}</h4>
+    <small class="text-muted">{% if f %}{{ f.form_no }}. Changes are recorded in the form's change log.{% else %}Fill in what you already know; the client confirms or changes it on their link.{% endif %}</small>
+  </div>
+  <a href="{{ url_for('coordination_forms.view', form_id=f.id) if f else url_for('coordination_forms.index') }}" class="btn btn-outline-secondary btn-sm">Cancel</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" style="max-width:980px">
+  {{ csrf_field()|safe }}
+  <div class="card p-4 mb-3">
+    <h6 class="text-muted text-uppercase small mb-3">Form</h6>
+    <div class="row g-3">
+      <div class="col-md-8">
+        <label class="form-label">Programme name (shown at the top of the form) *</label>
+        <input type="text" name="title" class="form-control" value="{{ header.title or '' }}" placeholder="e.g. MARA Inc Team Building 2025: Work In Unity (W.I.N)">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Due date *</label>
+        <input type="date" name="due_date" class="form-control" required value="{{ header.due_date.isoformat() if header.due_date else '' }}">
+        <small class="text-muted">The link locks after this date.</small>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Linked class <span class="text-muted small fw-normal">(optional)</span></label>
+        <select name="session_id" class="form-select">
+          <option value="">Not linked to a class</option>
+          {% for c in classes %}
+          <option value="{{ c.id }}" {{ 'selected' if header.session_id == c.id }}>{{ c.course_title }} · {{ c.start_date|fmtdaterange(c.end_date) }}{% if c.company_name %} · {{ c.company_name }}{% endif %}</option>
+          {% endfor %}
+          {% if header.session_id and not (classes|selectattr('id', 'equalto', header.session_id)|list) %}
+          <option value="{{ header.session_id }}" selected>{{ f.course_title if f else 'Linked class' }}</option>
+          {% endif %}
+        </select>
+        {% if not f and not header.session_id %}<small class="text-muted">To pre-fill from a class, use "Coordination Form" on the class page.</small>{% endif %}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Client <span class="text-muted small fw-normal">(optional)</span></label>
+        <select name="client_company_id" class="form-select">
+          <option value="">-</option>
+          {% for co in companies %}<option value="{{ co.id }}" {{ 'selected' if header.client_company_id == co.id }}>{{ co.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Client PIC name</label>
+        <input type="text" name="pic_name" class="form-control" value="{{ header.pic_name or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Client PIC email</label>
+        <input type="email" name="pic_email" class="form-control" value="{{ header.pic_email or '' }}">
+        <small class="text-muted">The link is emailed here, and the confirmed copy too.</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-4 mb-3">
+    <h6 class="text-muted text-uppercase small mb-1">Sections the client sees</h6>
+    <p class="small text-muted mb-2">Untick what doesn't apply (e.g. no accommodation or transport for a one-day virtual class).</p>
+    <div>
+      {% for key, label in SECTIONS if key != 'details' %}
+      <div class="form-check form-check-inline">
+        <input class="form-check-input section-toggle" type="checkbox" name="sections" value="{{ key }}" id="sec_{{ key }}" {{ 'checked' if key in sections }}>
+        <label class="form-check-label" for="sec_{{ key }}">{{ label }}</label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card p-4 mb-3">
+    {{ fields(answers, sections, all_sections=True) }}
+    <div class="cf-section">
+      <h6 class="cf-heading">Attachments</h6>
+      {% if files %}
+      <ul class="list-unstyled small mb-2">
+        {% for fl in files %}<li><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }} <span class="text-muted">· {{ fl.uploaded_by }}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+      <input type="file" name="files" class="form-control" multiple>
+      <small class="text-muted">Optional, e.g. a T-shirt design to confirm. Up to 5 MB each.</small>
+    </div>
+  </div>
+
+  <button class="btn btn-success" type="submit"><i class="bi bi-check-lg me-1"></i>{{ 'Save Changes' if f else 'Create Coordination Form' }}</button>
+</form>
+{{ script() }}
+<script>
+(function () {
+  function syncSections() {
+    document.querySelectorAll('.section-toggle').forEach(function (cb) {
+      var box = document.querySelector('.cf-section[data-section="' + cb.value + '"]');
+      if (box) box.style.display = cb.checked ? '' : 'none';
+    });
+  }
+  document.querySelectorAll('.section-toggle').forEach(function (cb) { cb.addEventListener('change', syncSections); });
+  syncSections();
+})();
+</script>
+{% endblock %}

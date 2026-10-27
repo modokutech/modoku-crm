@@ -193,6 +193,55 @@ CREATE TABLE IF NOT EXISTS trainer_profile_certifications (
 
 -- Professional Experience - job history (company, the period worked
 -- there, and the role/title held).
+-- Fix225: Coordination Forms - a public link where the client fills in and
+-- signs the programme's logistics (room setup, accommodation, F&B, transport,
+-- etc.), then Modoku countersigns. Optional; standalone or linked to a class.
+-- `sections` is the JSON list of sections switched on for this form,
+-- `answers` the JSON dict of every field (see coordination_forms.FIELDS).
+CREATE TABLE IF NOT EXISTS coordination_forms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    form_no TEXT,
+    token TEXT NOT NULL UNIQUE,
+    session_id INTEGER REFERENCES course_sessions(id) ON DELETE SET NULL,
+    client_company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    pic_name TEXT,
+    pic_email TEXT,
+    due_date TEXT,
+    sections TEXT,
+    answers TEXT,
+    status TEXT NOT NULL DEFAULT 'Draft',   -- Draft, Sent, Submitted, Confirmed
+    sent_at TEXT,
+    sent_to TEXT,
+    client_signed_name TEXT,
+    client_signature_file TEXT,
+    client_signed_at TEXT,
+    confirmed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    confirmed_at TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS coordination_form_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    form_id INTEGER NOT NULL REFERENCES coordination_forms(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    original_name TEXT,
+    uploaded_by TEXT,                        -- 'client' or the staff member's name
+    uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Every change by either side: who, what, when (the "no one gets blamed" record).
+CREATE TABLE IF NOT EXISTS coordination_form_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    form_id INTEGER NOT NULL REFERENCES coordination_forms(id) ON DELETE CASCADE,
+    actor TEXT,                              -- 'Client (<name>)' or the staff member's name
+    action TEXT NOT NULL,
+    details TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Fix213: the trainer's certificate files (PDF or image), added at the end of
 -- the generated Trainer Profile PDF, one page per certificate, in this order.
 CREATE TABLE IF NOT EXISTS trainer_profile_cert_files (

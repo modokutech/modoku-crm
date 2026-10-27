@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ f.form_no }} · Coordination Form{% endblock %}
+{% block content %}
+{% set level_class = {'ok': 'text-success', 'soon': 'text-warning-emphasis', 'today': 'text-warning-emphasis', 'closed': 'text-danger', 'none': 'text-muted'} %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">{{ f.title }}</h4>
+    <small class="text-muted">Coordination Form {{ f.form_no }}
+      {% if f.session_id %}· <a href="{{ url_for('sessions.view', session_id=f.session_id) }}">{{ f.course_title }} · {{ f.class_start_date|fmtdaterange(f.class_end_date) }}</a>{% endif %}
+      {% if f.company_name %}· {{ f.company_name }}{% endif %}</small>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{{ url_for('coordination_forms.edit', form_id=f.id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Edit</a>
+    <a href="{{ url_for('coordination_forms.pdf', form_id=f.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+    {% if g.user.role == 'admin' %}
+    <form method="post" action="{{ url_for('coordination_forms.delete', form_id=f.id) }}" onsubmit="return confirm('Delete this Coordination Form? The client link stops working.');">
+      {{ csrf_field()|safe }}<button class="btn btn-outline-danger btn-sm">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card p-3 mb-3">
+      <div class="d-flex flex-wrap align-items-center gap-3">
+        <span class="badge {{ badges[status] }} fs-6">{{ status }}</span>
+        <span class="{{ level_class[due.level] }} fw-semibold"><i class="bi bi-calendar-event me-1"></i>{{ due.text }}</span>
+        {% if status in ('Submitted', 'Confirmed') and not due.open %}<span class="text-muted small"><i class="bi bi-lock me-1"></i>Locked for the client</span>{% endif %}
+      </div>
+      <div class="small text-muted mt-2">
+        {% if status == 'Draft' %}Not sent yet. Email the link or copy it to share.
+        {% elif status == 'Sent' %}Waiting for the client to fill in and sign.{% if f.client_signed_at %} They changed it after signing, so it needs their signature again.{% endif %}
+        {% elif status == 'Submitted' %}Signed by {{ f.client_signed_name }} on {{ f.client_signed_at|fmtdatetime }}. Check the answers, then Confirm &amp; Sign.
+        {% elif status == 'Confirmed' %}Signed by {{ f.client_signed_name }} on {{ f.client_signed_at|fmtdatetime }}; confirmed by {{ f.confirmed_by_name }} on {{ f.confirmed_at|fmtdatetime }}.
+        {% elif status == 'Closed' %}The due date passed before the client submitted. Change the due date to reopen it.{% endif %}
+      </div>
+      {% if status == 'Submitted' %}
+      <form method="post" action="{{ url_for('coordination_forms.confirm', form_id=f.id) }}" class="mt-3"
+            onsubmit="return confirm('Confirm this form and sign it for Modoku? The signed copy is emailed to {{ f.pic_email or 'the client' }}.');">
+        {{ csrf_field()|safe }}
+        <button class="btn btn-success" {{ 'disabled' if not has_signature }}><i class="bi bi-pen me-1"></i>Confirm &amp; Sign</button>
+        {% if not has_signature %}<div class="small text-warning-emphasis mt-1">Add your signature in <a href="{{ url_for('profile.edit') }}">My Profile</a> first.</div>{% endif %}
+      </form>
+      {% endif %}
+    </div>
+
+    {% for label, rows in sections %}
+    <div class="card p-3 mb-3">
+      <h6 class="text-uppercase small fw-bold mb-2" style="color:#2e3192">{{ label }}</h6>
+      <table class="table table-sm mb-0">
+        {% for field, text in rows %}
+        <tr><td class="text-muted" style="width:42%">{{ field }}</td><td style="white-space:pre-line">{{ text or '-' }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+
+    <div class="card p-3 mb-3">
+      <h6 class="text-uppercase small fw-bold mb-2" style="color:#2e3192">Attachments</h6>
+      {% if files %}
+      <ul class="list-unstyled small mb-0">
+        {% for fl in files %}
+        <li class="d-flex justify-content-between align-items-center mb-1">
+          <span><a href="{{ url_for('coordination_forms.file', form_id=f.id, file_id=fl.id) }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
+            <span class="text-muted">· {{ fl.uploaded_by }} · {{ fl.uploaded_at|fmtdatetime }}</span></span>
+          <form method="post" action="{{ url_for('coordination_forms.delete_file', form_id=f.id, file_id=fl.id) }}" onsubmit="return confirm('Remove this file?');">
+            {{ csrf_field()|safe }}<button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-x"></i></button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="small text-muted mb-0">No files.</p>{% endif %}
+    </div>
+
+    {% if f.client_signature_file %}
+    <div class="card p-3 mb-3">
+      <h6 class="text-uppercase small fw-bold mb-2" style="color:#2e3192">Client's signature</h6>
+      <img src="{{ url_for('coordination_forms.client_signature', form_id=f.id) }}" alt="Client signature" style="max-width:260px;max-height:110px" class="border rounded bg-white">
+      <div class="small text-muted mt-1">{{ f.client_signed_name }} · {{ f.client_signed_at|fmtdatetime }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card p-3 mb-3">
+      <h6>Client link</h6>
+      <div class="input-group input-group-sm mb-2">
+        <input type="text" class="form-control" id="cf-link" value="{{ link }}" readonly>
+        <button class="btn btn-outline-secondary" type="button" id="cf-copy"><i class="bi bi-clipboard me-1"></i>Copy link</button>
+      </div>
+      <small class="text-muted">No login needed. The client can save and come back until the due date.</small>
+      <hr>
+      <h6 class="mb-2">Email the link</h6>
+      {% if f.sent_at %}<p class="small text-muted mb-2">Last sent {{ f.sent_at|fmtdatetime }}{% if f.sent_to %} to {{ f.sent_to }}{% endif %}.</p>{% endif %}
+      <form method="post" action="{{ url_for('coordination_forms.send_email', form_id=f.id) }}">
+        {{ csrf_field()|safe }}
+        <div class="mb-2"><label class="form-label small">To</label>
+          <input type="email" name="to_email" class="form-control form-control-sm" value="{{ f.pic_email or '' }}" required></div>
+        <div class="mb-2"><label class="form-label small">CC <span class="text-muted">(optional)</span></label>
+          <input type="text" name="cc_email" class="form-control form-control-sm" placeholder="Comma-separate multiple addresses"></div>
+        <div class="mb-2"><label class="form-label small">Subject</label>
+          <input type="text" name="subject" class="form-control form-control-sm" value="{{ email_subject }}"></div>
+        <div class="mb-2"><label class="form-label small">Message</label>
+          <textarea name="body" class="form-control form-control-sm" rows="9">{{ email_body }}</textarea></div>
+        <button class="btn btn-success btn-sm w-100" {{ 'disabled' if not mail_configured }}><i class="bi bi-envelope me-1"></i>{{ 'Resend' if f.sent_at else 'Send' }} Link</button>
+        {% if not mail_configured %}<small class="text-muted">Email isn't set up yet; copy the link instead.</small>{% endif %}
+      </form>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <h6>Due date</h6>
+      <form method="post" action="{{ url_for('coordination_forms.set_due_date', form_id=f.id) }}" class="d-flex gap-2">
+        {{ csrf_field()|safe }}
+        <input type="date" name="due_date" class="form-control form-control-sm" value="{{ f.due_date or '' }}" required>
+        <button class="btn btn-outline-secondary btn-sm text-nowrap">{{ 'Reopen' if not due.open else 'Change' }}</button>
+      </form>
+      <small class="text-muted">{% if not due.open %}Pick a new date to let the client edit again.{% else %}The link locks at the end of this day (Malaysia time).{% endif %}</small>
+    </div>
+
+    <div class="card p-3 mb-3">
+      <h6>Change log</h6>
+      {% if log_entries %}
+      <ul class="list-unstyled small mb-0">
+        {% for e in log_entries %}
+        <li class="mb-2 pb-2 border-bottom">
+          <div><strong>{{ e.actor }}</strong> · {{ e.action }}</div>
+          <div class="text-muted">{{ e.created_at|fmtdatetime }}</div>
+          {% if e.details %}<div style="white-space:pre-line" class="mt-1">{{ e.details }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="small text-muted mb-0">Nothing yet.</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('cf-copy');
+  btn.addEventListener('click', function () {
+    var input = document.getElementById('cf-link');
+    (navigator.clipboard ? navigator.clipboard.writeText(input.value) : Promise.reject()).catch(function () {
+      input.select(); document.execCommand('copy');
+    }).finally(function () {
+      btn.innerHTML = '<i class="bi bi-check2 me-1"></i>Copied';
+      fetch({{ url_for('coordination_forms.mark_sent', form_id=f.id)|tojson }}, {method: 'POST', headers: {'X-CSRFToken': {{ session.get('csrf_token', '')|tojson }}}});
+    });
+  });
+})();
+</script>
+{% endblock %}

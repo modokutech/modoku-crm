@@ -375,6 +375,7 @@ def create_app(config_object="config.Config"):
     from . import trainer_invoice
     from . import qr_posters
     from . import sst
+    from . import coordination_forms
     from . import training_costs
     from . import sales_performance
     from . import notifications
@@ -446,6 +447,8 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(search.bp)
     app.register_blueprint(qr_posters.bp)
     app.register_blueprint(sst.bp)
+    app.register_blueprint(coordination_forms.bp)
+    app.register_blueprint(coordination_forms.public_bp)
 
     security.init_app(app)
 

@@ -1,0 +1,67 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  {{ font_css|safe }}
+  * { box-sizing: border-box; }
+  body { font-family: "Poppins", Arial, sans-serif; font-size: 10.5pt; color: #222; margin: 0; }
+  .head { display: table; width: 100%; border-bottom: 3px solid #fbaf17; padding-bottom: 8px; margin-bottom: 14px; }
+  .head > div { display: table-cell; vertical-align: middle; }
+  .head img { height: 46px; }
+  .head .right { text-align: right; }
+  h1 { font-size: 17pt; margin: 0; color: #2e3192; letter-spacing: .5px; }
+  .meta { font-size: 9pt; color: #666; }
+  .title { font-size: 13pt; font-weight: 700; margin: 0 0 12px; }
+  h2 { font-size: 10pt; color: #fff; background: #2e3192; padding: 5px 8px; margin: 14px 0 0; text-transform: uppercase; letter-spacing: .4px; page-break-after: avoid; }
+  table.rows { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+  table.rows tr { page-break-inside: avoid; }
+  table.rows td { border-bottom: 1px solid #e3e3e3; padding: 5px 8px; vertical-align: top; }
+  table.rows td.k { width: 38%; color: #555; }
+  table.rows td.v { white-space: pre-line; }
+  .blank { color: #aaa; }
+  .consent { font-size: 9.5pt; margin: 8px 0 0; padding-left: 16px; }
+  .sigs { display: table; width: 100%; margin-top: 14px; page-break-inside: avoid; }
+  .sig { display: table-cell; width: 50%; padding-right: 16px; vertical-align: bottom; }
+  .sig .box { height: 70px; border-bottom: 1px solid #333; }
+  .sig .box img { max-height: 66px; max-width: 220px; }
+  .sig .who { font-size: 9.5pt; margin-top: 4px; }
+  .sig .lbl { font-size: 8.5pt; color: #666; text-transform: uppercase; letter-spacing: .4px; }
+  .files { font-size: 9.5pt; padding: 6px 8px 0; }
+</style></head>
+<body>
+  <div class="head">
+    <div><img src="{{ logo }}" alt="Modoku"></div>
+    <div class="right"><h1>COORDINATION FORM</h1><div class="meta">{{ f.form_no }}{% if f.due_date %} · Due {{ f.due_date|fmtdate }}{% endif %}</div></div>
+  </div>
+  <p class="title">{{ f.title }}</p>
+
+  {% for label, rows in sections %}
+  <h2>{{ label }}</h2>
+  <table class="rows">
+    {% for field, text in rows %}
+    <tr><td class="k">{{ field }}</td><td class="v">{% if text %}{{ text }}{% else %}<span class="blank">-</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table>
+  {% endfor %}
+
+  {% if files %}
+  <h2>Attachments</h2>
+  <div class="files">{% for fl in files %}{{ fl.original_name }}{{ ', ' if not loop.last }}{% endfor %}</div>
+  {% endif %}
+
+  <div style="page-break-inside: avoid">
+  <h2>Consent &amp; Agreement</h2>
+  <ul class="consent">{% for line in consent %}<li>{{ line }}</li>{% endfor %}</ul>
+  <div class="sigs">
+    <div class="sig">
+      <div class="lbl">Client</div>
+      <div class="box">{% if client_sig %}<img src="{{ client_sig }}" alt="">{% endif %}</div>
+      <div class="who">{{ f.client_signed_name or 'Name:' }}<br>Date: {{ f.client_signed_at|fmtdate if f.client_signed_at else '' }}</div>
+    </div>
+    <div class="sig">
+      <div class="lbl">Confirmed by Modoku Tech Sdn Bhd</div>
+      <div class="box">{% if staff_sig %}<img src="{{ staff_sig }}" alt="">{% endif %}</div>
+      <div class="who">{{ f.confirmed_by_name or 'Name:' }}{% if f.confirmed_by_position %}, {{ f.confirmed_by_position }}{% endif %}<br>Date: {{ f.confirmed_at|fmtdate if f.confirmed_at else '' }}</div>
+    </div>
+  </div>
+  </div>
+</body></html>

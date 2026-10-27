@@ -1184,7 +1184,12 @@ def view(session_id):
             t3_link_sent = {"at": q_sent["t3_link_sent_at"],
                             "to": f"{q_sent['sent_to_email'] or 'the client'} (automatic, after the signed quotation)"}
 
+    from .coordination_forms import display_status as cf_status, due_info as cf_due, for_session as cf_for_session
+    coordination_form = cf_for_session(session_id)
     return render_template("sessions/view.html", s=session_row, enrollments=enrollments,
+                            coordination_form=coordination_form,
+                            coordination_status=cf_status(coordination_form) if coordination_form else None,
+                            coordination_due=cf_due(coordination_form) if coordination_form else None,
                             jd14_status=jd14_status, jd14_form=jd14_row, t3_link_sent=t3_link_sent,
                             quoted_price=quoted_price, open_pos_after_cancel=open_pos_after_cancel,
                             class_pos=_class_pos(session_id),

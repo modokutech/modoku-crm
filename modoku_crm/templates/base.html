@@ -114,6 +114,7 @@
       <li class="nav-section-label">TMS</li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='courses' }}" href="{{ url_for('courses.index') }}"><i class="bi bi-mortarboard me-2"></i>Courses</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='sessions' }}" href="{{ url_for('sessions.index') }}"><i class="bi bi-calendar-event me-2"></i>Classes</a></li>
+      <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='coordination_forms' }}" href="{{ url_for('coordination_forms.index') }}"><i class="bi bi-ui-checks me-2"></i>Coordination Forms</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='enrollments' }}" href="{{ url_for('enrollments.index') }}"><i class="bi bi-person-check me-2"></i>Enrollments</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainers' }}" href="{{ url_for('trainers.index') }}"><i class="bi bi-person-badge me-2"></i>Trainers</a></li>
       <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint=='trainer_profiles' }}" href="{{ url_for('trainer_profiles.index') }}"><i class="bi bi-file-earmark-person me-2"></i>Generate Trainer Profile</a></li>

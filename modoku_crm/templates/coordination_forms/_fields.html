@@ -1,0 +1,160 @@
+{# Fix225: the Coordination Form's sections and fields, shared by the staff
+   editor (every section rendered, the section switches show/hide them) and
+   the client's public page (only the switched-on sections).
+   a = answers dict, on = switched-on sections, lock = read-only. #}
+{% macro radio(name, options, a, lock, inline=True) %}
+  {% for o in options %}
+  <div class="form-check {{ 'form-check-inline' if inline }}">
+    <input class="form-check-input" type="radio" name="{{ name }}" id="{{ name }}_{{ loop.index }}" value="{{ o }}" {{ 'checked' if a.get(name) == o }} {{ 'disabled' if lock }}>
+    <label class="form-check-label" for="{{ name }}_{{ loop.index }}">{{ o }}</label>
+  </div>
+  {% endfor %}
+{% endmacro %}
+{% macro check(name, options, a, lock) %}
+  {% for o in options %}
+  <div class="form-check form-check-inline">
+    <input class="form-check-input" type="checkbox" name="{{ name }}" id="{{ name }}_{{ loop.index }}" value="{{ o }}" {{ 'checked' if o in (a.get(name) or []) }} {{ 'disabled' if lock }}>
+    <label class="form-check-label" for="{{ name }}_{{ loop.index }}">{{ o }}</label>
+  </div>
+  {% endfor %}
+{% endmacro %}
+{% macro val(a, key) %}{{ a.get(key, '') if a.get(key) is not none else '' }}{% endmacro %}
+
+{% macro fields(a, on, lock=False, all_sections=False) %}
+{% set dis = 'disabled' if lock else '' %}
+<div class="cf-section" data-section="details">
+  <h6 class="cf-heading">Details</h6>
+  <div class="row g-3">
+    <div class="col-12"><label class="form-label">Programme name</label>
+      <input type="text" name="programme" class="form-control" value="{{ val(a, 'programme') }}" {{ dis }}></div>
+    <div class="col-6 col-md-3"><label class="form-label">Start date</label>
+      <input type="date" name="start_date" class="form-control" value="{{ val(a, 'start_date') }}" {{ dis }}></div>
+    <div class="col-6 col-md-3"><label class="form-label">Start time</label>
+      <input type="time" name="start_time" class="form-control" value="{{ val(a, 'start_time') }}" {{ dis }}></div>
+    <div class="col-6 col-md-3"><label class="form-label">End date</label>
+      <input type="date" name="end_date" class="form-control" value="{{ val(a, 'end_date') }}" {{ dis }}></div>
+    <div class="col-6 col-md-3"><label class="form-label">End time</label>
+      <input type="time" name="end_time" class="form-control" value="{{ val(a, 'end_time') }}" {{ dis }}></div>
+    <div class="col-md-8"><label class="form-label">Company</label>
+      <input type="text" name="company" class="form-control" value="{{ val(a, 'company') }}" {{ dis }}></div>
+    <div class="col-md-4"><label class="form-label">No. of pax</label>
+      <input type="number" min="0" name="pax" class="form-control" value="{{ val(a, 'pax') }}" {{ dis }}></div>
+    <div class="col-md-6"><label class="form-label">Venue</label>
+      <input type="text" name="venue" class="form-control" value="{{ val(a, 'venue') }}" {{ dis }}></div>
+    <div class="col-md-6"><label class="form-label">Address</label>
+      <textarea name="address" class="form-control" rows="2" {{ dis }}>{{ val(a, 'address') }}</textarea></div>
+  </div>
+</div>
+
+{% if all_sections or 'room_setup' in on %}
+<div class="cf-section" data-section="room_setup">
+  <h6 class="cf-heading">Room Setup Preferences</h6>
+  {{ radio('room_setup', ROOM_SETUPS, a, lock) }}
+  <input type="text" name="room_setup_other" class="form-control mt-2 cf-if" data-if="room_setup=Other" placeholder="Other room setup" value="{{ val(a, 'room_setup_other') }}" {{ dis }}>
+</div>
+{% endif %}
+
+{% if all_sections or 'accommodation' in on %}
+<div class="cf-section" data-section="accommodation">
+  <h6 class="cf-heading">Accommodation Information</h6>
+  <div class="row g-3">
+    <div class="col-md-4"><div class="form-label">Room occupancy</div>{{ check('occupancy', OCCUPANCIES, a, lock) }}</div>
+    <div class="col-md-4"><div class="form-label">Breakfast</div>{{ radio('breakfast', BREAKFAST, a, lock, inline=False) }}</div>
+    <div class="col-md-4"><div class="form-label">Special assistance (disabled, etc.)</div>{{ radio('special_assistance', YES_NO, a, lock) }}
+      <input type="text" name="special_assistance_details" class="form-control mt-2 cf-if" data-if="special_assistance=Yes" placeholder="Please specify" value="{{ val(a, 'special_assistance_details') }}" {{ dis }}></div>
+  </div>
+</div>
+{% endif %}
+
+{% if all_sections or 'fnb' in on %}
+<div class="cf-section" data-section="fnb">
+  <h6 class="cf-heading">Food &amp; Beverage Requirements</h6>
+  <div class="row g-3">
+    <div class="col-md-7">
+      <div class="form-label">Dietary preferences <span class="text-muted small">(select all that apply, with the number of pax)</span></div>
+      {% for d in DIETS %}
+      {% set i = loop.index0 %}
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <div class="form-check mb-0" style="min-width:150px">
+          <input class="form-check-input" type="checkbox" name="diet" id="diet_{{ i }}" value="{{ d }}" {{ 'checked' if d in (a.get('diet') or []) }} {{ dis }}>
+          <label class="form-check-label" for="diet_{{ i }}">{{ d }}</label>
+        </div>
+        {% if d != 'No restrictions' %}
+        <input type="number" min="0" name="diet_pax_{{ i }}" class="form-control form-control-sm" style="width:90px" placeholder="pax" value="{{ val(a, 'diet_pax_' ~ i) }}" {{ dis }}>
+        {% if d == 'Other' %}<input type="text" name="diet_other" class="form-control form-control-sm" style="flex:1 1 180px" placeholder="Please specify" value="{{ val(a, 'diet_other') }}" {{ dis }}>{% endif %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="col-md-5"><div class="form-label">Allergies</div>{{ radio('allergies', ALLERGIES, a, lock) }}
+      <input type="text" name="allergies_details" class="form-control mt-2 cf-if" data-if="allergies=Yes" placeholder="Please specify" value="{{ val(a, 'allergies_details') }}" {{ dis }}></div>
+  </div>
+</div>
+{% endif %}
+
+{% if all_sections or 'transport' in on %}
+<div class="cf-section" data-section="transport">
+  <h6 class="cf-heading">Transportation Details</h6>
+  <div class="row g-3">
+    <div class="col-md-4"><div class="form-label">Transportation required</div>{{ radio('transport_required', YES_NO, a, lock) }}</div>
+    <div class="col-md-8 cf-if" data-if="transport_required=Yes"><div class="form-label">Type of transportation</div>{{ radio('transport_type', TRANSPORT_TYPES, a, lock) }}
+      <input type="text" name="transport_other" class="form-control mt-2 cf-if" data-if="transport_type=Other" placeholder="Other transportation" value="{{ val(a, 'transport_other') }}" {{ dis }}></div>
+    <div class="col-md-8 cf-if" data-if="transport_required=Yes"><label class="form-label">Details <span class="text-muted small">(provider, pick-up point and time, return trip)</span></label>
+      <textarea name="transport_details" class="form-control" rows="3" {{ dis }}>{{ val(a, 'transport_details') }}</textarea></div>
+    <div class="col-md-4 cf-if" data-if="transport_required=Yes"><label class="form-label">No. of participants using this transportation</label>
+      <input type="number" min="0" name="transport_pax" class="form-control" value="{{ val(a, 'transport_pax') }}" {{ dis }}></div>
+  </div>
+</div>
+{% endif %}
+
+{% if all_sections or 'design' in on %}
+<div class="cf-section" data-section="design">
+  <h6 class="cf-heading">Design Specifications</h6>
+  <label class="form-label">T-shirt design (if any)</label>
+  <textarea name="tshirt_design" class="form-control" rows="3" placeholder="Colour, print, sizes, or anything else. Upload the design file under Attachments." {{ dis }}>{{ val(a, 'tshirt_design') }}</textarea>
+</div>
+{% endif %}
+
+{% if all_sections or 'technical' in on %}
+<div class="cf-section" data-section="technical">
+  <h6 class="cf-heading">Technical Requirements</h6>
+  <div class="form-label">Laptop rental</div>
+  <div class="d-flex align-items-center flex-wrap gap-2">
+    {{ radio('laptop_rental', YES_NO, a, lock) }}
+    <div class="input-group input-group-sm cf-if" data-if="laptop_rental=Yes" style="width:140px">
+      <input type="number" min="0" name="laptop_pcs" class="form-control" value="{{ val(a, 'laptop_pcs') }}" {{ dis }}>
+      <span class="input-group-text">pcs</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if all_sections or 'notes' in on %}
+<div class="cf-section" data-section="notes">
+  <h6 class="cf-heading">Additional Notes/Requests</h6>
+  <textarea name="notes" class="form-control" rows="4" placeholder="One point per line, e.g. Chairman's address, Day 1, 9 PM - 10 PM" {{ dis }}>{{ val(a, 'notes') }}</textarea>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# Shows "Other: ___" / "Please specify" boxes only when their option is picked. #}
+{% macro script() %}
+<script>
+(function () {
+  function sync() {
+    document.querySelectorAll('.cf-if').forEach(function (el) {
+      var parts = el.dataset.if.split('=');
+      var picked = document.querySelector('input[name="' + parts[0] + '"]:checked');
+      el.style.display = picked && picked.value === parts[1] ? '' : 'none';
+    });
+  }
+  document.addEventListener('change', sync);
+  sync();
+})();
+</script>
+<style>
+  .cf-section { border-top: 1px solid #e9ecef; padding-top: 1rem; margin-top: 1.25rem; }
+  .cf-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+  .cf-heading { font-weight: 700; color: #2e3192; text-transform: uppercase; letter-spacing: .03em; font-size: .85rem; margin-bottom: .75rem; }
+</style>
+{% endmacro %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "coordination_forms/_fields.html" import fields, script with context %}
+{% block title %}Coordination Form · {{ f.title }}{% endblock %}
+{# Staff who open the client's link while logged in see the same page. #}
+{% block content %}{{ self.guest_content() }}{% endblock %}
+{% block guest_content %}
+{% set banner = {'ok': 'alert-info', 'soon': 'alert-warning', 'today': 'alert-warning', 'closed': 'alert-secondary', 'none': 'alert-info'} %}
+<div class="auth-wrap" style="align-items:flex-start;padding-top:40px;padding-bottom:40px;overflow-y:auto;">
+  <div class="auth-bg-overlay" style="background:rgba(0,0,0,0.15)"></div>
+  <div class="card auth-card p-4 shadow mb-4" style="max-width:920px;margin:0 14px;width:100%">
+    <div class="text-center mb-3">
+      <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Modoku" class="login-logo-sm mx-auto mb-2 d-block">
+      <h4 class="login-title mb-1">Coordination Form</h4>
+      <div class="fw-semibold">{{ f.title }}</div>
+    </div>
+
+    {% if g.user %}<div class="alert alert-light border small py-2"><i class="bi bi-eye me-1"></i>You're logged in as staff and viewing the client's page. Anything saved here is logged as the client.</div>{% endif %}
+
+    {# Due date banner #}
+    <div class="alert {{ banner[due.level] }} d-flex align-items-center gap-2 py-2">
+      {% if due.level == 'closed' %}
+      <i class="bi bi-lock-fill"></i><div>This form closed on <strong>{{ due.due }}</strong>. Please contact Modoku at <a href="mailto:hello@modoku.tech">hello@modoku.tech</a> if anything needs to change.</div>
+      {% elif due.level == 'today' %}
+      <i class="bi bi-alarm"></i><div>Please complete and sign this form <strong>today</strong>. It locks at the end of {{ due.due }}.</div>
+      {% elif due.level == 'none' %}
+      <i class="bi bi-info-circle"></i><div>Please complete and sign this form as soon as possible.</div>
+      {% else %}
+      <i class="bi bi-calendar-event"></i><div>Please complete by <strong>{{ due.due }}</strong> · <strong>{{ due.left }}</strong>. You can save and come back to this link anytime before then.</div>
+      {% endif %}
+    </div>
+
+    {% if f.status == 'Confirmed' %}
+    <div class="alert alert-success small py-2"><i class="bi bi-check-circle-fill me-1"></i>Signed by {{ f.client_signed_name }} and confirmed by Modoku.
+      <a href="{{ url_for('coordination_form_public.public_pdf', token=token) }}" target="_blank">Download the signed copy</a>.
+      {% if open_ %}Changing anything now needs your signature again.{% endif %}</div>
+    {% elif f.status == 'Submitted' %}
+    <div class="alert alert-success small py-2"><i class="bi bi-check-circle me-1"></i>Signed and submitted by {{ f.client_signed_name }} on {{ f.client_signed_at|fmtdatetime }}. Modoku will confirm it from our side.
+      {% if open_ %}You can still make changes until the due date; you'll be asked to sign again.{% endif %}</div>
+    {% elif f.client_signed_at and open_ %}
+    <div class="alert alert-warning small py-2"><i class="bi bi-pen me-1"></i>The details changed after you signed. Please sign and submit again below.</div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('coordination_form_public.save', token=token) }}" enctype="multipart/form-data" id="cf-form">
+      {{ csrf_field()|safe }}
+      {{ fields(answers, sections, lock=not open_) }}
+
+      <div class="cf-section">
+        <h6 class="cf-heading">Attachments</h6>
+        {% if files %}
+        <ul class="list-unstyled small mb-2">
+          {% for fl in files %}
+          <li class="d-flex align-items-center gap-2 mb-1">
+            <a href="{{ url_for('coordination_form_public.public_file', token=token, file_id=fl.id) }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
+            <span class="text-muted">· {{ 'You' if fl.uploaded_by == 'Client' else 'Modoku' }}</span>
+            {% if open_ and fl.uploaded_by == 'Client' %}
+            <label class="ms-auto small text-danger"><input type="checkbox" name="remove_file" value="{{ fl.id }}" class="form-check-input me-1">Remove</label>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if open_ %}
+        <input type="file" name="files" class="form-control" multiple>
+        <small class="text-muted">Optional, e.g. a T-shirt design or rooming list. PDF, Word, Excel or images, up to 5 MB each.</small>
+        {% elif not files %}<p class="small text-muted mb-0">No files.</p>{% endif %}
+      </div>
+
+      <div class="cf-section" id="sign">
+        <h6 class="cf-heading">Consent &amp; Agreement</h6>
+        <ul class="small ps-3 mb-3">{% for line in consent %}<li>{{ line }}</li>{% endfor %}</ul>
+        {% if open_ %}
+        <div class="row g-3">
+          <div class="col-md-5">
+            <label class="form-label">Your name</label>
+            <input type="text" name="signed_name" class="form-control" value="{{ f.client_signed_name or f.pic_name or '' }}" autocomplete="name">
+          </div>
+          <div class="col-md-7">
+            <label class="form-label d-block">Sign below with your finger or mouse</label>
+            <canvas class="signature-pad border rounded bg-white d-block" style="width:100%;max-width:420px;height:150px;touch-action:none;cursor:crosshair;"></canvas>
+            <input type="hidden" name="signature_data" id="signature_data">
+            <button type="button" class="btn btn-sm btn-link px-0" id="sig-clear">Clear signature</button>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="submit" name="action" value="save" class="btn btn-outline-secondary" data-busy-text="Saving…"><i class="bi bi-save me-1"></i>Save for later</button>
+          <button type="submit" name="action" value="submit" class="btn btn-success" data-busy-text="Submitting…"><i class="bi bi-pen me-1"></i>Sign &amp; Submit</button>
+        </div>
+        <small class="text-muted d-block mt-2">Save for later keeps your answers without signing. Sign &amp; Submit sends them to Modoku.</small>
+        {% elif f.client_signed_name %}
+        <p class="small mb-0">Signed by <strong>{{ f.client_signed_name }}</strong> on {{ f.client_signed_at|fmtdatetime }}.</p>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{{ script() }}
+{% if open_ %}
+<script>
+(function () {
+  var canvas = document.querySelector('.signature-pad');
+  var ctx = canvas.getContext('2d');
+  var hasInk = false, drawing = false, last = null;
+  function size() {
+    var rect = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1a1a1a';
+    hasInk = false;
+  }
+  function pos(evt) {
+    var r = canvas.getBoundingClientRect(), p = evt.touches ? evt.touches[0] : evt;
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  }
+  function start(evt) { evt.preventDefault(); drawing = true; last = pos(evt); }
+  function move(evt) {
+    if (!drawing) return;
+    evt.preventDefault();
+    var p = pos(evt);
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p; hasInk = true;
+  }
+  function end() { drawing = false; }
+  size();
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+  document.getElementById('sig-clear').addEventListener('click', size);
+
+  document.getElementById('cf-form').addEventListener('submit', function (evt) {
+    var action = evt.submitter ? evt.submitter.value : 'save';
+    if (action !== 'submit') { document.getElementById('signature_data').value = ''; return; }
+    var name = this.querySelector('input[name="signed_name"]');
+    if (!name.value.trim()) { evt.preventDefault(); alert('Please type your name before submitting.'); name.focus(); return; }
+    if (!hasInk) { evt.preventDefault(); alert('Please sign in the box before submitting.'); return; }
+    document.getElementById('signature_data').value = canvas.toDataURL('image/png');
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

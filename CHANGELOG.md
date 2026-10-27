@@ -10,6 +10,27 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix225 — Coordination Forms (new module)
+- New "Coordination Forms" item in the sidebar. Optional, issued only when needed: the client fills in and
+  signs every logistics detail on a public link (no login), then Modoku countersigns, so both sides agree the
+  same details in writing.
+- Same sections as the PDF form: Details, Room Setup, Accommodation, Food & Beverage (dietary choices with
+  pax), Transportation, Design (T-shirt), Technical (laptop rental), Additional Notes, Consent & Agreement.
+  Staff switch off sections that don't apply and can pre-fill answers; the client can upload files.
+- Standalone, or linked to a class: "Create Coordination Form" on the class page pre-fills programme, dates,
+  times, company, pax, venue, room setup, laptops and the client PIC. Due date defaults to 7 days before the
+  class (or 7 days from today).
+- Statuses: Draft, Sent, Submitted (client signed), Confirmed (Modoku signed); Closed when the due date
+  passes unsigned. The client page shows the due date and days left (amber when 2 days or less) and locks
+  at the end of the due date (Malaysia time). Staff can change the due date to reopen it.
+- The client can keep editing until the due date; a change after signing needs their signature again (back
+  to Sent). Staff can still edit after it locks.
+- Send: email the link to the PIC (editable To/CC/message) or Copy link. On submit, admins and the form's
+  creator get a notification and the creator an email. Confirm & Sign uses the confirming staff member's
+  saved signature and emails the signed PDF to the PIC, with them in CC.
+- Change log of every change by either side (who, what, when). PDF with both signatures.
+- New tables `coordination_forms`, `coordination_form_files`, `coordination_form_log` (created on boot).
+
 ## Fix224 — PO page: invoice and payment receipt boxes only once Confirmed
 - "Invoice Submitted by Trainer" and "Payment Receipt" now show on a purchase order only when its
   status is Confirmed. Draft, Sent and Cancelled POs go straight to "Send to Trainer".

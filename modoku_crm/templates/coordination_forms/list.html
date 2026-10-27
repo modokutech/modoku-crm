@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Coordination Forms{% endblock %}
+{% block content %}
+{% set level_class = {'ok': 'text-success', 'soon': 'text-warning-emphasis fw-semibold', 'today': 'text-warning-emphasis fw-semibold', 'closed': 'text-muted', 'none': 'text-muted'} %}
+<div class="page-header">
+  <div>
+    <h4 class="mb-0">Coordination Forms</h4>
+    <small class="text-muted">Optional. The client fills in and signs every detail on a link, then we confirm, so nothing is missed.</small>
+  </div>
+  <a href="{{ url_for('coordination_forms.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Coordination Form</a>
+</div>
+
+<div class="card p-3 mb-3">
+  <form class="row g-2" method="get">
+    <div class="col-md-5"><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search programme, client, PIC or CF no."></div>
+    <div class="col-md-3">
+      <select name="status" class="form-select">
+        <option value="">All statuses</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if status == st }}>{{ st }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit">Filter</button></div>
+    {% if q or status %}<div class="col-md-2"><a href="{{ url_for('coordination_forms.index') }}" class="btn btn-outline-secondary w-100">Clear</a></div>{% endif %}
+  </form>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>CF No.</th><th>Programme</th><th>Client</th><th>Linked class</th><th>Due</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for item in forms %}
+        {% set r = item.row %}
+        <tr style="cursor:pointer" onclick="location.href='{{ url_for('coordination_forms.view', form_id=r.id) }}'">
+          <td class="text-nowrap">{{ r.form_no }}</td>
+          <td><a href="{{ url_for('coordination_forms.view', form_id=r.id) }}" class="fw-semibold text-decoration-none">{{ r.title }}</a>
+            {% if r.pic_name %}<div class="small text-muted">{{ r.pic_name }}</div>{% endif %}</td>
+          <td>{{ r.company_name or '-' }}</td>
+          <td class="small">{% if r.session_id %}{{ r.course_title }}<div class="text-muted">{{ r.class_start_date|fmtdate }}</div>{% else %}<span class="text-muted">Standalone</span>{% endif %}</td>
+          <td class="small text-nowrap {{ level_class[item.due.level] }}">
+            {% if item.due.level == 'closed' %}Closed {{ r.due_date|fmtdate }}{% elif item.due.level == 'none' %}-{% else %}{{ r.due_date|fmtdate }}<div>{{ 'Due today' if item.due.level == 'today' else item.due.left }}</div>{% endif %}
+          </td>
+          <td><span class="badge {{ badges[item.status] }}">{{ item.status }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">No Coordination Forms{{ ' match' if q or status else ' yet' }}.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
