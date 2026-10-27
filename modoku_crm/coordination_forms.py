@@ -268,6 +268,9 @@ def summary(form):
             if key == "laptop_pcs":
                 continue
             rows.append((label, text))
+        if skey == "design":
+            names = [r["original_name"] for r in _files(form["id"]) if r["category"] == "design"]
+            rows.append(("T-shirt design files", ", ".join(names)))
         out.append((slabel, rows))
     return out
 
@@ -291,7 +294,20 @@ def _files(form_id):
     return db.query("SELECT * FROM coordination_form_files WHERE form_id = ? ORDER BY uploaded_at, id", (form_id,))
 
 
-def _save_files(form_id, files, uploaded_by):
+def _file_dicts(form, public=False):
+    """Files with their download link and who added them, for the templates.
+    category 'design' = T-shirt design files (shown in the Design section)."""
+    out = []
+    for row in _files(form["id"]):
+        d = dict(row)
+        d["url"] = (url_for("coordination_form_public.public_file", token=form["token"], file_id=row["id"]) if public
+                    else url_for("coordination_forms.file", form_id=form["id"], file_id=row["id"]))
+        d["who"] = ("You" if row["uploaded_by"] == "Client" else "Modoku") if public else row["uploaded_by"]
+        out.append(d)
+    return out
+
+
+def _save_files(form_id, files, uploaded_by, category=None):
     """Saves uploaded attachments; returns (saved names, error messages)."""
     saved, errors = [], []
     for fs in files:
@@ -304,8 +320,8 @@ def _save_files(form_id, files, uploaded_by):
             continue
         stored = f"{uuid.uuid4().hex[:8]}_{secure_filename(fs.filename) or 'file'}"
         fs.save(os.path.join(_upload_dir(form_id), stored))
-        db.execute("INSERT INTO coordination_form_files (form_id, filename, original_name, uploaded_by) "
-                   "VALUES (?,?,?,?)", (form_id, stored, fs.filename, uploaded_by))
+        db.execute("INSERT INTO coordination_form_files (form_id, filename, original_name, uploaded_by, category) "
+                   "VALUES (?,?,?,?,?)", (form_id, stored, fs.filename, uploaded_by, category))
         saved.append(fs.filename)
     return saved, errors
 
@@ -566,7 +582,7 @@ def view(form_id):
         abort(404)
     entries = db.query("SELECT * FROM coordination_form_log WHERE form_id = ? ORDER BY id DESC", (form_id,))
     return render_template("coordination_forms/view.html", f=f, status=display_status(f), badges=STATUS_BADGES,
-                           due=due_info(f), sections=summary(f), files=_files(form_id), log_entries=entries,
+                           due=due_info(f), sections=summary(f), files=_file_dicts(f), log_entries=entries,
                            link=public_url(f), mail_configured=mailer.is_configured(),
                            email_subject=_email_subject(f), email_body=_email_body(f),
                            has_signature=bool(g.user["signature_file"]))
@@ -609,6 +625,9 @@ def edit(form_id):
              header["pic_email"], header["due_date"].isoformat() if header["due_date"] else None,
              json.dumps(sections[1:]), json.dumps(answers), form_id))
         saved, errors = _save_files(form_id, request.files.getlist("files"), _staff_name())
+        if "design" in sections:
+            more, more_errors = _save_files(form_id, request.files.getlist("design_files"), _staff_name(), "design")
+            saved, errors = saved + more, errors + more_errors
         if saved:
             changes.append("Files added: " + ", ".join(saved))
         for e in errors:
@@ -624,7 +643,7 @@ def edit(form_id):
               "pic_name": f["pic_name"], "pic_email": f["pic_email"], "due_date": _parse_date(f["due_date"])}
     return render_template("coordination_forms/edit.html", f=f, header=header, answers=load_answers(f),
                            sections=load_sections(f), companies=companies, classes=classes,
-                           files=_files(form_id), **_choices())
+                           files=_file_dicts(f), **_choices())
 
 
 def _email_subject(f):
@@ -815,7 +834,7 @@ def public_view(token):
     if f is None:
         return _not_found()
     return render_template("coordination_forms/public.html", f=f, token=token, answers=load_answers(f),
-                           sections=load_sections(f), due=due_info(f), open_=is_open(f), files=_files(f["id"]),
+                           sections=load_sections(f), due=due_info(f), open_=is_open(f), files=_file_dicts(f, public=True),
                            consent=CONSENT_TEXT, **_choices())
 
 
@@ -839,6 +858,9 @@ def save(token):
             answers[key] = value
     changes = diff_answers(old_answers, answers, sections)
     saved, errors = _save_files(f["id"], request.files.getlist("files"), "Client")
+    if "design" in sections:
+        more, more_errors = _save_files(f["id"], request.files.getlist("design_files"), "Client", "design")
+        saved, errors = saved + more, errors + more_errors
     if saved:
         changes.append("Files added: " + ", ".join(saved))
     for fid in request.form.getlist("remove_file", type=int):

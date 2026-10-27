@@ -229,6 +229,7 @@ CREATE TABLE IF NOT EXISTS coordination_form_files (
     filename TEXT NOT NULL,
     original_name TEXT,
     uploaded_by TEXT,                        -- 'client' or the staff member's name
+    category TEXT,                           -- 'design' (T-shirt design files) or NULL (other attachments)
     uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -16,7 +16,8 @@ Notes for anyone (or any Claude session) working on this repo:
   same details in writing.
 - Same sections as the PDF form: Details, Room Setup, Accommodation, Food & Beverage (dietary choices with
   pax), Transportation, Design (T-shirt), Technical (laptop rental), Additional Notes, Consent & Agreement.
-  Staff switch off sections that don't apply and can pre-fill answers; the client can upload files.
+  Staff switch off sections that don't apply and can pre-fill answers. T-shirt design files are uploaded
+  in the Design section itself; anything else (e.g. a rooming list) under Other Attachments.
 - Standalone, or linked to a class: "Create Coordination Form" on the class page pre-fills programme, dates,
   times, company, pax, venue, room setup, laptops and the client PIC. Due date defaults to 7 days before the
   class (or 7 days from today).

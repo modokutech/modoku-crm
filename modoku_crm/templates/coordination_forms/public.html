@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "coordination_forms/_fields.html" import fields, script with context %}
+{% from "coordination_forms/_fields.html" import fields, file_box, script with context %}
 {% block title %}Coordination Form · {{ f.title }}{% endblock %}
 {# Staff who open the client's link while logged in see the same page. #}
 {% block content %}{{ self.guest_content() }}{% endblock %}
@@ -42,27 +42,12 @@
 
     <form method="post" action="{{ url_for('coordination_form_public.save', token=token) }}" enctype="multipart/form-data" id="cf-form">
       {{ csrf_field()|safe }}
-      {{ fields(answers, sections, lock=not open_) }}
+      {{ fields(answers, sections, lock=not open_, files=files, can_remove=True) }}
 
       <div class="cf-section">
-        <h6 class="cf-heading">Attachments</h6>
-        {% if files %}
-        <ul class="list-unstyled small mb-2">
-          {% for fl in files %}
-          <li class="d-flex align-items-center gap-2 mb-1">
-            <a href="{{ url_for('coordination_form_public.public_file', token=token, file_id=fl.id) }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
-            <span class="text-muted">· {{ 'You' if fl.uploaded_by == 'Client' else 'Modoku' }}</span>
-            {% if open_ and fl.uploaded_by == 'Client' %}
-            <label class="ms-auto small text-danger"><input type="checkbox" name="remove_file" value="{{ fl.id }}" class="form-check-input me-1">Remove</label>
-            {% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-        {% if open_ %}
-        <input type="file" name="files" class="form-control" multiple>
-        <small class="text-muted">Optional, e.g. a T-shirt design or rooming list. PDF, Word, Excel or images, up to 5 MB each.</small>
-        {% elif not files %}<p class="small text-muted mb-0">No files.</p>{% endif %}
+        <h6 class="cf-heading">Other Attachments</h6>
+        {{ file_box(files|rejectattr('category', 'equalto', 'design')|list, 'files', not open_,
+                    'Optional, e.g. a rooming list. PDF, Word, Excel or images, up to 5 MB each.', can_remove=True) }}
       </div>
 
       <div class="cf-section" id="sign">

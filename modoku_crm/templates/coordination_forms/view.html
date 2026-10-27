@@ -57,13 +57,13 @@
     {% endfor %}
 
     <div class="card p-3 mb-3">
-      <h6 class="text-uppercase small fw-bold mb-2" style="color:#2e3192">Attachments</h6>
+      <h6 class="text-uppercase small fw-bold mb-2" style="color:#2e3192">Files</h6>
       {% if files %}
       <ul class="list-unstyled small mb-0">
         {% for fl in files %}
         <li class="d-flex justify-content-between align-items-center mb-1">
-          <span><a href="{{ url_for('coordination_forms.file', form_id=f.id, file_id=fl.id) }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
-            <span class="text-muted">· {{ fl.uploaded_by }} · {{ fl.uploaded_at|fmtdatetime }}</span></span>
+          <span><a href="{{ fl.url }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
+            <span class="text-muted">· {{ 'T-shirt design · ' if fl.category == 'design' }}{{ fl.uploaded_by }} · {{ fl.uploaded_at|fmtdatetime }}</span></span>
           <form method="post" action="{{ url_for('coordination_forms.delete_file', form_id=f.id, file_id=fl.id) }}" onsubmit="return confirm('Remove this file?');">
             {{ csrf_field()|safe }}<button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-x"></i></button>
           </form>

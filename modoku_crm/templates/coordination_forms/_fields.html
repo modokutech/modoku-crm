@@ -20,7 +20,29 @@
 {% endmacro %}
 {% macro val(a, key) %}{{ a.get(key, '') if a.get(key) is not none else '' }}{% endmacro %}
 
-{% macro fields(a, on, lock=False, all_sections=False) %}
+{# Files list + upload box. files: dicts with url/who/category (coordination_forms._file_dicts).
+   can_remove: the client's own files get a Remove tick box. #}
+{% macro file_box(files, input_name, lock, note, can_remove=False) %}
+  {% if files %}
+  <ul class="list-unstyled small mb-2">
+    {% for fl in files %}
+    <li class="d-flex align-items-center gap-2 mb-1">
+      <a href="{{ fl.url }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
+      <span class="text-muted">· {{ fl.who }}</span>
+      {% if can_remove and not lock and fl.uploaded_by == 'Client' %}
+      <label class="ms-auto small text-danger"><input type="checkbox" name="remove_file" value="{{ fl.id }}" class="form-check-input me-1">Remove</label>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if not lock %}
+  <input type="file" name="{{ input_name }}" class="form-control" multiple>
+  <small class="text-muted">{{ note }}</small>
+  {% elif not files %}<p class="small text-muted mb-0">No files.</p>{% endif %}
+{% endmacro %}
+
+{% macro fields(a, on, lock=False, all_sections=False, files=[], can_remove=False) %}
 {% set dis = 'disabled' if lock else '' %}
 <div class="cf-section" data-section="details">
   <h6 class="cf-heading">Details</h6>
@@ -111,7 +133,10 @@
 <div class="cf-section" data-section="design">
   <h6 class="cf-heading">Design Specifications</h6>
   <label class="form-label">T-shirt design (if any)</label>
-  <textarea name="tshirt_design" class="form-control" rows="3" placeholder="Colour, print, sizes, or anything else. Upload the design file under Attachments." {{ dis }}>{{ val(a, 'tshirt_design') }}</textarea>
+  <textarea name="tshirt_design" class="form-control" rows="3" placeholder="Colour, print, sizes, or anything else." {{ dis }}>{{ val(a, 'tshirt_design') }}</textarea>
+  <div class="form-label mt-3">T-shirt design file(s)</div>
+  {{ file_box(files|selectattr('category', 'equalto', 'design')|list, 'design_files', lock,
+              'Artwork or mock-up: PDF, images, Word or PowerPoint, up to 5 MB each.', can_remove) }}
 </div>
 {% endif %}
 

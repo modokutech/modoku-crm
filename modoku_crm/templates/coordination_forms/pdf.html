@@ -43,9 +43,10 @@
   </table>
   {% endfor %}
 
-  {% if files %}
-  <h2>Attachments</h2>
-  <div class="files">{% for fl in files %}{{ fl.original_name }}{{ ', ' if not loop.last }}{% endfor %}</div>
+  {% set other_files = files|rejectattr('category', 'equalto', 'design')|list %}
+  {% if other_files %}
+  <h2>Other Attachments</h2>
+  <div class="files">{% for fl in other_files %}{{ fl.original_name }}{{ ', ' if not loop.last }}{% endfor %}</div>
   {% endif %}
 
   <div style="page-break-inside: avoid">
