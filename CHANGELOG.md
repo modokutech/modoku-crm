@@ -10,9 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix229 — Coordination Form: "you need to sign and submit again"
+- Client page wording: "If you edit anything, you need to sign and submit again." (was "please sign and
+  submit again"), on the submitted/confirmed banner and the thank-you message.
+
 ## Fix228 — Coordination Form: clearer "sign again" wording for the client
-- After submitting (and on a confirmed form), the client page now says "If you edit anything, please sign
-  and submit again." instead of "You can still make changes until the due date; you'll be asked to sign
+- After submitting (and on a confirmed form), the client page now says "If you edit anything, you need to
+  sign and submit again." instead of "You can still make changes until the due date; you'll be asked to sign
   again." Same wording in the thank-you message after submitting.
 
 ## Fix227 — Coordination Form: one notification per person on submit
