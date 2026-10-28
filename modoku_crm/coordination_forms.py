@@ -568,6 +568,21 @@ def new():
                            sections=sections, companies=companies, classes=classes, **_choices())
 
 
+@bp.route("/class-prefill/<int:session_id>")
+@login_required
+def class_prefill(session_id):
+    """Fix226: the class's details as JSON, for filling the form in the
+    browser when a class is picked under "Linked class"."""
+    header, answers, _sections = _class_prefill(session_id)
+    if header is None:
+        abort(404)
+    due = None
+    start = _parse_date(answers.get("start_date"))
+    if start and start - timedelta(days=7) > today_kl():
+        due = (start - timedelta(days=7)).isoformat()
+    return {"header": header, "answers": answers, "due_date": due}
+
+
 def _choices():
     return {"ROOM_SETUPS": ROOM_SETUPS, "OCCUPANCIES": OCCUPANCIES, "BREAKFAST": BREAKFAST, "YES_NO": YES_NO,
             "DIETS": DIETS, "ALLERGIES": ALLERGIES, "TRANSPORT_TYPES": TRANSPORT_TYPES,

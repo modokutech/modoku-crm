@@ -35,7 +35,7 @@
           <option value="{{ header.session_id }}" selected>{{ f.course_title if f else 'Linked class' }}</option>
           {% endif %}
         </select>
-        {% if not f and not header.session_id %}<small class="text-muted">To pre-fill from a class, use "Coordination Form" on the class page.</small>{% endif %}
+        <small class="text-muted">Picking a class fills in the programme, client, PIC and details from it{{ ' (empty fields only)' if f }}.</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Client <span class="text-muted small fw-normal">(optional)</span></label>
@@ -91,6 +91,44 @@
   }
   document.querySelectorAll('.section-toggle').forEach(function (cb) { cb.addEventListener('change', syncSections); });
   syncSections();
+})();
+
+// Fix226: picking a Linked class fills the programme name, client, PIC and the
+// Details from the class. A new form takes all of the class's details; an
+// existing one only fills fields that are still empty, so nothing already
+// answered is overwritten.
+(function () {
+  var isNew = {{ 'true' if not f else 'false' }};
+  var form = document.querySelector('form[method="post"]');
+  var classSelect = form.querySelector('select[name="session_id"]');
+  var URL_BASE = {{ url_for('coordination_forms.class_prefill', session_id=0)|tojson }}.replace(/0$/, '');
+  function setField(name, value) {
+    if (value === null || value === undefined || value === '') return;
+    var els = form.querySelectorAll('[name="' + name + '"]');
+    if (!els.length) return;
+    var first = els[0];
+    if (first.type === 'radio') {
+      if (!isNew && form.querySelector('[name="' + name + '"]:checked')) return;
+      els.forEach(function (el) { el.checked = el.value === String(value); });
+      return;
+    }
+    if (!isNew && first.value) return;
+    first.value = value;
+  }
+  classSelect.addEventListener('change', function () {
+    if (!classSelect.value) return;
+    fetch(URL_BASE + classSelect.value).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+      if (!data) return;
+      var h = data.header;
+      setField('title', h.title);
+      setField('client_company_id', h.client_company_id);
+      setField('pic_name', h.pic_name);
+      setField('pic_email', h.pic_email);
+      if (isNew) setField('due_date', data.due_date);
+      Object.keys(data.answers).forEach(function (k) { setField(k, data.answers[k]); });
+      form.dispatchEvent(new Event('change', { bubbles: true }));  // show "Other"/"pcs" boxes for the filled radios
+    });
+  });
 })();
 </script>
 {% endblock %}

@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix226 — Coordination Form: picking a Linked class fills the form
+- On New Coordination Form, choosing a class under "Linked class" fills the programme name, client, PIC name
+  and email, due date (7 days before the class) and the Details (dates, times, company, pax, venue, room
+  setup, laptops) from the class, same as starting from the class page.
+- On an existing form it only fills fields that are still empty, so answers already given aren't overwritten.
+
 ## Fix225 — Coordination Forms (new module)
 - New "Coordination Forms" item in the sidebar. Optional, issued only when needed: the client fills in and
   signs every logistics detail on a public link (no login), then Modoku countersigns, so both sides agree the
