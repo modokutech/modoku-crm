@@ -49,6 +49,10 @@
             onclick="navigator.clipboard.writeText(this.dataset.link); this.innerHTML='<i class=&quot;bi bi-check2 me-1&quot;></i>Link copied';">
       <i class="bi bi-award me-1"></i>Copy Certificate List Link
     </button>
+    {# Fix234: the same link as a QR to show on screen or share. #}
+    <a href="{{ certificate_qr_url }}" class="btn btn-sm btn-outline-success text-nowrap" target="_blank">
+      <i class="bi bi-qr-code me-1"></i>Certificate QR
+    </a>
     {% endif %}
     <a href="{{ url_for('t3.ai_match_review', session_id=s.id) }}" class="btn btn-sm btn-outline-success">
       <i class="bi bi-robot me-1"></i>AI Match Attendance

@@ -383,8 +383,10 @@ def manage(session_id):
     public_token = ensure_t3_public_token(session_id)
     trainer_qr_url = url_for("t3_public.sign_in_qr", token=public_token, _external=True)
     certificate_list_url = url_for("t3_public.certificate_list", token=public_token, _external=True)
+    certificate_qr_url = url_for("t3_public.certificates_qr", token=public_token)
     return render_template("t3/manage.html", s=session_row, participants=participants_with_status,
                             trainer_qr_url=trainer_qr_url, certificate_list_url=certificate_list_url,
+                            certificate_qr_url=certificate_qr_url,
                             total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
                             remaining=t3_remaining_capacity(session_row),
                             training_days=training_days, signatures_by_participant=signatures_by_participant)

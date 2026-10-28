@@ -21,7 +21,7 @@ import os
 import uuid
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, Response, flash, redirect, render_template, request, url_for
+from flask import Blueprint, Response, current_app, flash, redirect, render_template, request, url_for
 
 from . import APP_TZ, attendance_days, db, uploadutil
 from . import certificates as _certificates
@@ -214,6 +214,42 @@ def release_text(session_row):
     if release_at is None:
         return ""
     return release_at.strftime("%-I:%M %p on %-d %b %Y")
+
+
+@bp.route("/<token>/certificates-qr")
+def certificates_qr(token):
+    """Fix234: full-screen QR of the certificate list (Code Attendance
+    classes), for participants to scan and download their own certificate.
+    Public like the sign-in QR, so the trainer can open it without a login."""
+    session_row = _find_session(token)
+    if session_row is None or not session_row["code_attendance"]:
+        return render_template("t3_public/not_found.html")
+    return render_template("t3_public/certificates_qr.html", s=session_row, token=token,
+                           released=certificates_released(session_row), not_yet=release_text(session_row),
+                           list_url=url_for("t3_public.certificate_list", token=token, _external=True))
+
+
+@bp.route("/<token>/certificates-qr.png")
+def certificates_qr_png(token):
+    """The certificate-list QR as PNG; ?download=1 gives the whole poster."""
+    from . import fmtdaterange, poster
+    from .docutil import content_disposition
+    session_row = _find_session(token)
+    if session_row is None or not session_row["code_attendance"]:
+        return Response(status=404)
+    link = url_for("t3_public.certificate_list", token=token, _external=True)
+    logo = os.path.join(current_app.root_path, "static", "img", "logo.png")
+    headers = {}
+    if request.args.get("download"):
+        png = poster.sign_in_poster_png(session_row["course_title"],
+                                        fmtdaterange(session_row["start_date"], session_row["end_date"]), link,
+                                        logo_path=logo, scan_text="Scan to download your certificate",
+                                        hint_text="Find your name on the list and tap it to download.")
+        title = "".join(ch if ch.isalnum() else "_" for ch in (session_row["course_title"] or "class"))[:40].strip("_")
+        headers["Content-Disposition"] = content_disposition(f"Certificate_QR_{title}_{session_row['start_date']}.png")
+    else:
+        png = poster.qr_png(link, box_size=900, logo_path=logo)
+    return Response(png, mimetype="image/png", headers=headers)
 
 
 @bp.route("/<token>/certificates")

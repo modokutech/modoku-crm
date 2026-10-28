@@ -257,7 +257,9 @@ def qr_png(value, box_size=900, logo_path=None):
     return buf.getvalue()
 
 
-def sign_in_poster_png(course_title, date_text, link, code=None, logo_path=None):
+def sign_in_poster_png(course_title, date_text, link, code=None, logo_path=None,
+                       scan_text="Scan to sign your attendance",
+                       hint_text="Find your name on the list and tap Sign."):
     """Fix223: the whole e-signature sign-in screen as one landscape PNG
     (2400x1350, 16:9 like the training-room screen): course title, date,
     the QR, "Scan to sign your attendance" and, in Code Attendance mode,
@@ -308,9 +310,9 @@ def sign_in_poster_png(course_title, date_text, link, code=None, logo_path=None)
     canvas.paste(qr_img, (card_x + (card - qr_img.width) // 2, card_y + (card - qr_img.height) // 2))
 
     y = card_y + card + 44
-    centred("Scan to sign your attendance", scan_font, y, TITLE_COLOR)
+    centred(scan_text, scan_font, y, TITLE_COLOR)
     y += 84
-    centred("Find your name on the list and tap Sign.", hint_font, y, DATE_COLOR)
+    centred(hint_text, hint_font, y, DATE_COLOR)
     if code:
         y += 74
         lead = "Can't scan? Open the attendance link and enter today's code:"

@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix234 — Certificate QR for Code Attendance classes
+- New "Certificate QR" button next to "Copy Certificate List Link" on the T3 attendance page. It opens a
+  full-screen page (same look as the sign-in QR) with a QR of the certificate list, for participants to
+  scan and download their own certificate. No login needed, so the trainer can open it too.
+- The page has Full screen, Download PNG (the whole poster: title, dates, QR, instructions) and Copy link.
+  Before certificates are released it also shows "Certificates will be available from <time>".
+
 ## Fix233 — Coordination Form PDF: flowing layout
 - Same look (orange frame, logo, title, boxed details table, "( )/(✓)" options), better flow:
   - Sections follow each other and start a new page only when one doesn't fit (never split), so a short
