@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix233 — Coordination Form PDF: flowing layout
+- Same look (orange frame, logo, title, boxed details table, "( )/(✓)" options), better flow:
+  - Sections follow each other and start a new page only when one doesn't fit (never split), so a short
+    form is 1-2 pages. "PAGE n/N" counts the real pages.
+  - Sections switched off for the form are left out instead of printed as "Not applicable".
+  - The notes box fits the notes (smaller text for very long notes) instead of always half a page.
+  - Footer on every page: CF number, who signed and confirmed, and when.
+
 ## Fix232 — Coordination Form: photo previews
 - Uploaded photos (T-shirt designs and other image attachments) show as previews on the client's link
   and the edit page, instead of only a file name to click. The form's page shows a small thumbnail next
