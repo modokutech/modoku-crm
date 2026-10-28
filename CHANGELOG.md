@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix231 — Coordination Form PDF in the same design as Modoku's form
+- The PDF now follows the original Canva form: orange page border, "PAGE n/3", logo, "COORDINATION FORM"
+  title, the boxed details table, and "( ) / (✓)" options in small letter-spaced capitals over 3 pages
+  (details, room setup, accommodation, F&B / transport, design with the T-shirt photos, technical /
+  notes, consent and signatures). Dietary pax counts go in the brackets next to each choice.
+- A second signature box, "Confirmed by Modoku", sits under the client's. Sections switched off for a
+  form keep their place, marked "Not applicable".
+- Drawn with ReportLab (already in requirements) instead of wkhtmltopdf, so it looks the same on the VPS.
+
 ## Fix230 — Coordination Form: files chosen on the New form are saved
 - Files picked while creating a Coordination Form (T-shirt design files and Other Attachments) were dropped;
   only the Edit page saved uploads. The New form now saves them too, and lists them in the change log.

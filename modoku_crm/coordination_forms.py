@@ -20,8 +20,6 @@ signed). A Draft/Sent form past its due date shows as Closed.
 import json
 import os
 import secrets
-import subprocess
-import tempfile
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -440,34 +438,37 @@ def _data_uri(path, mimetype="image/png"):
         return ""
 
 
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
+
+
 def generate_pdf(form):
-    from .pdfgen import _logo_data_uri, _user_signature_data_uri, poppins_font_face_css
-    client_sig = ""
-    if form["client_signature_file"]:
-        client_sig = _data_uri(os.path.join(_upload_dir(form["id"]), form["client_signature_file"]))
-    staff_sig = ""
+    """Fix231: the PDF in the same design as Modoku's Canva form, drawn with
+    ReportLab (see coordination_form_pdf)."""
+    from . import fmtdate
+    from .coordination_form_pdf import render
+    folder = _upload_dir(form["id"])
+    design_images, design_other, other = [], [], []
+    for row in _files(form["id"]):
+        if row["category"] == "design":
+            if row["filename"].lower().endswith(IMAGE_EXTENSIONS):
+                design_images.append(os.path.join(folder, row["filename"]))
+            else:
+                design_other.append(row["original_name"])
+        else:
+            other.append(row["original_name"])
+    client_sig = os.path.join(folder, form["client_signature_file"]) if form["client_signature_file"] else None
+    staff_sig = None
     if form["confirmed_by"] and form["confirmed_by_signature"]:
-        staff_sig = _user_signature_data_uri(form["confirmed_by_signature"], form["confirmed_by"])
-    html = render_template("coordination_forms/pdf.html", f=form, sections=summary(form), files=_files(form["id"]),
-                           consent=CONSENT_TEXT, logo=_logo_data_uri(), client_sig=client_sig, staff_sig=staff_sig,
-                           font_css=poppins_font_face_css(), due=due_info(form))
-    with tempfile.NamedTemporaryFile(suffix=".html", mode="w", encoding="utf-8", delete=False) as fh:
-        fh.write(html)
-        html_path = fh.name
-    pdf_path = html_path.replace(".html", ".pdf")
-    try:
-        subprocess.run(["wkhtmltopdf", "--quiet", "--page-size", "A4", "--margin-top", "12mm",
-                        "--margin-bottom", "12mm", "--margin-left", "12mm", "--margin-right", "12mm",
-                        "--enable-local-file-access", html_path, pdf_path],
-                       check=True, timeout=60, capture_output=True)
-        with open(pdf_path, "rb") as fh:
-            return fh.read()
-    finally:
-        for path in (html_path, pdf_path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+        staff_sig = os.path.join(current_app.config["UPLOAD_FOLDER"], "users", str(form["confirmed_by"]),
+                                 form["confirmed_by_signature"])
+    confirmed = form["status"] == "Confirmed"
+    return render(form, load_answers(form), load_sections(form), design_images, other, design_other,
+                  client_sig_path=client_sig, client_name=form["client_signed_name"],
+                  client_date=fmtdate(form["client_signed_at"]) if form["client_signed_at"] else None,
+                  staff_sig_path=staff_sig if confirmed else None,
+                  staff_name=form["confirmed_by_name"] if confirmed else None,
+                  staff_position=form["confirmed_by_position"] if confirmed else None,
+                  staff_date=fmtdate(form["confirmed_at"]) if confirmed and form["confirmed_at"] else None)
 
 
 def pdf_filename(form):
