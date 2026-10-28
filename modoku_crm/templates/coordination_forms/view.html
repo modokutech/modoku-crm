@@ -62,7 +62,7 @@
       <ul class="list-unstyled small mb-0">
         {% for fl in files %}
         <li class="d-flex justify-content-between align-items-center mb-1">
-          <span><a href="{{ fl.url }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
+          <span>{% if fl.is_image %}<a href="{{ fl.url }}" target="_blank"><img src="{{ fl.url }}" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:4px" class="border me-2"></a>{% endif %}<a href="{{ fl.url }}" target="_blank">{% if not fl.is_image %}<i class="bi bi-paperclip me-1"></i>{% endif %}{{ fl.original_name }}</a>
             <span class="text-muted">· {{ 'T-shirt design · ' if fl.category == 'design' }}{{ fl.uploaded_by }} · {{ fl.uploaded_at|fmtdatetime }}</span></span>
           <form method="post" action="{{ url_for('coordination_forms.delete_file', form_id=f.id, file_id=fl.id) }}" onsubmit="return confirm('Remove this file?');">
             {{ csrf_field()|safe }}<button class="btn btn-sm btn-outline-danger py-0 px-1"><i class="bi bi-x"></i></button>

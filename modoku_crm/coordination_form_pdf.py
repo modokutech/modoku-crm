@@ -195,7 +195,7 @@ def render(form, answers, sections, design_images, other_files, design_other_fil
            client_sig_path=None, staff_sig_path=None, staff_name=None, staff_position=None,
            client_name=None, client_date=None, staff_date=None):
     """Returns the PDF bytes. answers/sections as in coordination_forms;
-    design_images: paths of T-shirt design images; other_files /
+    design_images: (path, name) of T-shirt design images; other_files /
     design_other_files: names of the other attached files."""
     _register_fonts()
     a = answers
@@ -327,15 +327,18 @@ def render(form, answers, sections, design_images, other_files, design_other_fil
         for i, line in enumerate(lines[:2]):
             p.text(42 + w, 405 + i * 11, line, "Helvetica", 8.5)
         box_top = 422 if len(lines) <= 1 else 432
-        shown = 0
-        for path in design_images[:2]:
-            x = 35 if shown == 0 else 292
-            p.rect(x, box_top, 207, 180)
-            if p.image(path, x + 6, box_top + 6, 195, 168):
-                shown += 1
-        extra = design_other_files + [os.path.basename(x) for x in design_images[2:]]
+        # Up to 4 photos (Fix232): one row of two big boxes, or two rows of smaller ones.
+        photos = design_images[:4]
+        box_h = 180 if len(photos) <= 2 else 96
+        for i, (path, _name) in enumerate(photos):
+            x = 35 if i % 2 == 0 else 292
+            top_i = box_top + (i // 2) * (box_h + 6)
+            p.rect(x, top_i, 207, box_h)
+            p.image(path, x + 5, top_i + 5, 197, box_h - 10)
+        extra = design_other_files + [name for _path, name in design_images[4:]]
         if extra:
-            p.text(36, box_top + (190 if shown else 6), "Design files: " + ", ".join(extra), "Helvetica", 7)
+            rows_h = 0 if not photos else (box_h if len(photos) <= 2 else 2 * box_h + 6)
+            p.text(36, box_top + rows_h + (10 if photos else 6), "Design files: " + ", ".join(extra), "Helvetica", 7)
 
     p.heading(650, "Technical Requirements", off="technical" not in on)
     if "technical" in on:

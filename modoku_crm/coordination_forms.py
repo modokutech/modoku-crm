@@ -35,6 +35,7 @@ public_bp = Blueprint("coordination_form_public", __name__, url_prefix="/coordin
 
 STATUSES = ["Draft", "Sent", "Submitted", "Confirmed"]
 FILE_MAX_BYTES = 5 * 1024 * 1024
+IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 DEFAULT_DUE_DAYS = 7
 
 CONSENT_TEXT = [
@@ -301,6 +302,7 @@ def _file_dicts(form, public=False):
         d["url"] = (url_for("coordination_form_public.public_file", token=form["token"], file_id=row["id"]) if public
                     else url_for("coordination_forms.file", form_id=form["id"], file_id=row["id"]))
         d["who"] = ("You" if row["uploaded_by"] == "Client" else "Modoku") if public else row["uploaded_by"]
+        d["is_image"] = row["filename"].lower().endswith(IMAGE_EXTENSIONS)  # Fix232: shown as a preview
         out.append(d)
     return out
 
@@ -438,9 +440,6 @@ def _data_uri(path, mimetype="image/png"):
         return ""
 
 
-IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
-
-
 def generate_pdf(form):
     """Fix231: the PDF in the same design as Modoku's Canva form, drawn with
     ReportLab (see coordination_form_pdf)."""
@@ -451,7 +450,7 @@ def generate_pdf(form):
     for row in _files(form["id"]):
         if row["category"] == "design":
             if row["filename"].lower().endswith(IMAGE_EXTENSIONS):
-                design_images.append(os.path.join(folder, row["filename"]))
+                design_images.append((os.path.join(folder, row["filename"]), row["original_name"]))
             else:
                 design_other.append(row["original_name"])
         else:

@@ -23,9 +23,25 @@
 {# Files list + upload box. files: dicts with url/who/category (coordination_forms._file_dicts).
    can_remove: the client's own files get a Remove tick box. #}
 {% macro file_box(files, input_name, lock, note, can_remove=False) %}
-  {% if files %}
+  {# Fix232: photos show as previews; other files as a list. #}
+  {% set images = files|selectattr('is_image')|list %}
+  {% set docs = files|rejectattr('is_image')|list %}
+  {% if images %}
+  <div class="d-flex flex-wrap gap-3 mb-2">
+    {% for fl in images %}
+    <div class="cf-thumb">
+      <a href="{{ fl.url }}" target="_blank"><img src="{{ fl.url }}" alt="{{ fl.original_name }}" loading="lazy"></a>
+      <div class="small text-truncate mt-1" title="{{ fl.original_name }}">{{ fl.original_name }} <span class="text-muted">· {{ fl.who }}</span></div>
+      {% if can_remove and not lock and fl.uploaded_by == 'Client' %}
+      <label class="small text-danger"><input type="checkbox" name="remove_file" value="{{ fl.id }}" class="form-check-input me-1">Remove</label>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if docs %}
   <ul class="list-unstyled small mb-2">
-    {% for fl in files %}
+    {% for fl in docs %}
     <li class="d-flex align-items-center gap-2 mb-1">
       <a href="{{ fl.url }}" target="_blank"><i class="bi bi-paperclip me-1"></i>{{ fl.original_name }}</a>
       <span class="text-muted">· {{ fl.who }}</span>
@@ -180,6 +196,8 @@
 <style>
   .cf-section { border-top: 1px solid #e9ecef; padding-top: 1rem; margin-top: 1.25rem; }
   .cf-section:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+  .cf-thumb { width: 180px; }
+  .cf-thumb img { width: 180px; height: 140px; object-fit: contain; background: #f6f6f8; border: 1px solid #dee2e6; border-radius: 8px; display: block; }
   .cf-heading { font-weight: 700; color: #2e3192; text-transform: uppercase; letter-spacing: .03em; font-size: .85rem; margin-bottom: .75rem; }
 </style>
 {% endmacro %}

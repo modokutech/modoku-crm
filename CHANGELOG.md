@@ -10,6 +10,13 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix232 — Coordination Form: photo previews
+- Uploaded photos (T-shirt designs and other image attachments) show as previews on the client's link
+  and the edit page, instead of only a file name to click. The form's page shows a small thumbnail next
+  to each photo. Other files (PDF, Word, Excel) stay as a list.
+- The PDF shows up to 4 T-shirt photos: two big boxes for 1-2 photos, two rows of smaller boxes for 3-4.
+  Any more are listed by name.
+
 ## Fix231 — Coordination Form PDF in the same design as Modoku's form
 - The PDF now follows the original Canva form: orange page border, "PAGE n/3", logo, "COORDINATION FORM"
   title, the boxed details table, and "( ) / (✓)" options in small letter-spaced capitals over 3 pages
