@@ -937,9 +937,12 @@ def _notify_staff(f, signer, resubmit, changes):
     title = f"Coordination Form {'re-submitted' if resubmit else 'submitted'}: {f['title']}"
     link = url_for("coordination_forms.view", form_id=f["id"])
     body = f"Signed by {signer}. Check it and click Confirm & Sign."
-    notifications.notify_admins("coordination_form", title, body=body, link=link)
+    # Admins plus whoever created the form, once each (the creator is often an admin too).
+    recipients = {r["id"] for r in db.query("SELECT id FROM users WHERE role = 'admin' AND active = 1")}
     if f["created_by"]:
-        notifications.notify(f["created_by"], "coordination_form", title, body=body, link=link)
+        recipients.add(f["created_by"])
+    for user_id in recipients:
+        notifications.notify(user_id, "coordination_form", title, body=body, link=link)
     if f["created_by_email"] and mailer.is_configured():
         try:
             text = (f"{signer} has {'re-submitted' if resubmit else 'signed and submitted'} the Coordination Form "

@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix227 — Coordination Form: one notification per person on submit
+- When the client submitted, the staff member who created the form got the bell notification twice if they
+  were also an admin (once as admin, once as creator). Now admins and the creator get it once each.
+
 ## Fix226 — Coordination Form: picking a Linked class fills the form
 - On New Coordination Form, choosing a class under "Linked class" fills the programme name, client, PIC name
   and email, due date (7 days before the class) and the Details (dates, times, company, pax, venue, room
