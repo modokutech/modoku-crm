@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix230 — Coordination Form: files chosen on the New form are saved
+- Files picked while creating a Coordination Form (T-shirt design files and Other Attachments) were dropped;
+  only the Edit page saved uploads. The New form now saves them too, and lists them in the change log.
+
 ## Fix229 — Coordination Form: "you need to sign and submit again"
 - Client page wording: "If you edit anything, you need to sign and submit again." (was "please sign and
   submit again"), on the submitted/confirmed banner and the thank-you message.

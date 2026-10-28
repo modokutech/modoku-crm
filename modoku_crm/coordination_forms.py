@@ -546,7 +546,14 @@ def new():
              header["title"], header["pic_name"], header["pic_email"],
              header["due_date"].isoformat() if header["due_date"] else None,
              json.dumps(sections[1:]), json.dumps(answers), g.user["id"]))
-        log(form_id, _staff_name(), "Created the form")
+        # Fix230: files chosen on the New form are saved too (before, only Edit saved them).
+        saved, errors = _save_files(form_id, request.files.getlist("files"), _staff_name())
+        if "design" in sections:
+            more, more_errors = _save_files(form_id, request.files.getlist("design_files"), _staff_name(), "design")
+            saved, errors = saved + more, errors + more_errors
+        log(form_id, _staff_name(), "Created the form", ("Files added: " + ", ".join(saved)) if saved else None)
+        for e in errors:
+            flash(e, "danger")
         activity.log("create", "coordination_form", form_id, f"Coordination Form: {header['title']}")
         flash("Coordination Form created. Check the details, then send the link to the client.", "success")
         return redirect(url_for("coordination_forms.view", form_id=form_id))
