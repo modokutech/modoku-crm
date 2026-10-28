@@ -910,7 +910,7 @@ def save(token):
         for e in errors:
             flash(e, "danger")
         flash("Thank you, your Coordination Form is submitted. Modoku will confirm it from our side. "
-              "You can still make changes until the due date.", "success")
+              "If you edit anything later, please sign and submit again.", "success")
         return redirect(url_for("coordination_form_public.public_view", token=token))
 
     status = f["status"]

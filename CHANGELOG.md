@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix228 — Coordination Form: clearer "sign again" wording for the client
+- After submitting (and on a confirmed form), the client page now says "If you edit anything, please sign
+  and submit again." instead of "You can still make changes until the due date; you'll be asked to sign
+  again." Same wording in the thank-you message after submitting.
+
 ## Fix227 — Coordination Form: one notification per person on submit
 - When the client submitted, the staff member who created the form got the bell notification twice if they
   were also an admin (once as admin, once as creator). Now admins and the creator get it once each.
