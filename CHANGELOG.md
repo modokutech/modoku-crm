@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix237 — Multi-class quotation: grant copy uses the class's name
+- A class's "Grant quotation PDF" (built fresh each time) now shows the class's own course name on its line
+  when the class has one line, so renaming the class or its course carries through. A class with several
+  lines (e.g. training + meals) keeps each line's own name. The client's full quotation is unchanged.
+
 ## Fix236 — Multi-class quotation: each class's own pax
 - On a quotation covering several classes, each class's grant quotation PDF now shows the class's own pax
   (its Capacity) instead of the quotation line's total (e.g. 30 and 25 instead of 60 on both). The client's

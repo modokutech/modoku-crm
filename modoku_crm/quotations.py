@@ -594,6 +594,11 @@ def class_quotation_pdf(quotation_id, session_id):
     items = [dict(i, programme=_strip_brackets(i["programme"])) for i in items]
     cls = db.query("SELECT c.title, cs.start_date, cs.end_date FROM course_sessions cs "
                    "JOIN courses c ON c.id = cs.course_id WHERE cs.id = ?", (session_id,), one=True)
+    # Fix237: a class with a single line shows the class's own course name, so
+    # renaming the class (or its course) carries through to its grant copy.
+    # With several lines (e.g. training + meals) each keeps its own name.
+    if cls and cls["title"] and len(items) == 1:
+        items[0]["programme"] = cls["title"]
     subtotal = _totals(items, q["sst_rate"], q["sst_inclusive"])[0]
     data = dict(q)
     data["course_title"] = (cls["title"] if cls else None) or items[0]["programme"]
