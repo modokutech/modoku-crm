@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix239 — Shorter quotation PDF filenames
+- Quotation PDFs (download, email attachment, each class's grant copy) get a short, Windows-safe filename:
+  "Quotation 3010202601 - PETRONAS - Frontline Leadership.pdf", plus " - 27-28 Nov 2026" on a class's
+  grant copy. Was e.g. "Quotation #3010202601 Modoku x Petroliam Nasional Berhad (PETRONAS) - Frontline
+  Leadership: Collaboration, Resilience & Employee Relations 30.10.2026.pdf" (~150 characters, with a colon).
+- Client: the short name in brackets if any, else the first two words. Course: cut at the colon, at a
+  joining word ("with", "and"...) or after 4 words; bracketed notes dropped. No "#", max ~90 characters.
+- The email subject and the title inside the PDF keep the full wording.
+
 ## Fix238 — Undo Fix237
 - The class's grant quotation PDF goes back to the name typed on the quotation line (Fix237 is reverted).
   Per-class pax from Fix236 stays.

@@ -135,6 +135,66 @@ def _document_title(q):
     return title or "Quotation"
 
 
+_FILENAME_MAX = 90
+
+
+def _filename_safe(text):
+    """Only characters every OS accepts in a filename (no : / \\ ? * " < > |)."""
+    text = re.sub(r"[^A-Za-z0-9 &().,'-]+", " ", text or "")
+    return re.sub(r"\s{2,}", " ", text).strip(" .-,")
+
+
+def _short_client(name):
+    """'Petroliam Nasional Berhad (PETRONAS)' -> 'PETRONAS'; otherwise the
+    first two words ('MARA Incorporated Sdn Bhd' -> 'MARA Incorporated')."""
+    m = re.search(r"\(([^)]+)\)", name or "")
+    if m and m.group(1).strip():
+        return m.group(1).strip()
+    words = re.sub(r"\([^)]*\)", "", name or "").split()
+    return " ".join(words[:2]) or "Client"
+
+
+def _short_course(title):
+    """'Frontline Leadership: Collaboration, Resilience & ...' -> 'Frontline
+    Leadership' (cut at the colon, then at most 4 words)."""
+    title = re.split(r"\s*[:|]\s*|\s+[-–—]\s+", _strip_brackets(title or ""))[0]
+    words = []
+    for w in title.split():
+        # stop at a joining word once there are 2 words: "Personal Productivity
+        # with Microsoft 365 Copilot" -> "Personal Productivity"
+        if len(words) >= 4 or (len(words) >= 2 and w.lower().strip(",") in _TRAILING_WORDS):
+            break
+        words.append(w)
+    return " ".join(words).rstrip(",&") or "Training"
+
+
+_TRAILING_WORDS = {"with", "and", "&", "for", "of", "the", "in", "to", "on", "a", "an"}
+
+
+def _pdf_filename(q, when=None):
+    """Fix239: a short PDF filename - 'Quotation 3010202601 - PETRONAS -
+    Frontline Leadership.pdf' (+ ' - 27-28 Nov 2026' for one class's grant
+    copy), at most ~90 characters and only safe characters, so Windows opens
+    it without trouble. The email subject and the title inside the PDF keep
+    the full _document_title."""
+    quote_no = (q["quote_no"] or "").lstrip("#")
+    if q["title_override"]:
+        base = _filename_safe(q["title_override"])
+        return f"{base[:_FILENAME_MAX].rstrip()}.pdf"
+    client = _short_client(q["company_name_override"] or q["client_company_name"])
+    words = _short_course(q["course_title"]).split()
+    tail = ""
+    if when:
+        tail = " - " + _filename_safe(when.replace(" & ", "-").replace(" – ", "-").replace("–", "-"))
+    while True:
+        name = _filename_safe(" - ".join(x for x in (f"Quotation {quote_no}".strip(), client, " ".join(words)) if x)) + tail
+        if len(name) <= _FILENAME_MAX or len(words) <= 1:
+            return f"{name}.pdf"
+        words = words[:-1]
+        while len(words) > 1 and words[-1].lower() in _TRAILING_WORDS:
+            words.pop()
+
+
 def _default_email_body(q, return_url=None):
     link_para = ""
     if return_url:
@@ -601,8 +661,8 @@ def class_quotation_pdf(quotation_id, session_id):
     title = _document_title(data)
     from . import pdfgen
     # the class's dates in the filename tell batches of the same course apart
-    when = f" ({fmtdaterange(cls['start_date'], cls['end_date'])})" if cls else ""
-    return f"{title}{when}.pdf", pdfgen.generate_quotation_pdf(q, items, subtotal, title, client_sign=False)
+    when = fmtdaterange(cls["start_date"], cls["end_date"]) if cls else None
+    return _pdf_filename(data, when), pdfgen.generate_quotation_pdf(q, items, subtotal, title, client_sign=False)
 
 
 def _strip_brackets(text):
@@ -1232,7 +1292,7 @@ def view(quotation_id):
                             sst_amount=sst_amount, grand_total=grand_total,
                             statuses=STATUSES, title=title, mail_configured=mailer.is_configured(),
                             default_email_subject=title, default_email_body=_default_email_body(q, return_url),
-                            email_attachment_names=[f"{title}.pdf"],
+                            email_attachment_names=[_pdf_filename({**dict(q), "client_company_name": q["client_company_name"]})],
                             linked_session=linked_session, return_url=return_url,
                             linked_classes=linked_classes, unlinked_items=unlinked_items)
 
@@ -1282,7 +1342,8 @@ def download(quotation_id):
         return redirect(url_for("quotations.view", quotation_id=quotation_id))
     return Response(
         pdf_bytes, mimetype="application/pdf",
-        headers={"Content-Disposition": content_disposition(f"{title}.pdf")},
+        headers={"Content-Disposition": content_disposition(
+            _pdf_filename({**dict(q), "client_company_name": q["client_company_name"]}))},
     )
 
 
@@ -1470,7 +1531,8 @@ def send_email(quotation_id):
     try:
         from . import pdfgen
         pdf_bytes = pdfgen.generate_quotation_pdf(q, items, subtotal, title)
-        attachments.append((f"{title}.pdf", pdf_bytes, "application/pdf"))
+        attachments.append((_pdf_filename({**dict(q), "client_company_name": q["client_company_name"]}),
+                            pdf_bytes, "application/pdf"))
     except Exception:  # noqa: BLE001 - PDF generation is a nice-to-have, never block the email
         current_app.logger.exception("Failed to generate quotation PDF for %s", q["quote_no"])
 
