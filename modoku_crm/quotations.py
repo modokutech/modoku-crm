@@ -427,10 +427,12 @@ def _confirmation_email(q, confirmed):
     own T3 Attendance Form link."""
     greeting = f"Dear {q['attention_to'] or 'Sir/Madam'},\n\n"
     hrdcorp = any(c["row"]["hrdcorp_claimable"] for c in confirmed)
-    hrdcorp_para = (
-        "We'll send a separate email with the necessary HRDCorp documents for your grant "
-        "application (including the HRDCorp Programme No.) once they're ready.\n\n"
+    # Fix240: grouped by topic - what to do / what comes next / questions.
+    hrdcorp_line = (
+        " We'll send the HRDCorp documents for your grant application (including the HRDCorp "
+        "Programme No.) in a separate email once they're ready."
     ) if hrdcorp else ""
+    closing = "Should you have any questions, please contact us at hello@modoku.tech.\n\nCheers!"
 
     def meeting_line(row, indent=""):
         if row["training_mode"] in ("Virtual", "Hybrid") and row["meeting_link"]:
@@ -466,12 +468,10 @@ def _confirmation_email(q, confirmed):
             f"Time: {_schedule.row_time_text(row, sep='; ') or 'To be confirmed'}\n"
             f"Venue: {venue(row)}\n"
             f"{meeting_line(row)}\n"
-            f"{hrdcorp_para}"
-            "Please complete the attendance list for your participants here, you're welcome to come "
-            f"back and update it anytime up until the day of training:\n{c['t3_url']}\n\n"
-            "A calendar invite for the training date(s) is attached.\n\n"
-            "Should you have any questions, please feel free to contact us.\n\n"
-            "Cheers!"
+            "Please complete the attendance list for your participants at the link below. You can "
+            f"update it anytime up until the day of training:\n{c['t3_url']}\n\n"
+            f"A calendar invite for the training date(s) is attached.{hrdcorp_line}\n\n"
+            + closing
         )
         return subject, body
 
@@ -493,12 +493,10 @@ def _confirmation_email(q, confirmed):
         + f"Thank you for returning the signed quotation. Your {len(confirmed)} trainings are now confirmed "
         "as follows:\n\n"
         + "\n".join(blocks) + "\n"
-        + "Please complete the attendance list for each training at its own link above. You're welcome to "
-        "come back and update them anytime up until the day of training.\n\n"
-        + hrdcorp_para
-        + "A calendar invite with all the training dates is attached.\n\n"
-        "Should you have any questions, please feel free to contact us.\n\n"
-        "Cheers!"
+        + "Please complete the attendance list for each training at its own link above. You can update "
+        "them anytime up until the day of training.\n\n"
+        + f"A calendar invite with all the training dates is attached.{hrdcorp_line}\n\n"
+        + closing
     )
     return subject, body
 

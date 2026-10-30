@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix240 — Client confirmation email: paragraphs grouped by topic
+- The "Thank you, next step(s)" email after a signed quotation now has three short paragraphs instead of
+  four one-liners: what to do (attendance list), what comes next (calendar invite + HRDCorp documents),
+  and questions, which now says where to reach us (hello@modoku.tech).
+
 ## Fix239 — Shorter quotation PDF filenames
 - Quotation PDFs (download, email attachment, each class's grant copy) get a short, Windows-safe filename:
   "Quotation 3010202601 - PETRONAS - Frontline Leadership.pdf", plus " - 27-28 Nov 2026" on a class's
