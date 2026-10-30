@@ -156,6 +156,9 @@
   </div>
 
   <div class="col-lg-4 d-print-none">
+    {# Fix235: the payment receipt box only once the PO is Confirmed (or if a receipt is already on file). #}
+    {% set show_receipt = po.status == 'Confirmed' or payment_receipts %}
+    {% if show_receipt %}
     <div class="card p-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <h6 class="mb-0">Payment Receipt</h6>
@@ -213,7 +216,9 @@
       {% endif %}
     </div>
 
-    <div class="card p-3 mt-3">
+    {% endif %}
+
+    <div class="card p-3 {{ 'mt-3' if show_receipt }}">
       <h6>Send to Vendor</h6>
       <p class="small text-muted mb-2">Emails this PO directly, with the PDF attached.</p>
       <p class="small text-muted mb-2">

@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix235 — Vendor PO page: payment receipt box only once Confirmed
+- The "Payment Receipt" box on a vendor purchase order now shows only when its status is Confirmed (same
+  as trainer POs, Fix224). Draft, Sent and Cancelled go straight to "Send to Vendor".
+- If a receipt was already uploaded, the box stays visible whatever the status.
+
 ## Fix234 — Certificate QR for Code Attendance classes
 - New "Certificate QR" button next to "Copy Certificate List Link" on the T3 attendance page. It opens a
   full-screen page (same look as the sign-in QR) with a QR of the certificate list, for participants to
