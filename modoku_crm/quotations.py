@@ -522,26 +522,29 @@ def class_items(quotation_id, session_id, items=None):
     class: all of it (extra unlinked lines such as meals belong to that class).
     Several classes: only the lines linked to this class - and a line shared by
     several classes counts with this class's share of the fee, its own dates
-    and time (Fix201), so the class's grant quotation shows that batch only."""
+    and time (Fix201), and the class's own pax (Fix236), so the class's grant
+    quotation shows that batch only."""
     if items is None:
         items = db.query("SELECT * FROM quotation_items WHERE quotation_id = ? ORDER BY id", (quotation_id,))
     links = item_class_links(quotation_id)
     ids = linked_session_ids(quotation_id)
     if len(ids) <= 1:
         return list(items) if session_id in ids else []
-    cls = None
+    cls = db.query("SELECT start_date, end_date, training_time, day_times, capacity FROM course_sessions WHERE id = ?",
+                   (session_id,), one=True)
     out = []
     for item in items:
         item_links = links.get(item["id"], [])
         if session_id not in [sid for sid, _a in item_links]:
             continue
-        if len(item_links) == 1:
-            out.append(item)
-            continue
-        if cls is None:
-            cls = db.query("SELECT start_date, end_date, training_time, day_times FROM course_sessions WHERE id = ?",
-                           (session_id,), one=True)
         line = dict(item)
+        # Fix236: the pax is the class's own (its No. of Pax), not the line's
+        # total - e.g. one line of 60 pax quoted for 2 batches of 30.
+        if cls is not None and cls["capacity"]:
+            line["no_of_pax"] = cls["capacity"]
+        if len(item_links) == 1:
+            out.append(line)
+            continue
         line["investment_fee"] = class_shares(item["investment_fee"], item_links)[session_id]
         if cls is not None:
             line["item_date"] = cls["start_date"]

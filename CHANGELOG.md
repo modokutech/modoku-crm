@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix236 — Multi-class quotation: each class's own pax
+- On a quotation covering several classes, each class's grant quotation PDF now shows the class's own pax
+  (its Capacity) instead of the quotation line's total (e.g. 30 and 25 instead of 60 on both). The client's
+  full quotation is unchanged.
+
 ## Fix235 — Vendor PO page: payment receipt box only once Confirmed
 - The "Payment Receipt" box on a vendor purchase order now shows only when its status is Confirmed (same
   as trainer POs, Fix224). Draft, Sent and Cancelled go straight to "Send to Vendor".
