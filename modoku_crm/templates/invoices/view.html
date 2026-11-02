@@ -144,7 +144,7 @@
     </div>
     <div class="col-md-7">
       <div class="fw-bold small mb-1">Payment terms:</div>
-      <div class="small">Payment is due within 30 calendar days from the training completion date.</div>
+      <div class="small">Payment is due within {{ invoice.payment_due_days if invoice.payment_due_days is not none else 30 }} calendar days from the training completion date.</div>
     </div>
   </div>
 

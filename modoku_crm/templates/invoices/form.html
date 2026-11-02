@@ -84,10 +84,19 @@
         <label class="form-label">Grant ID</label>
         <input type="text" name="grant_id" id="grant_id" class="form-control" value="{{ inv.grant_id or '' }}">
       </div>
-      <div class="col-md-6">
+      <div class="col-md-3">
         <label class="form-label">Invoice date</label>
-        <input type="date" name="invoice_date" class="form-control" value="{{ inv.invoice_date or today }}">
-        <small class="text-muted">Due date is set automatically to 30 days after this date.</small>
+        <input type="date" name="invoice_date" id="invoice_date_field" class="form-control" value="{{ inv.invoice_date or today }}">
+      </div>
+      {# Fix243: due date = invoice date + these days; the payment terms on the invoice say the same. #}
+      <div class="col-md-3">
+        <label class="form-label">Payment due</label>
+        <div class="input-group">
+          <input type="number" min="0" max="365" step="1" name="payment_due_days" id="payment_due_days_field" class="form-control"
+                 value="{{ inv.payment_due_days if inv.payment_due_days is defined and inv.payment_due_days is not none else 30 }}">
+          <span class="input-group-text">days</span>
+        </div>
+        <small class="text-muted" id="due_date_hint">Due date: invoice date + days.</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Currency</label>
@@ -319,6 +328,24 @@ document.getElementById('session_id').addEventListener('change', fillFromClass);
 // Arriving from a class page on New Invoice: fill from it straight away.
 // Never on Edit, where the saved values are already in the form.
 if (!IS_EDIT && document.getElementById('session_id').value) { fillFromClass(); }
+
+// Fix243: show the due date the chosen payment terms give.
+(function () {
+  const dateField = document.getElementById('invoice_date_field');
+  const daysField = document.getElementById('payment_due_days_field');
+  const hint = document.getElementById('due_date_hint');
+  function update() {
+    const days = parseInt(daysField.value, 10);
+    if (!dateField.value || isNaN(days)) { hint.textContent = 'Due date: invoice date + days.'; return; }
+    const d = new Date(dateField.value + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + days);
+    hint.textContent = 'Due ' + d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+      + '. The payment terms on the invoice say ' + days + ' days.';
+  }
+  dateField.addEventListener('input', update);
+  daysField.addEventListener('input', update);
+  update();
+})();
 
 // Fix242: show only the boxes a line's "Charge by" uses - days for per day /
 // per pax per day, the unit word for per unit, no quantity for a lump sum.

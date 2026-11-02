@@ -249,6 +249,21 @@ def _form_choices():
                 leads=[{"name": l["name"], "company_id": l["company_id"]} for l in leads])
 
 
+DEFAULT_PAYMENT_DUE_DAYS = 30
+
+
+def payment_due_days(invoice):
+    """Fix243: how many days after the invoice date payment is due (30 by
+    default; 0-365)."""
+    try:
+        days = invoice["payment_due_days"]
+    except (KeyError, IndexError):
+        days = None
+    if days is None or days < 0 or days > 365:
+        return DEFAULT_PAYMENT_DUE_DAYS
+    return int(days)
+
+
 def _invoice_from_form(form):
     """Fix134: reads the New/Edit Invoice form. Returns (fields, items, error):
     fields is the invoices-table values, items the line items as tuples for
@@ -310,11 +325,13 @@ def _invoice_from_form(form):
     total = round(total - upfront_amount, 2)  # Fix114: the balance due
 
     invoice_date_value = form.get("invoice_date") or date.today().isoformat()
-    # Due date is always 30 days after the invoice date.
+    # Fix243: due N days after the invoice date (30 unless changed); the
+    # payment terms on the invoice say the same number.
+    due_days = payment_due_days({"payment_due_days": form.get("payment_due_days", type=int)})
     try:
-        due_date_value = (date.fromisoformat(invoice_date_value) + timedelta(days=30)).isoformat()
+        due_date_value = (date.fromisoformat(invoice_date_value) + timedelta(days=due_days)).isoformat()
     except ValueError:
-        due_date_value = (date.today() + timedelta(days=30)).isoformat()
+        due_date_value = (date.today() + timedelta(days=due_days)).isoformat()
     fields = {
         "company_id": form.get("company_id") or None,
         "bill_to_name": bill_to_name,
@@ -330,6 +347,7 @@ def _invoice_from_form(form):
         "buyer_tin": form.get("buyer_tin") or None,
         "invoice_date": invoice_date_value,
         "due_date": due_date_value,
+        "payment_due_days": due_days,
         "currency": form.get("currency") or "RM",
         "subtotal": subtotal,
         "sst_rate": sst_rate,

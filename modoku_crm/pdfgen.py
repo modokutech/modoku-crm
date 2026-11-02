@@ -763,7 +763,7 @@ def _build_invoice_html(invoice, items):
       </td>
       <td style="border:none;width:55%;vertical-align:top">
         <div style="font-weight:700;font-size:12px">Payment terms:</div>
-        <div style="font-size:12px">Payment is due within 30 calendar days from the training completion date.</div>
+        <div style="font-size:12px">Payment is due within {_due_days(invoice)} calendar days from the training completion date.</div>
       </td>
     </tr>
   </table>
@@ -804,6 +804,12 @@ _INV_PAGE_W_MM = 210 - 2 * _INV_MARGIN_MM
 _INV_PAGE_H_MM = 297 - 2 * _INV_MARGIN_MM
 _INV_PAGE_W_PX = 1000
 _INV_PX_SCALE = 0.211 / (_INV_PAGE_W_MM / _INV_PAGE_W_PX)
+
+
+def _due_days(invoice):
+    """Fix243: the invoice's payment terms in days (30 unless changed)."""
+    from .invoices import payment_due_days
+    return payment_due_days(invoice)
 
 
 def generate_invoice_pdf(invoice, items):
