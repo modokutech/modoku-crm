@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix241 — Attendance page: shorter button names
+- The T3 attendance page is titled "Attendance List" (was "T3 Attendance List").
+- "Copy QR Link for Trainer" is now "QR Attendance" and "Copy Certificate List Link" is now "Certificate
+  List". Both still copy their link (hover shows what they copy).
+
 ## Fix240 — Client confirmation email: paragraphs grouped by topic
 - The "Thank you, next step(s)" email after a signed quotation now has three short paragraphs instead of
   four one-liners: what to do (attendance list), what comes next (calendar invite + HRDCorp documents),
