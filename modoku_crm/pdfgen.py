@@ -763,7 +763,7 @@ def _build_invoice_html(invoice, items):
       </td>
       <td style="border:none;width:55%;vertical-align:top">
         <div style="font-weight:700;font-size:12px">Payment terms:</div>
-        <div style="font-size:12px">Payment is due within {_due_days(invoice)} calendar days from the training completion date.</div>
+        <div style="font-size:12px">Payment is due within {_due_days(invoice)} calendar days from the invoice date.</div>
       </td>
     </tr>
   </table>

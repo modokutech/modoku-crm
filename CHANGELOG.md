@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix244 — Invoice payment terms count from the invoice date
+- The payment terms now read "Payment is due within N calendar days from the invoice date." (was "from the
+  training completion date"), matching how the due date is worked out.
+
 ## Fix243 — Invoice: editable payment due days
 - New "Payment due" field (days) next to Invoice date on the invoice form, 30 by default. The due date is
   the invoice date plus these days (the form shows the resulting date as you type), and the payment terms
