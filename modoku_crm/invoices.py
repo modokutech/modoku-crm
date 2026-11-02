@@ -4,7 +4,7 @@ from datetime import date, timedelta
 
 from flask import Blueprint, Response, current_app, flash, g, redirect, render_template, request, url_for
 
-from . import activity, db, fmtdate, fmtmoney, mailer, notifications, parse_money
+from . import activity, db, fmtdate, fmtmoney, invoice_lines, mailer, notifications, parse_money
 from . import invoice_payments as payments_mod
 from . import settings as settings_module
 from .auth import admin_required, login_required
@@ -262,27 +262,35 @@ def _invoice_from_form(form):
         return None, None, "Add at least one invoice line item."
     subtotal = 0.0
     items = []
-    for desc, qty, price, eid, duration, venue, item_date, item_date_end in zip(
+    n = len(descriptions)
+    charge_bys = form.getlist("item_charge_by") or ["day"] * n
+    unit_labels = form.getlist("item_unit_label") or [""] * n
+    for desc, qty, price, eid, duration, venue, item_date, item_date_end, charge_by, unit_label in zip(
         descriptions, form.getlist("item_quantity"), form.getlist("item_unit_price"),
         form.getlist("item_enrollment_id"), form.getlist("item_duration"), form.getlist("item_venue"),
-        form.getlist("item_date"), form.getlist("item_date_end"),
+        form.getlist("item_date"), form.getlist("item_date_end"), charge_bys, unit_labels,
     ):
         if not desc.strip():
             continue
         qty_f = float(qty or 1)
         price_f = parse_money(price)
-        # Duration is a number of days - Amount is Unit Price x Duration only
-        # (No. of Pax is a headcount for the record, not part of the money math).
+        # Fix242: the amount follows the line's "charge by" basis (see
+        # invoice_lines): per day (rate x days, the default), per pax, per pax
+        # per day, per unit, or a lump sum.
+        charge_by = charge_by if charge_by in invoice_lines.CHARGE_KEYS else "day"
         duration_f = float(duration or 1) or 1
-        amount = round(duration_f * price_f, 2)
+        amount = invoice_lines.line_amount(charge_by, price_f, qty_f, duration_f)
         subtotal += amount
+        unit_label = (unit_label or "").strip()[:30] or (invoice_lines.DEFAULT_UNIT if charge_by == "unit" else None)
         # An end date only makes sense if it's a distinct, later day than
         # the start date - same-day/blank end dates are ignored.
         date_end = item_date_end or None
         if not item_date or not date_end or date_end <= item_date:
             date_end = None
         items.append((desc.strip(), qty_f, price_f, amount, eid or None,
-                      f"{duration_f:g} day(s)", venue.strip() or None, item_date or None, date_end))
+                      f"{duration_f:g} day(s)" if invoice_lines.uses_days(charge_by) else None,
+                      venue.strip() or None, item_date or None, date_end,
+                      charge_by, unit_label if charge_by == "unit" else None))
 
     sst_rate = float(form.get("sst_rate") or 0)
     sst_inclusive = 1 if form.get("sst_inclusive") else 0
@@ -339,12 +347,13 @@ def _invoice_from_form(form):
 
 
 def _save_items(invoice_id, items):
-    for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end in items:
+    for desc, qty_f, price_f, amount, eid, duration, venue, item_date, date_end, charge_by, unit_label in items:
         db.execute(
             """INSERT INTO invoice_items (invoice_id, enrollment_id, description, quantity,
-                   unit_price, amount, duration, venue, item_date, item_date_end)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (invoice_id, eid, desc, qty_f, price_f, amount, duration, venue, item_date, date_end),
+                   unit_price, amount, duration, venue, item_date, item_date_end, charge_by, unit_label)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (invoice_id, eid, desc, qty_f, price_f, amount, duration, venue, item_date, date_end,
+             charge_by, unit_label),
         )
 
 

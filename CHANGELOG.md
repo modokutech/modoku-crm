@@ -10,6 +10,15 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix242 — Invoice lines: charge by day, pax, pax per day, unit or lump sum
+- Each invoice line has a "Charge by": Per day (rate x days, the default and every existing line), Per pax
+  (rate x pax), Per pax per day (rate x pax x days), Per unit (rate x quantity, with a unit word you can
+  rename, pre-filled "unit") or Lump sum (the amount as typed).
+- The form shows only the boxes a line uses and the totals update live. The invoice page and PDF show the
+  basis: "2 day(s)", "81 pax", "40 room", and the rate as "557.88 / room", "120 / pax / day". The quantity
+  column is "Qty" when a line is charged per unit, otherwise "No. of Pax".
+- New columns `invoice_items.charge_by` and `unit_label` (added automatically on boot). Quotations unchanged.
+
 ## Fix241 — Attendance page: shorter button names
 - The T3 attendance page is titled "Attendance List" (was "T3 Attendance List").
 - "Copy QR Link for Trainer" is now "QR Attendance" and "Copy Certificate List Link" is now "Certificate

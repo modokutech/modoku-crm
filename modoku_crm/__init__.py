@@ -309,6 +309,8 @@ def create_app(config_object="config.Config"):
     app.jinja_env.filters["sched_dates"] = _schedule.jinja_dates
     app.jinja_env.filters["linelist"] = linelist
     app.jinja_env.filters["fmtmoney"] = fmtmoney
+    from . import invoice_lines as _invoice_lines
+    app.jinja_env.globals["invoice_lines"] = _invoice_lines  # Fix242
     app.jinja_env.filters["fmtdays"] = fmtdays
     app.jinja_env.filters["fmtrate"] = fmtrate
     # A global rather than a filter — it takes four separate columns, so

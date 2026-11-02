@@ -16,6 +16,7 @@ from markupsafe import escape
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from . import fmtmoney, fmtrate
+from . import invoice_lines as _invoice_lines
 
 
 # The certificate's signee — a fixed company signatory (not the logged-in
@@ -579,7 +580,9 @@ def _build_invoice_html(invoice, items):
         # every line item), so it's no longer a useful signal for "is this a
         # training row with extra scheduling detail" — venue/date still are.
         is_training_row = bool(item["venue"] or item["item_date"])
-        qty_display = _fmt_qty(item["quantity"]) + (" pax" if is_training_row else "")
+        qty_display = _invoice_lines.qty_text(item, is_training_row)  # Fix242
+        rate_display = ("" if _invoice_lines.basis(item) == "lump"
+                        else fmtmoney(item["unit_price"]) + _invoice_lines.rate_suffix(item))
         sub_detail = ""
         if is_training_row:
             # Fix102: Programme, Date, Pax, Venue as a two-column table - the
@@ -590,7 +593,9 @@ def _build_invoice_html(invoice, items):
             details = []
             if item["item_date"]:
                 details.append(("Date", _fmtdaterange(item["item_date"], item["item_date_end"])))
-            details.append(("Pax", f"{_fmt_qty(item['quantity'])} pax"))
+            dq = _invoice_lines.detail_qty(item)
+            if dq:
+                details.append(dq)
             if item["venue"]:
                 details.append(("Venue", item["venue"]))
             cell = "border:none;padding:2px 0;vertical-align:top;font-size:12px"
@@ -608,7 +613,7 @@ def _build_invoice_html(invoice, items):
             f"<td style='font-weight:600;vertical-align:top'>{item['description']}{sub_detail}</td>"
             f"<td style='vertical-align:top'>{item['duration'] or ''}</td>"
             f"<td style='text-align:right;vertical-align:top;white-space:nowrap'>{qty_display}</td>"
-            f"<td style='text-align:right;vertical-align:top'>{fmtmoney(item['unit_price'])}</td>"
+            f"<td style='text-align:right;vertical-align:top'>{rate_display}</td>"
             f"<td style='text-align:right;vertical-align:top'>{fmtmoney(item['amount'])}</td></tr>"
         )
     item_rows_html = "".join(item_rows)
@@ -725,7 +730,7 @@ def _build_invoice_html(invoice, items):
 
   <table>
     <thead><tr><th style="width:5%">No.</th><th>Description</th><th style="width:10%">Duration</th>
-      <th style="text-align:right;width:10%">No. of Pax</th><th style="text-align:right">Rate ({invoice['currency']})</th>
+      <th style="text-align:right;width:10%">{_invoice_lines.qty_header(items)}</th><th style="text-align:right">Rate ({invoice['currency']})</th>
       <th style="text-align:right">Amount ({invoice['currency']})</th></tr></thead>
     <tbody>
       {item_rows_html}

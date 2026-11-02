@@ -1174,6 +1174,8 @@ _COLUMN_MIGRATIONS = [
     ("invoice_items", "venue", "TEXT"),
     ("invoice_items", "item_date", "TEXT"),
     ("invoice_items", "item_date_end", "TEXT"),
+    ("invoice_items", "charge_by", "TEXT"),  # Fix242: day / pax / pax_day / unit / lump (NULL = day)
+    ("invoice_items", "unit_label", "TEXT"),  # Fix242: the unit word for "per unit" lines
     ("course_sessions", "client_logo_file", "TEXT"),
     ("quotations", "sst_rate", "REAL NOT NULL DEFAULT 0"),
     ("leads", "proposal_file", "TEXT"),

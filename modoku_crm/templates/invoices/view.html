@@ -88,7 +88,7 @@
   <table class="table table-sm invoice-doc-table">
     <thead><tr>
       <th style="width:5%">No.</th><th>Description</th><th style="width:10%">Duration</th>
-      <th class="text-end text-nowrap" style="width:10%">No. of Pax</th><th class="text-end">Rate ({{ invoice.currency }})</th><th class="text-end">Amount ({{ invoice.currency }})</th>
+      <th class="text-end text-nowrap" style="width:10%">{{ invoice_lines.qty_header(items) }}</th><th class="text-end">Rate ({{ invoice.currency }})</th><th class="text-end">Amount ({{ invoice.currency }})</th>
     </tr></thead>
     <tbody>
     {% for it in items %}
@@ -96,8 +96,8 @@
         <td>{{ '%02d'|format(loop.index) }}</td>
         <td class="fw-semibold">{{ it.description }}</td>
         <td>{{ it.duration or '' }}</td>
-        <td class="text-end text-nowrap">{{ it.quantity|int if it.quantity == it.quantity|int else it.quantity }}{{ ' pax' if it.venue or it.item_date }}</td>
-        <td class="text-end">{{ it.unit_price|fmtmoney }}</td>
+        <td class="text-end text-nowrap">{{ invoice_lines.qty_text(it, it.venue or it.item_date) }}</td>
+        <td class="text-end">{% if invoice_lines.basis(it) != 'lump' %}{{ it.unit_price|fmtmoney }}<span class="text-muted small">{{ invoice_lines.rate_suffix(it) }}</span>{% endif %}</td>
         <td class="text-end">{{ it.amount|fmtmoney }}</td>
       </tr>
       {% if it.venue or it.item_date %}
@@ -108,7 +108,7 @@
              Fix135: no Programme line, it only repeated the description above. #}
           <table class="small invoice-doc-details">
             {% if it.item_date %}<tr><td>Date:</td><td>{{ it.item_date|fmtdaterange(it.item_date_end) }}</td></tr>{% endif %}
-            <tr><td>Pax:</td><td>{{ it.quantity|int if it.quantity == it.quantity|int else it.quantity }} pax</td></tr>
+            {% set dq = invoice_lines.detail_qty(it) %}{% if dq %}<tr><td>{{ dq[0] }}:</td><td>{{ dq[1] }}</td></tr>{% endif %}
             {% if it.venue %}<tr><td>Venue:</td><td>{{ it.venue }}</td></tr>{% endif %}
           </table>
         </td>

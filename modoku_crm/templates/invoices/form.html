@@ -112,7 +112,7 @@
           <th>Venue <span class="text-muted fw-normal">(optional)</span></th>
           <th>Date <span class="text-muted fw-normal">(optional)</span></th>
           <th>End date <span class="text-muted fw-normal">(optional)</span></th>
-          <th>No. of Pax</th><th style="width:11%">Duration</th><th>Unit price (RM)</th><th></th>
+          <th style="width:11%">Charge by</th><th>No. of Pax / Qty</th><th style="width:11%">Duration</th><th>Rate (RM)</th><th></th>
         </tr></thead>
         <tbody>
           {% for it in (items or [{}]) %}
@@ -129,14 +129,24 @@
             <td><input type="text" name="item_venue" class="form-control form-control-sm" value="{{ it.venue or '' }}"></td>
             <td><input type="date" name="item_date" class="form-control form-control-sm" value="{{ it.item_date or '' }}"></td>
             <td><input type="date" name="item_date_end" class="form-control form-control-sm" value="{{ it.item_date_end or '' }}"></td>
-            <td><input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm" value="{{ (it.quantity|fmtrate) if it.quantity is defined and it.quantity is not none else 1 }}"></td>
+            {# Fix242: how the line is charged - see invoice_lines. #}
+            {% set cb = invoice_lines.basis(it) if it.description is defined else 'day' %}
             <td>
-              <div class="input-group input-group-sm">
+              <select name="item_charge_by" class="form-select form-select-sm charge-by" style="min-width:150px">
+                {% for key, label in invoice_lines.CHARGE_BASES %}<option value="{{ key }}" {{ 'selected' if cb == key }}>{{ label }}</option>{% endfor %}
+              </select>
+            </td>
+            <td>
+              <input type="number" step="1" min="0" name="item_quantity" class="form-control form-control-sm qty-input" style="min-width:70px" value="{{ (it.quantity|fmtrate) if it.quantity is defined and it.quantity is not none else 1 }}">
+              <input type="text" name="item_unit_label" class="form-control form-control-sm mt-1 unit-label" maxlength="30" placeholder="unit, e.g. room" value="{{ (it.unit_label or 'unit') if cb == 'unit' else 'unit' }}">
+            </td>
+            <td>
+              <div class="input-group input-group-sm duration-group">
                 <input type="number" step="any" min="0" name="item_duration" class="form-control" value="{{ (it.duration_days|fmtrate) if it.duration_days is defined and it.duration_days is not none else 1 }}">
                 <span class="input-group-text">day(s)</span>
               </div>
             </td>
-            <td><input type="number" step="0.01" min="0" name="item_unit_price" data-money class="form-control form-control-sm" value="{{ '%.2f'|format(it.unit_price) if it.unit_price is defined and it.unit_price is not none else 0 }}"></td>
+            <td><input type="number" step="0.01" min="0" name="item_unit_price" data-money class="form-control form-control-sm" style="min-width:110px" value="{{ '%.2f'|format(it.unit_price) if it.unit_price is defined and it.unit_price is not none else 0 }}"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button></td>
           </tr>
           {% endfor %}
@@ -310,11 +320,26 @@ document.getElementById('session_id').addEventListener('change', fillFromClass);
 // Never on Edit, where the saved values are already in the form.
 if (!IS_EDIT && document.getElementById('session_id').value) { fillFromClass(); }
 
+// Fix242: show only the boxes a line's "Charge by" uses - days for per day /
+// per pax per day, the unit word for per unit, no quantity for a lump sum.
+function syncChargeBy(row) {
+  const cb = row.querySelector('select[name="item_charge_by"]').value;
+  row.querySelector('.duration-group').style.visibility = (cb === 'day' || cb === 'pax_day') ? '' : 'hidden';
+  row.querySelector('.qty-input').style.visibility = cb === 'lump' ? 'hidden' : '';
+  row.querySelector('.unit-label').style.display = cb === 'unit' ? '' : 'none';
+}
+document.querySelectorAll('#items-table tbody tr').forEach(syncChargeBy);
+document.querySelector('#items-table').addEventListener('change', function (e) {
+  if (e.target.name === 'item_charge_by') syncChargeBy(e.target.closest('tr'));
+});
+
 function rowTemplate() {
   const tbody = document.querySelector('#items-table tbody');
   const first = tbody.querySelector('tr').cloneNode(true);
-  first.querySelectorAll('input').forEach(i => i.value = (i.name === 'item_quantity' || i.name === 'item_duration') ? 1 : (i.name === 'item_unit_price' ? 0 : ''));
+  first.querySelectorAll('input').forEach(i => i.value = (i.name === 'item_quantity' || i.name === 'item_duration') ? 1 : (i.name === 'item_unit_price' ? 0 : (i.name === 'item_unit_label' ? 'unit' : '')));
   first.querySelector('select[name="item_enrollment_id"]').selectedIndex = 0;
+  first.querySelector('select[name="item_charge_by"]').value = 'day';
+  syncChargeBy(first);
   return first;
 }
 document.getElementById('add-row').addEventListener('click', function () {
@@ -341,8 +366,8 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
 // Live Sub-total / SST / Total preview, recalculates as the user edits
 // line items, the SST rate, or toggles "This amount is SST included".
 // Mirrors the server-side math in invoices.py's new() route exactly
-// (amount per row = unit price x duration; quantity/pax isn't part of the
-// money math), so what's previewed here is what actually gets saved.
+// (amount per row follows its Charge by: rate x days by default, or per
+// pax / per pax per day / per unit / lump sum - Fix242), so what's previewed here is what actually gets saved.
 (function () {
   const sstInclusiveCheck = document.getElementById('sst_inclusive_check');
   const sstRateField = document.getElementById('sst_rate_field');
@@ -359,7 +384,13 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
     document.querySelectorAll('#items-table tbody tr').forEach(function (row) {
       const price = moneyValue(row.querySelector('input[name="item_unit_price"]'));
       const duration = parseFloat(row.querySelector('input[name="item_duration"]').value) || 0;
-      enteredTotal += price * duration;
+      const qty = parseFloat(row.querySelector('input[name="item_quantity"]').value) || 0;
+      const cb = row.querySelector('select[name="item_charge_by"]').value;
+      // Fix242: same maths as invoice_lines.line_amount
+      const amount = cb === 'pax' || cb === 'unit' ? price * qty
+                   : cb === 'pax_day' ? price * qty * duration
+                   : cb === 'lump' ? price : price * duration;
+      enteredTotal += Math.round(amount * 100) / 100;
     });
     const rate = parseFloat(sstRateField.value) || 0;
     let subtotal, sstAmount, grandTotal;
@@ -406,7 +437,10 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
   upfrontValue.addEventListener('input', recalc);
 
   document.querySelector('#items-table').addEventListener('input', function (e) {
-    if (e.target.name === 'item_unit_price' || e.target.name === 'item_duration') recalc();
+    if (e.target.name === 'item_unit_price' || e.target.name === 'item_duration' || e.target.name === 'item_quantity') recalc();
+  });
+  document.querySelector('#items-table').addEventListener('change', function (e) {
+    if (e.target.name === 'item_charge_by') recalc();
   });
   document.querySelector('#items-table').addEventListener('click', function () {
     setTimeout(recalc, 0);
