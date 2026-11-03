@@ -183,11 +183,21 @@
             add SST on top instead.</span>
         </div>
       </div>
+      {# Fix246: on for new invoices and drafts; an already-issued invoice keeps its amount unless ticked. #}
+      {% set round_on = (not invoice) or invoice.rounding_adj is not none or invoice.status == 'Draft' %}
+      <div class="col-12">
+        <div class="form-check">
+          <input type="checkbox" class="form-check-input" id="round_total_check" name="round_total" value="1" {{ 'checked' if round_on }}>
+          <label class="form-check-label" for="round_total_check">Round the total to the nearest 5 sen</label>
+          <span class="text-muted small">(shown as a "Rounding" line; lines and SST stay exact)</span>
+        </div>
+      </div>
       <div class="col-12">
         <label class="form-label">Totals preview</label>
         <div class="d-flex flex-wrap gap-4 align-items-baseline border rounded px-3 py-2 bg-light">
           <div><span class="text-muted small d-block">Sub-total</span><span id="preview_subtotal" class="fw-semibold">RM 0.00</span></div>
           <div><span class="text-muted small d-block">SST</span><span id="preview_sst" class="fw-semibold">RM 0.00</span></div>
+          <div id="preview_rounding_box" hidden><span class="text-muted small d-block">Rounding</span><span id="preview_rounding" class="fw-semibold">RM 0.00</span></div>
           <div><span class="text-muted small d-block">Total</span><span id="preview_total" class="fw-bold">RM 0.00</span></div>
           <div class="upfront-preview" hidden><span class="text-muted small d-block" id="preview_upfront_label">Less: Upfront Payment</span><span id="preview_upfront" class="fw-semibold">(RM 0.00)</span></div>
           <div class="upfront-preview" hidden><span class="text-muted small d-block">Balance Due</span><span id="preview_balance" class="fw-bold">RM 0.00</span></div>
@@ -433,6 +443,15 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
     previewSubtotal.textContent = fmt(subtotal);
     previewSst.textContent = fmt(sstAmount);
     previewTotal.textContent = fmt(grandTotal);
+    // Fix246: the amount due to the nearest 5 sen (same as invoices.round5)
+    const roundOn = document.getElementById('round_total_check').checked;
+    function round5(x) { return Math.round(Math.round(x * 100) / 5) * 5 / 100; }
+    function showRounding(due) {
+      const adj = roundOn ? Math.round((round5(due) - due) * 100) / 100 : 0;
+      document.getElementById('preview_rounding_box').hidden = !adj;
+      document.getElementById('preview_rounding').textContent = (adj > 0 ? '+' : '') + fmt(adj);
+      return Math.round((due + adj) * 100) / 100;
+    }
 
     // Fix114: upfront payment, taken off the total after SST.
     const upfrontOn = upfrontCheck.checked;
@@ -444,7 +463,9 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
       document.getElementById('preview_upfront_label').textContent =
         isPercent && value ? 'Less: ' + value + '% Upfront Payment' : 'Less: Upfront Payment';
       document.getElementById('preview_upfront').textContent = '(' + fmt(amount) + ')';
-      document.getElementById('preview_balance').textContent = fmt(Math.round((grandTotal - amount) * 100) / 100);
+      document.getElementById('preview_balance').textContent = fmt(showRounding(Math.round((grandTotal - amount) * 100) / 100));
+    } else {
+      previewTotal.textContent = fmt(showRounding(grandTotal));
     }
   }
 
@@ -474,6 +495,7 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
   });
   sstRateField.addEventListener('input', recalc);
   sstInclusiveCheck.addEventListener('change', recalc);
+  document.getElementById('round_total_check').addEventListener('change', recalc);
   recalc();
 })();
 </script>

@@ -743,6 +743,7 @@ def _build_invoice_html(invoice, items):
         <tr><td class="muted" style="border:none">Sub-total</td><td style="border:none;text-align:right">{fmtmoney(invoice['subtotal'])}</td></tr>
         {sst_row}
         {upfront_rows}
+        {_rounding_row(invoice)}
         <tr style="font-weight:700" class="brand"><td style="border-top:1px solid #d8dce3">{'Balance Due' if upfront_rows else 'Total Due'}</td>
           <td style="border-top:1px solid #d8dce3;text-align:right">{invoice['currency']} {fmtmoney(invoice['total'])}</td></tr>
       </table>
@@ -804,6 +805,16 @@ _INV_PAGE_W_MM = 210 - 2 * _INV_MARGIN_MM
 _INV_PAGE_H_MM = 297 - 2 * _INV_MARGIN_MM
 _INV_PAGE_W_PX = 1000
 _INV_PX_SCALE = 0.211 / (_INV_PAGE_W_MM / _INV_PAGE_W_PX)
+
+
+def _rounding_row(invoice):
+    """Fix246: the 'Rounding' line (to the nearest 5 sen) above Total Due."""
+    adj = invoice["rounding_adj"] if "rounding_adj" in invoice.keys() else None
+    if not adj:
+        return ""
+    sign = "+" if adj > 0 else ""
+    return (f"<tr><td class='muted' style='border:none'>Rounding</td>"
+            f"<td style='border:none;text-align:right'>{sign}{fmtmoney(adj)}</td></tr>")
 
 
 def _due_days(invoice):

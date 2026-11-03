@@ -10,6 +10,14 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix246 — Invoice total rounded to the nearest 5 sen
+- New and draft invoices round the amount due to the nearest 5 sen (Bank Negara's rounding mechanism:
+  1-2 sen down, 3-4 up to 5, 6-7 down to 5, 8-9 up). It shows as a "Rounding" line above Total Due /
+  Balance Due on the invoice page and PDF (e.g. +0.02 -> RM 7,998.45). Lines, sub-total and SST stay exact.
+- A tick box under the line items ("Round the total to the nearest 5 sen") is on by default for new and
+  draft invoices; already-issued invoices keep their amount unless it's ticked on Edit.
+- New column `invoices.rounding_adj` (added on boot).
+
 ## Fix245 — Invoice email goes to the PIC by default
 - "Send to" on an invoice now defaults to the PIC: first the lead whose name is in Attn (at the invoice's
   client, matched ignoring case and spacing), then the linked class's PIC, and only then the client

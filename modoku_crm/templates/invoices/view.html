@@ -127,6 +127,7 @@
       {% if invoice.sst_amount %}<tr><td class="text-muted">Total</td><td class="text-end">{{ (invoice.subtotal + invoice.sst_amount)|fmtmoney }}</td></tr>{% endif %}
       <tr><td class="text-muted">{{ upfront }}</td><td class="text-end">({{ invoice.upfront_amount|fmtmoney }})</td></tr>
       {% endif %}
+      {% if invoice.rounding_adj %}<tr><td class="text-muted">Rounding</td><td class="text-end">{{ '+' if invoice.rounding_adj > 0 }}{{ invoice.rounding_adj|fmtmoney }}</td></tr>{% endif %}
       <tr class="fw-bold border-top" style="color:var(--brand)"><td>{{ 'Balance Due' if upfront else 'Total Due' }}</td><td class="text-end">{{ invoice.currency }} {{ invoice.total|fmtmoney }}</td></tr>
     </table>
   </div>

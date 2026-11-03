@@ -276,6 +276,13 @@ def _form_choices():
                 leads=[{"name": l["name"], "company_id": l["company_id"]} for l in leads])
 
 
+def round5(amount):
+    """Fix246: to the nearest 5 sen - 1-2 sen down, 3-4 up to 5, 6-7 down to
+    5, 8-9 up (7,998.43 -> 7,998.45; 7,998.42 -> 7,998.40)."""
+    cents = round(amount * 100)
+    return round(round(cents / 5) * 5 / 100, 2)
+
+
 DEFAULT_PAYMENT_DUE_DAYS = 30
 
 
@@ -350,6 +357,14 @@ def _invoice_from_form(form):
     if upfront_error:
         return None, None, upfront_error
     total = round(total - upfront_amount, 2)  # Fix114: the balance due
+    # Fix246: the amount due rounded to the nearest 5 sen (Bank Negara's
+    # rounding mechanism), shown as its own "Rounding" line. Lines, sub-total
+    # and SST stay exact.
+    rounding_adj = None
+    if form.get("round_total"):
+        rounded = round5(total)
+        rounding_adj = round(rounded - total, 2)
+        total = rounded
 
     invoice_date_value = form.get("invoice_date") or date.today().isoformat()
     # Fix243: due N days after the invoice date (30 unless changed); the
@@ -375,6 +390,7 @@ def _invoice_from_form(form):
         "invoice_date": invoice_date_value,
         "due_date": due_date_value,
         "payment_due_days": due_days,
+        "rounding_adj": rounding_adj,
         "currency": form.get("currency") or "RM",
         "subtotal": subtotal,
         "sst_rate": sst_rate,
