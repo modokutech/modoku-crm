@@ -103,10 +103,37 @@ def _next_invoice_no(consume=True):
 
 
 def _invoice_pic(invoice):
-    """Fix100: the PIC (leads row: name, email) of the class this invoice is
-    for, or None. The class is the one it was created from (session_id);
-    older invoices, created before that was stored, are matched on the
-    HRDCorp Grant ID when exactly one class carries it."""
+    """Fix100: the PIC (leads row: name, email) this invoice goes to, or None.
+    Fix245: first the person in Attn (a lead with that name, at the invoice's
+    client if it has one), then the PIC of the class it was created from."""
+    pic = _attention_lead(invoice)
+    return pic or _class_pic(invoice)
+
+
+def _attention_lead(invoice):
+    """Fix245: the lead whose name is the invoice's Attn, with an email - at
+    the invoice's client company when there is one, else the only lead with
+    that name."""
+    keys = invoice.keys()
+    name = (invoice["attention_to"] if "attention_to" in keys else None) or ""
+    name = " ".join(name.split())
+    if not name:
+        return None
+    company_id = invoice["company_id"] if "company_id" in keys else None
+    rows = db.query("SELECT name, email, company_id FROM leads WHERE lower(trim(name)) = lower(?) "
+                    "AND email IS NOT NULL AND trim(email) != ''", (name,))
+    if company_id:
+        same = [r for r in rows if r["company_id"] == company_id]
+        if same:
+            return same[0]
+    return rows[0] if len(rows) == 1 else None
+
+
+def _class_pic(invoice):
+    """Fix100: the PIC of the class this invoice is for. The class is the one
+    it was created from (session_id); older invoices, created before that was
+    stored, are matched on the HRDCorp Grant ID when exactly one class
+    carries it."""
     session_id = invoice["session_id"] if "session_id" in invoice.keys() else None
     if not session_id and invoice["grant_id"]:
         matches = db.query("SELECT id FROM course_sessions WHERE hrdcorp_grant_id = ?", (invoice["grant_id"],))

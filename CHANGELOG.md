@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix245 — Invoice email goes to the PIC by default
+- "Send to" on an invoice now defaults to the PIC: first the lead whose name is in Attn (at the invoice's
+  client, matched ignoring case and spacing), then the linked class's PIC, and only then the client
+  company's general email. Before, an invoice not created from a class (or whose class had no PIC) always
+  defaulted to the company email.
+
 ## Fix244 — Invoice payment terms count from the invoice date
 - The payment terms now read "Payment is due within N calendar days from the invoice date." (was "from the
   training completion date"), matching how the due date is worked out.
