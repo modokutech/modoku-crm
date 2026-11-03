@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix247 — Invoice line amounts rounded to the nearest 5 sen too
+- With rounding on (the default for new and draft invoices), each line's amount is also rounded to the
+  nearest 5 sen (e.g. 2,749.99 -> 2,750; 4,655.96 -> 4,655.95), so the sub-total is too. SST is worked out
+  on that sub-total and the total still gets the "Rounding" line if needed. The tick box now reads "Round
+  amounts to the nearest 5 sen".
+
 ## Fix246 — Invoice total rounded to the nearest 5 sen
 - New and draft invoices round the amount due to the nearest 5 sen (Bank Negara's rounding mechanism:
   1-2 sen down, 3-4 up to 5, 6-7 down to 5, 8-9 up). It shows as a "Rounding" line above Total Due /

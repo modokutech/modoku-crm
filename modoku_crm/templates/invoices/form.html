@@ -188,8 +188,8 @@
       <div class="col-12">
         <div class="form-check">
           <input type="checkbox" class="form-check-input" id="round_total_check" name="round_total" value="1" {{ 'checked' if round_on }}>
-          <label class="form-check-label" for="round_total_check">Round the total to the nearest 5 sen</label>
-          <span class="text-muted small">(shown as a "Rounding" line; lines and SST stay exact)</span>
+          <label class="form-check-label" for="round_total_check">Round amounts to the nearest 5 sen</label>
+          <span class="text-muted small">(each line's amount, and the total with a "Rounding" line)</span>
         </div>
       </div>
       <div class="col-12">
@@ -427,7 +427,8 @@ document.querySelector('#items-table').addEventListener('change', function (e) {
       const amount = cb === 'pax' || cb === 'unit' ? price * qty
                    : cb === 'pax_day' ? price * qty * duration
                    : cb === 'lump' ? price : price * duration;
-      enteredTotal += Math.round(amount * 100) / 100;
+      const roundLines = document.getElementById('round_total_check').checked;  // Fix247
+      enteredTotal += roundLines ? Math.round(Math.round(amount * 100) / 5) * 5 / 100 : Math.round(amount * 100) / 100;
     });
     const rate = parseFloat(sstRateField.value) || 0;
     let subtotal, sstAmount, grandTotal;

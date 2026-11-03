@@ -311,6 +311,7 @@ def _invoice_from_form(form):
         return None, None, "Add at least one invoice line item."
     subtotal = 0.0
     items = []
+    rounding_on = bool(form.get("round_total"))
     n = len(descriptions)
     charge_bys = form.getlist("item_charge_by") or ["day"] * n
     unit_labels = form.getlist("item_unit_label") or [""] * n
@@ -329,6 +330,8 @@ def _invoice_from_form(form):
         charge_by = charge_by if charge_by in invoice_lines.CHARGE_KEYS else "day"
         duration_f = float(duration or 1) or 1
         amount = invoice_lines.line_amount(charge_by, price_f, qty_f, duration_f)
+        if rounding_on:  # Fix247: each line's amount to the nearest 5 sen too
+            amount = round5(amount)
         subtotal += amount
         unit_label = (unit_label or "").strip()[:30] or (invoice_lines.DEFAULT_UNIT if charge_by == "unit" else None)
         # An end date only makes sense if it's a distinct, later day than
@@ -350,6 +353,7 @@ def _invoice_from_form(form):
         subtotal = round(total / (1 + sst_rate / 100), 2)
         sst_amount = round(total - subtotal, 2)
     else:
+        subtotal = round(subtotal, 2)  # no float noise like 7405.950000000001
         sst_amount = round(subtotal * sst_rate / 100, 2)
         total = round(subtotal + sst_amount, 2)
 
@@ -358,10 +362,10 @@ def _invoice_from_form(form):
         return None, None, upfront_error
     total = round(total - upfront_amount, 2)  # Fix114: the balance due
     # Fix246: the amount due rounded to the nearest 5 sen (Bank Negara's
-    # rounding mechanism), shown as its own "Rounding" line. Lines, sub-total
-    # and SST stay exact.
+    # rounding mechanism), shown as its own "Rounding" line. Each line's
+    # amount is rounded too (Fix247); SST stays as calculated.
     rounding_adj = None
-    if form.get("round_total"):
+    if rounding_on:
         rounded = round5(total)
         rounding_adj = round(rounded - total, 2)
         total = rounded
