@@ -164,6 +164,27 @@ def signatures_by_participant(session_id):
     return result
 
 
+def signed_times(session_id):
+    """Fix249: participant_id -> {training_date_iso: '8:42 AM'} - when each
+    e-signature was signed, in Malaysia time (marked_at is stored as UTC)."""
+    from datetime import timezone
+    rows = db.query(
+        """SELECT tda.participant_id, tda.training_date, tda.marked_at FROM t3_day_attendance tda
+           JOIN t3_participants p ON p.id = tda.participant_id
+           WHERE p.session_id = ? AND tda.signature_file IS NOT NULL""",
+        (session_id,),
+    )
+    result = {}
+    for row in rows:
+        try:
+            utc = datetime.fromisoformat(str(row["marked_at"]).replace(" ", "T")).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        kl = utc.astimezone(APP_TZ)
+        result.setdefault(row["participant_id"], {})[row["training_date"]] = kl.strftime("%-I:%M %p")
+    return result
+
+
 def _sync_attended_rollup(participant_id, session_id):
     session_row = db.query("SELECT * FROM course_sessions WHERE id = ?", (session_id,), one=True)
     if session_row is None:

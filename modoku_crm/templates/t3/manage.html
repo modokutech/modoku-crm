@@ -221,9 +221,10 @@ Ravi Kumar" required></textarea>
                 {% set sig = signatures_by_participant.get(p.id, {}).get(day) %}
                 {% set label = 'Day ' ~ loop.index ~ ', ' ~ (day|fmtdate) %}
                 {% if sig %}
+                {% set at = signed_times.get(p.id, {}).get(day) %}
                 <a href="{{ url_for('t3.view_signature', participant_id=p.id, training_date=day) }}" target="_blank"
-                   class="text-success me-2 text-decoration-none" title="Signed for {{ label }}, view">
-                  {% if training_days|length > 1 %}<small class="fw-semibold">D{{ loop.index }}</small>{% endif %}<i class="bi bi-pen-fill"></i>
+                   class="text-success me-2 text-decoration-none" title="Signed for {{ label }}{{ ' at ' ~ at if at }}, view">
+                  {% if training_days|length > 1 %}<small class="fw-semibold">D{{ loop.index }}</small>{% endif %}<i class="bi bi-pen-fill"></i>{% if at %}<small class="text-muted ms-1">{{ at }}</small>{% endif %}
                 </a>
                 {% else %}
                 <span class="text-muted me-2" title="Not signed for {{ label }}">{% if training_days|length > 1 %}<small>D{{ loop.index }}</small>{% endif %}<i class="bi bi-pen"></i></span>

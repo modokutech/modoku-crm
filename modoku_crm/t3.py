@@ -374,6 +374,7 @@ def manage(session_id):
     # the printable T3 Attendance Form (sessions.py), which embeds these
     # same signatures into the actual HRDCorp claim document.
     signatures_by_participant = attendance_days.signatures_by_participant(session_id)
+    signed_times = attendance_days.signed_times(session_id)  # Fix249
 
     participants_with_status = []
     for p in participants:
@@ -389,7 +390,8 @@ def manage(session_id):
                             certificate_qr_url=certificate_qr_url,
                             total_days=total_days, genders=GENDERS, citizenships=CITIZENSHIPS,
                             remaining=t3_remaining_capacity(session_row),
-                            training_days=training_days, signatures_by_participant=signatures_by_participant)
+                            training_days=training_days, signatures_by_participant=signatures_by_participant,
+                            signed_times=signed_times)
 
 
 @bp.route("/sessions/<int:session_id>/export")
@@ -413,6 +415,11 @@ def export(session_id):
         (session_id,),
     ):
         marked.setdefault(r["participant_id"], {})[r["training_date"]] = "Signed" if r["signature_file"] else "Yes"
+    # Fix249: "Signed 8:42 AM" - when each e-signature was signed (Malaysia time)
+    for pid, days in attendance_days.signed_times(session_id).items():
+        for day, at in days.items():
+            if day in marked.get(pid, {}):
+                marked[pid][day] = f"Signed {at}"
     header = ["No", "Name", "IC No", "Employer", "Gender", "Citizenship"]
     header += [f"Day {i} ({fmtdate(d)})" for i, d in enumerate(training_days, start=1)]
     header.append("Days Attended")

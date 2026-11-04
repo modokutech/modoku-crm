@@ -10,6 +10,11 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix249 — e-Signature: time of each signature
+- The attendance page shows the time next to each signed day ("D2 ✎ 8:42 AM"; hover: "Signed for Day 2,
+  4 Nov 2026 at 8:42 AM"), in Malaysia time.
+- The attendance export (CSV/Excel) shows "Signed 8:42 AM" instead of just "Signed".
+
 ## Fix248 — e-Signature: signing goes to the right day (Malaysia time)
 - Signing, the "signed today" check and the daily class code went by the server's own date, which is UTC:
   before 8 AM Malaysia time it was still "yesterday", so a day-2 signature was saved as day 1 (and could
