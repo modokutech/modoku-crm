@@ -15,7 +15,7 @@ import binascii
 import csv
 import io
 import os
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from flask import (Blueprint, Response, current_app, flash, redirect, render_template, request,
                    send_from_directory, url_for)
@@ -148,7 +148,7 @@ def class_code(session_row, day_iso=None):
     import hashlib
     if not session_row["code_attendance"] or not session_row["code_attendance_salt"]:
         return None
-    day_iso = day_iso or date.today().isoformat()
+    day_iso = day_iso or attendance_days.today_kl_iso()  # Fix248: Malaysia date
     digest = hashlib.sha256(f"{session_row['code_attendance_salt']}:{day_iso}".encode()).digest()
     return "".join(CODE_ALPHABET[b % len(CODE_ALPHABET)] for b in digest[:6])
 

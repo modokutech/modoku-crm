@@ -1543,6 +1543,21 @@ def _apply_light_migrations(db):
         db.execute("INSERT INTO settings (key, value) VALUES ('fix201_item_class_links', datetime('now'))")
         db.commit()
 
+    # Fix248: e-signatures saved under the wrong day (UTC server date - a
+    # day-2 signature before 8 AM Malaysia time landed on day 1). Once.
+    done = db.execute("SELECT value FROM settings WHERE key = 'fix248_esign_kl_dates'").fetchone()
+    if done is None:
+        try:
+            from flask import current_app
+            from .attendance_days import repair_esign_dates
+            changed = repair_esign_dates(current_app.config["UPLOAD_FOLDER"])
+            db.execute("INSERT INTO settings (key, value) VALUES ('fix248_esign_kl_dates', ?)",
+                       (f"{changed} participant(s) repaired",))
+            db.commit()
+        except Exception:  # noqa: BLE001 - never block boot over this repair
+            import logging
+            logging.getLogger(__name__).exception("Fix248 e-signature date repair failed")
+
     # Training Costs' old single "Others Fee" field was replaced by a
     # dynamic list of custom fee line items (training_cost_items) — migrate
     # any existing nonzero others_fee into one item (using its remarks text

@@ -216,15 +216,17 @@ Ravi Kumar" required></textarea>
                 {% endif %}
               </td>
               <td class="text-nowrap">
+                {# Fix248: each day labelled (D1, D2...) so it's clear which day was signed. #}
                 {% for day in training_days %}
                 {% set sig = signatures_by_participant.get(p.id, {}).get(day) %}
+                {% set label = 'Day ' ~ loop.index ~ ', ' ~ (day|fmtdate) %}
                 {% if sig %}
                 <a href="{{ url_for('t3.view_signature', participant_id=p.id, training_date=day) }}" target="_blank"
-                   class="text-success me-1" title="Signed for {{ day }}, view">
-                  <i class="bi bi-pen-fill"></i>
+                   class="text-success me-2 text-decoration-none" title="Signed for {{ label }}, view">
+                  {% if training_days|length > 1 %}<small class="fw-semibold">D{{ loop.index }}</small>{% endif %}<i class="bi bi-pen-fill"></i>
                 </a>
                 {% else %}
-                <span class="text-muted me-1" title="Not signed for {{ day }}"><i class="bi bi-pen"></i></span>
+                <span class="text-muted me-2" title="Not signed for {{ label }}">{% if training_days|length > 1 %}<small>D{{ loop.index }}</small>{% endif %}<i class="bi bi-pen"></i></span>
                 {% endif %}
                 {% endfor %}
               </td>

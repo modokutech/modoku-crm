@@ -24,16 +24,33 @@ un-marks a single day of a multi-day class, and auto-revoking an
 already-issued certificate is a bigger, separate decision than this
 module should make on its own).
 """
-from datetime import datetime, timedelta
+import glob
+import os
+from datetime import date, datetime, timedelta
 
-from . import db
+from . import APP_TZ, db
+
+
+def today_kl_iso():
+    """Fix248: today's date in Malaysia - what signing and the class code go
+    by. The server's own clock may be UTC, which is still "yesterday" before
+    8 AM in Malaysia (a day-2 signature landed on day 1)."""
+    return datetime.now(APP_TZ).date().isoformat()
 
 
 def training_days_for_session(session_row):
     """List of date objects, one per calendar day of the training,
     start_date..end_date inclusive. A training with no end_date (or an
     end_date before start_date, which shouldn't happen but is handled
-    defensively) is treated as one day long."""
+    defensively) is treated as one day long. Fix248: a class with its own
+    list of days (Fix204 day_times, e.g. 10 & 17 Nov) uses exactly those."""
+    from . import schedule
+    try:
+        own_days = schedule.parse_day_times(session_row["day_times"])
+    except (KeyError, IndexError):
+        own_days = []
+    if own_days:
+        return [date.fromisoformat(d["date"]) for d in own_days]
     start = datetime.strptime(session_row["start_date"], "%Y-%m-%d").date()
     end = start
     if session_row["end_date"]:
@@ -160,3 +177,65 @@ def _sync_attended_rollup(participant_id, session_id):
         db.execute("UPDATE t3_participants SET attended = 1 WHERE id = ?", (participant_id,))
         return True
     return False
+
+
+def repair_esign_dates(upload_folder, recent_days=30):
+    """Fix248 (one-time): e-signatures saved under the wrong day because the
+    server's date was UTC - e.g. a day-2 signature before 8 AM Malaysia time
+    landed on day 1, or replaced a day-1 signature already there.
+
+    Each signature file's own save time (Malaysia date) says which day it was
+    really signed. For each participant of a recent class (training days in
+    the last `recent_days`), every e-signed day is rebuilt from those files:
+    a day with a file but no row gets a row, a row showing another day's
+    signature gets that day's own file back, and an e-signature row whose
+    day has no signature file of its own (it was the misdated one) is
+    removed. Manual / AI-matched marks are never touched. Returns the number
+    of participants changed."""
+    cutoff = (datetime.now(APP_TZ).date() - timedelta(days=recent_days)).isoformat()
+    sessions = db.query("SELECT * FROM course_sessions WHERE e_signature_enabled = 1 OR id IN "
+                        "(SELECT p.session_id FROM t3_day_attendance t JOIN t3_participants p ON p.id = t.participant_id "
+                        "WHERE t.source = 'e-signature')")
+    changed = 0
+    for s in sessions:
+        days = training_days_iso_for_session(s)
+        if not days or days[-1] < cutoff:
+            continue
+        sig_dir = os.path.join(upload_folder, "sessions", str(s["id"]), "signatures")
+        if not os.path.isdir(sig_dir):
+            continue
+        for p in db.query("SELECT id FROM t3_participants WHERE session_id = ?", (s["id"],)):
+            pid = p["id"]
+            by_date, file_date = {}, {}
+            for path in glob.glob(os.path.join(sig_dir, f"{pid}-*.png")):
+                mtime = os.path.getmtime(path)
+                kl_day = datetime.fromtimestamp(mtime, APP_TZ).date().isoformat()
+                name = os.path.basename(path)
+                file_date[name] = kl_day
+                if kl_day in days and (kl_day not in by_date or mtime > by_date[kl_day][1]):
+                    by_date[kl_day] = (name, mtime)
+            if not by_date:
+                continue
+            rows = {r["training_date"]: r for r in db.query(
+                "SELECT * FROM t3_day_attendance WHERE participant_id = ?", (pid,))}
+            touched = False
+            for day, (name, mtime) in by_date.items():
+                row = rows.get(day)
+                if row is None:
+                    marked = datetime.utcfromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+                    db.execute("INSERT INTO t3_day_attendance (participant_id, training_date, marked_at, source, "
+                               "signature_file) VALUES (?, ?, ?, 'e-signature', ?)", (pid, day, marked, name))
+                    touched = True
+                elif row["source"] == "e-signature" and row["signature_file"] != name \
+                        and file_date.get(row["signature_file"]) != day:
+                    db.execute("UPDATE t3_day_attendance SET signature_file = ? WHERE id = ?", (name, row["id"]))
+                    touched = True
+            for day, row in rows.items():
+                if row["source"] == "e-signature" and day not in by_date \
+                        and file_date.get(row["signature_file"]) not in (None, day):
+                    db.execute("DELETE FROM t3_day_attendance WHERE id = ?", (row["id"],))
+                    touched = True
+            if touched:
+                _sync_attended_rollup(pid, s["id"])
+                changed += 1
+    return changed

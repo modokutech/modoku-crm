@@ -95,7 +95,7 @@ def form(token):
     # never early (nothing to sign for yet) and never after the fact (that's
     # what the AI-match / manual "Mark Attended" paths on the staff side are
     # for). Outside that window the page looks exactly like it always has.
-    today_iso = date.today().isoformat()
+    today_iso = attendance_days.today_kl_iso()  # Fix248: Malaysia date
     e_sign_open = bool(session_row["e_signature_enabled"]) and \
         today_iso in attendance_days.training_days_iso_for_session(session_row)
     signed_today = set()
@@ -138,7 +138,7 @@ def sign(token, participant_id):
         flash("e-Signature attendance isn't turned on for this class.", "danger")
         return redirect(url_for("t3_public.form", token=token))
 
-    today_iso = date.today().isoformat()
+    today_iso = attendance_days.today_kl_iso()  # Fix248: Malaysia date
     if today_iso not in attendance_days.training_days_iso_for_session(session_row):
         flash("Signing is only open on a scheduled training day.", "danger")
         return redirect(url_for("t3_public.form", token=token))
@@ -177,7 +177,10 @@ def sign(token, participant_id):
     if newly_fully_attended:
         _certificates.generate_and_store_certificate(participant_id)
 
-    flash(f"Thanks, {participant['name']}. Your attendance is signed for today.", "success")
+    days = attendance_days.training_days_iso_for_session(session_row)
+    day_label = (f" (Day {days.index(today_iso) + 1}, {date.fromisoformat(today_iso).strftime('%-d %b')})"
+                 if len(days) > 1 else "")
+    flash(f"Thanks, {participant['name']}. Your attendance is signed for today{day_label}.", "success")
     if code_mode and newly_fully_attended:
         if certificates_released(session_row):
             flash("Your certificate is ready. Tap \"Download your certificate\" below.", "success")

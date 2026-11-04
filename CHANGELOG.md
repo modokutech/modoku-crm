@@ -10,6 +10,18 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix248 — e-Signature: signing goes to the right day (Malaysia time)
+- Signing, the "signed today" check and the daily class code went by the server's own date, which is UTC:
+  before 8 AM Malaysia time it was still "yesterday", so a day-2 signature was saved as day 1 (and could
+  replace a day-1 signature already there). They now use the Malaysia date. The class code changes at
+  midnight Malaysia time.
+- One-time repair on boot for classes in the last 30 days: each e-signature is put back on the day it was
+  really signed (from the signature file's save time). Manual and AI-matched marks are left alone.
+- The attendance page labels each signature icon D1, D2... (hover: "Signed for Day 2, 4 Nov 2026"), and
+  the participant's confirmation says which day: "signed for today (Day 2, 4 Nov)".
+- A class with its own list of days (e.g. 10 & 17 Nov) now counts only those days for attendance, not every
+  day in between.
+
 ## Fix247 — Invoice line amounts rounded to the nearest 5 sen too
 - With rounding on (the default for new and draft invoices), each line's amount is also rounded to the
   nearest 5 sen (e.g. 2,749.99 -> 2,750; 4,655.96 -> 4,655.95), so the sub-total is too. SST is worked out
