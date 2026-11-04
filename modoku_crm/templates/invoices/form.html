@@ -183,8 +183,8 @@
             add SST on top instead.</span>
         </div>
       </div>
-      {# Fix246: on for new invoices and drafts; an already-issued invoice keeps its amount unless ticked. #}
-      {% set round_on = (not invoice) or invoice.rounding_adj is not none or invoice.status == 'Draft' %}
+      {# Fix246/Fix251: off by default; an invoice saved with rounding keeps it ticked on Edit. #}
+      {% set round_on = invoice and invoice.rounding_adj is not none %}
       <div class="col-12">
         <div class="form-check">
           <input type="checkbox" class="form-check-input" id="round_total_check" name="round_total" value="1" {{ 'checked' if round_on }}>

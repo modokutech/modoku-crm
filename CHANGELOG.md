@@ -10,6 +10,10 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix251 — Invoice 5 sen rounding off by default
+- "Round amounts to the nearest 5 sen" now starts unticked on new invoices (tick it when you want it). An
+  invoice saved with rounding keeps it ticked when edited.
+
 ## Fix250 — Sign-in and Certificate QR pages on phones
 - On a phone the buttons (Download PNG, Copy link) sit at the top in the page flow instead of floating over
   the course title, the page scrolls from the top (the title was cut off), the QR fits the screen width,
