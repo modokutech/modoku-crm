@@ -10,6 +10,12 @@ Notes for anyone (or any Claude session) working on this repo:
   from a typical dev machine (see Fix66d). Check PDF layout changes against that.
 - Database changes go in `db.py`'s `_COLUMN_MIGRATIONS` so they apply automatically on boot.
 
+## Fix250 — Sign-in and Certificate QR pages on phones
+- On a phone the buttons (Download PNG, Copy link) sit at the top in the page flow instead of floating over
+  the course title, the page scrolls from the top (the title was cut off), the QR fits the screen width,
+  and today's code goes on its own line. "Full screen" is hidden on phones (iPhone doesn't support it).
+  The large-screen view is unchanged.
+
 ## Fix249 — e-Signature: time of each signature
 - The attendance page shows the time next to each signed day ("D2 ✎ 8:42 AM"; hover: "Signed for Day 2,
   4 Nov 2026 at 8:42 AM"), in Malaysia time.
